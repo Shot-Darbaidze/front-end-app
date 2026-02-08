@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f5f7fa;
+  --foreground: #171717;
+}
+
+/* Theme variables are declared via CSS custom properties above */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #f5f7fa;
+    --foreground: #171717;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), Inter, sans-serif;
+  font-weight: 500;
+}
+
+/* Hide native date picker indicators when we render our own calendar icon */
+input.dc-date-custom::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  display: none;
+}
+input.dc-date-custom::-ms-clear,
+input.dc-date-custom::-ms-reveal {
+  display: none;
+}
+/* Firefox: hide calendar icon background button while keeping functionality */
+input.dc-date-custom[type="date"] {
+  /* Remove built-in icon padding so text aligns */
+  background: transparent;
+}
+
+/* Compact number input for Hours: hide spinners only where applied */
+.hours-input-hide-spinners::-webkit-outer-spin-button,
+.hours-input-hide-spinners::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.hours-input-hide-spinners[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield; /* Firefox */
+}
