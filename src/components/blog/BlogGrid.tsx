@@ -56,14 +56,14 @@ const articles = [
 
 const BlogGrid = () => {
 	return (
-		<section className="py-20 bg-[#0F172A] text-white">
+		<section className="py-20 bg-white text-slate-900">
 			<div className="max-w-7xl mx-auto px-6">
 				<div className="flex justify-between items-end mb-12">
 					<div>
 						<h2 className="text-3xl font-bold mb-2">Latest Articles</h2>
-						<p className="text-gray-400">Stay updated with the latest driving tips and news.</p>
+						<p className="text-slate-600">Stay updated with the latest driving tips and news.</p>
 					</div>
-					<button className="text-[#F03D3D] font-medium hover:text-white transition-colors flex items-center gap-2">
+					<button className="text-[#F03D3D] font-medium hover:text-slate-900 transition-colors flex items-center gap-2">
 						View All <ArrowUpRight className="w-4 h-4" />
 					</button>
 				</div>

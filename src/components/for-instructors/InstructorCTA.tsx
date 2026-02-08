@@ -29,7 +29,7 @@ const InstructorCTA = () => {
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Link 
-                href="/signup?type=instructor" 
+                href="/for-instructors/signup" 
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#F03D3D] text-white rounded-xl font-bold hover:bg-[#d62f2f] transition-all shadow-lg shadow-red-500/20 active:scale-95"
               >
                 {t("cta.button")}

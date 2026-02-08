@@ -9,6 +9,24 @@ import { trackSearch, trackFilterChange } from '@/utils/analytics';
 const PAGE_SIZE = 12;
 const DEBOUNCE_DELAY = TIME_CONFIG.DEBOUNCE_DELAY;
 
+/** Sort instructors on the client side */
+const sortInstructors = (
+  instructors: InstructorCardData[],
+  sortBy: 'rating' | 'price-asc' | 'price-desc'
+): InstructorCardData[] => {
+  return [...instructors].sort((a, b) => {
+    switch (sortBy) {
+      case 'price-asc':
+        return a.price - b.price;
+      case 'price-desc':
+        return b.price - a.price;
+      case 'rating':
+      default:
+        return b.rating - a.rating || b.reviewCount - a.reviewCount;
+    }
+  });
+};
+
 /** Map API search results to InstructorCardData */
 const mapResults = (results: SearchResult[]): InstructorCardData[] => {
   return results.map((item) => {
@@ -148,8 +166,9 @@ export const useFindInstructors = () => {
       if (requestCounter.current !== currentRequest) return;
 
       const mapped = mapResults(results);
+      const sorted = sortInstructors(mapped, sortBy);
 
-      setCurrentInstructors(mapped);
+      setCurrentInstructors(sorted);
       setCurrentPage(page);
       setHasMore(results.length >= PAGE_SIZE);
 
