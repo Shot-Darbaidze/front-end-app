@@ -1,15 +1,9 @@
 "use client";
 
 import { Check, Edit2 } from "lucide-react";
+import { ReviewStepProps } from "@/types/instructor-signup";
 
-interface Step4Props {
-  data: any;
-  updateData: (data: any) => void;
-  onEditStep: (step: number) => void;
-  errors?: Record<string, string>;
-}
-
-const ModernStep4 = ({ data, updateData, onEditStep, errors = {} }: Step4Props) => {
+const ModernStep4 = ({ data, updateData, onEditStep, errors = {} }: ReviewStepProps) => {
   const Section = ({ title, step, children }: { title: string; step: number; children: React.ReactNode }) => (
     <div className="bg-gray-50 rounded-xl p-6 space-y-4">
       <div className="flex items-center justify-between">

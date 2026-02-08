@@ -95,7 +95,7 @@ const SignupPage = () => {
             }
             return;
           }
-        } catch (error) {
+        } catch (_error) {
           continue;
         }
       }

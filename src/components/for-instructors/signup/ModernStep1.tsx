@@ -1,12 +1,7 @@
 "use client";
 
 import { User, Calendar, MapPin, Mail, Phone } from "lucide-react";
-
-interface Step1Props {
-  data: any;
-  updateData: (data: any) => void;
-  errors?: Record<string, string>;
-}
+import { StepProps, InstructorSignupFormData } from "@/types/instructor-signup";
 
 const GEORGIAN_CITIES = [
   "Tbilisi",
@@ -21,7 +16,7 @@ const GEORGIAN_CITIES = [
   "Samtredia"
 ];
 
-const ModernStep1 = ({ data, updateData, errors = {} }: Step1Props) => {
+const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSignupFormData>) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateData({ [e.target.name]: e.target.value });
   };
@@ -55,7 +50,8 @@ const ModernStep1 = ({ data, updateData, errors = {} }: Step1Props) => {
     const value = e.target.value;
     if (value) {
       const year = parseInt(value.split('-')[0]);
-      if (year > 2026) {
+      const currentYear = new Date().getFullYear();
+      if (year > currentYear) {
         return; 
       }
     }

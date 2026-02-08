@@ -7,7 +7,7 @@ import { InstructorDashboardNav } from "@/components/dashboard/instructor/Instru
 import Button from "@/components/ui/Button";
 import Link from "next/link";
 import { Camera, User as UserIcon, Bell, Settings, Trash2 } from "lucide-react";
-import { API_CONFIG } from "@/services/constants";
+import { API_CONFIG } from '@/config/constants';
 
 export default function SettingsPage() {
   const { user } = useUser();

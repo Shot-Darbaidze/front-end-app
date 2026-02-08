@@ -6,7 +6,7 @@ import { DashboardNav } from "@/components/dashboard/student/DashboardNav";
 import { InstructorDashboardNav } from "@/components/dashboard/instructor/InstructorDashboardNav";
 import { NotificationsList } from "@/components/dashboard/NotificationsList";
 import { useNotifications } from "@/hooks/useNotifications";
-import { API_CONFIG } from "@/services/constants";
+import { API_CONFIG } from '@/config/constants';
 
 export default function NotificationsPage() {
   const { getToken } = useClerkAuth();

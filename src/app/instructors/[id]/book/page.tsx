@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, use, useEffect, useCallback } from "react";
+import React, { useState, use, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle, FileText, Info, Loader2, AlertCircle } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { useAuth } from "@clerk/nextjs";
-import { API_CONFIG } from "@/config/constants";
+import { buildInstructorName, pickFirstValidPrice } from "@/utils/instructor";
 
 // Types for backend data
 interface AvailableSlot {
@@ -55,11 +55,11 @@ export default function BookingPage({ params }: { params: Promise<{ id: string }
 
   // Derived instructor info
   const instructorName = instructor 
-    ? [instructor.applicant_first_name, instructor.applicant_last_name].filter(Boolean).join(" ") || "Instructor"
+    ? buildInstructorName(instructor.applicant_first_name, instructor.applicant_last_name)
     : "Loading...";
   
   const price = instructor
-    ? (instructor.automatic_city_price ?? instructor.manual_city_price ?? 0)
+    ? pickFirstValidPrice([instructor.automatic_city_price, instructor.manual_city_price]) ?? 0
     : 0;
 
   // Fetch data on mount
@@ -578,7 +578,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string }
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Booking Confirmed!</h2>
             <p className="text-gray-500 mb-8">
-              Your {selectedSlots.length} {mode} lesson{selectedSlots.length > 1 ? 's' : ''} with {instructorName} have been scheduled. <br />
+              Your {selectedSlots.length} driving lesson{selectedSlots.length > 1 ? 's' : ''} with {instructorName} have been scheduled. <br />
               You'll receive a confirmation email shortly.
             </p>
             <p className="text-sm text-gray-400">Redirecting to dashboard...</p>

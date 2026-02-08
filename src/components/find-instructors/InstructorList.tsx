@@ -1,29 +1,27 @@
 import InstructorCard from "./InstructorCard";
-
-interface Instructor {
-  id: string;
-  name: string;
-  rating: number;
-  specialty: string;
-  price: number;
-  cityPrice?: number | null;
-  tags: string[];
-  imageUrl?: string;
-}
+import type { InstructorCardData } from "@/types/find-instructors";
+import { memo } from "react";
 
 interface InstructorListProps {
-  instructors: Instructor[];
-  showBothPrices?: boolean;
+  instructors: InstructorCardData[];
+  onInstructorClick?: (instructorId: string, position: number) => void;
 }
 
-const InstructorList = ({ instructors, showBothPrices = false }: InstructorListProps) => {
+const InstructorList = memo(({ instructors, onInstructorClick }: InstructorListProps) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {instructors.map((instructor) => (
-        <InstructorCard key={instructor.id} {...instructor} showBothPrices={showBothPrices} />
+      {instructors.map((instructor, index) => (
+        <InstructorCard 
+          key={instructor.id} 
+          {...instructor} 
+          position={index}
+          onCardClick={onInstructorClick}
+        />
       ))}
     </div>
   );
-};
+});
+
+InstructorList.displayName = 'InstructorList';
 
 export default InstructorList;

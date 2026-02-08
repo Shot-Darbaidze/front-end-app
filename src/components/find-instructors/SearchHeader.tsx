@@ -1,16 +1,17 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 
 interface SearchHeaderProps {
   value: string;
   onChange: (value: string) => void;
   onSearch: () => void;
+  isLoading?: boolean;
 }
 
-const SearchHeader = ({ value, onChange, onSearch }: SearchHeaderProps) => {
+const SearchHeader = ({ value, onChange, onSearch, isLoading = false }: SearchHeaderProps) => {
   return (
-    <div className="relative bg-[#0F172A] pt-32 pb-16 px-6 overflow-hidden">
+    <div className="relative bg-[#0F172A] pt-24 pb-10 sm:pt-32 sm:pb-16 px-4 sm:px-6 overflow-hidden">
        {/* Abstract Background Shapes - Matching Home Page */}
       <div className="absolute top-0 right-0 w-1/2 h-full bg-[#F03D3D]/5 skew-x-12 transform origin-top-right" />
       <div className="absolute bottom-0 left-0 w-1/3 h-1/2 bg-blue-500/5 -skew-x-12 transform origin-bottom-left" />
@@ -20,7 +21,7 @@ const SearchHeader = ({ value, onChange, onSearch }: SearchHeaderProps) => {
             <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-tight">
             Find Your Perfect <span className="text-[#F03D3D]">Instructor</span>
             </h1>
-            <p className="text-gray-400 text-lg">
+            <p className="text-gray-400 text-base sm:text-lg">
             Compare ratings, prices, and reviews to find the best match for your learning journey.
             </p>
         </div>
@@ -33,14 +34,30 @@ const SearchHeader = ({ value, onChange, onSearch }: SearchHeaderProps) => {
               placeholder="Search by name, specialty..." 
               value={value}
               onChange={(event) => onChange(event.target.value)}
-              className="w-full h-14 pl-12 pr-4 rounded-xl bg-gray-50 hover:bg-gray-100 focus:bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/10 transition-all"
+              onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+              className="w-full h-14 pl-12 pr-12 rounded-xl bg-gray-50 hover:bg-gray-100 focus:bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/10 transition-all"
             />
+            {value && (
+              <button
+                onClick={() => onChange('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#F03D3D] transition-colors p-1 rounded-full hover:bg-gray-100"
+                aria-label="Clear search"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
           <button
             onClick={onSearch}
-            className="px-8 py-3 bg-[#F03D3D] text-white rounded-xl font-bold hover:bg-[#d62f2f] transition-all shadow-lg shadow-red-500/20 active:scale-95"
+            disabled={isLoading}
+            className="px-8 py-3 bg-[#F03D3D] text-white rounded-xl font-bold hover:bg-[#d62f2f] transition-all shadow-lg shadow-red-500/20 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
           >
-            Search
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                Searching
+              </span>
+            ) : 'Search'}
           </button>
         </div>
       </div>

@@ -87,11 +87,6 @@ const Footer = () => {
                   Success Stories
                 </Link>
               </li>
-              <li>
-                <Link href="/login" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
-                  Instructor Portal
-                </Link>
-              </li>
             </ul>
           </div>
 

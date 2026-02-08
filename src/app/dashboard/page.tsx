@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useAuth as useClerkAuth } from "@clerk/nextjs";
-import { API_CONFIG } from "@/services/constants";
+import { API_CONFIG } from '@/config/constants';
 
 // Student components
 import { NextLessonCard } from "@/components/dashboard/student/NextLessonCard";

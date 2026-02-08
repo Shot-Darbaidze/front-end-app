@@ -13,16 +13,16 @@
 ### 1. ✅ A01:2021 – Broken Access Control
 **Status:** IMPLEMENTED
 
-- ✅ Authentication via `AuthContext.tsx`
-- ✅ Token-based auth with Bearer tokens
-- ✅ Session management via localStorage (demo) / ready for JWT
-- ✅ Protected routes (client-side guards)
+- ✅ Authentication via Clerk (`@clerk/nextjs`)
+- ✅ OAuth-based authentication with secure token handling
+- ✅ Session management via Clerk (secure, httpOnly cookies)
+- ✅ Protected routes via Clerk middleware
 - ✅ CSRF token generation endpoint (`/api/csrf-token`)
 
 **Recommendations for Production:**
-- Implement server-side session validation
-- Add refresh token rotation
-- Implement role-based access control (RBAC)
+- Configure Clerk rate limiting
+- Implement role-based access control (RBAC) using Clerk metadata
+- Enable Clerk's bot detection and fraud prevention
 
 ---
 
@@ -154,16 +154,16 @@
   - Validation in `src/utils/validation/validators.ts`
 
 - ✅ Session management:
-  - Token-based authentication
-  - Automatic token clearance on 401
+  - Clerk-managed OAuth authentication
+  - Secure session handling via httpOnly cookies
   - CSRF protection for state-changing operations
 
-- ✅ Authentication flow tested in `AuthContext.tsx`
+- ✅ Authentication flow managed by Clerk
 
 **Recommendations:**
-- Add multi-factor authentication (MFA)
-- Implement account lockout after failed attempts
-- Add password strength meter in UI
+- Enable multi-factor authentication (MFA) in Clerk
+- Configure Clerk account lockout policies
+- Enable Clerk's password strength requirements
 
 ---
 

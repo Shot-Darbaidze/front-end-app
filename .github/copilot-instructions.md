@@ -119,7 +119,7 @@ const { errors } = useForm(initialValues, onSubmit, validators);
 | `src/services/` | API client & external service integrations | `api.ts` (HTTP layer), `constants.ts` (API config) |
 | `src/config/` | App-wide configuration | `constants.ts` (limits, patterns, time config) |
 | `src/utils/validation/` | Validation logic | `validators.ts`, `schemas.ts` |
-| `src/contexts/` | React Context (minimal use) | `AuthContext.tsx` (auth state) |
+| `src/contexts/` | React Context (minimal use) | `FavoritesContext.tsx`, `LanguageContext.tsx` |
 | `src/lib/` | Utility libraries | `cache.ts`, `lessons.ts` |
 | `src/__tests__/` | Global test utilities | `test-utils.tsx` (render helpers) |
 
@@ -263,16 +263,16 @@ The codebase underwent 69% code reduction through component decomposition:
 4. **Direct fetch calls** - Always use `APIService` for HTTP requests
 5. **Inline styles** - Use Tailwind CSS classes only
 6. **Large files** - Follow single responsibility; create hooks/utilities
-7. **Any-typed data** - Define interfaces explicitly (see `AuthContext.tsx` for pattern)
+7. **Any-typed data** - Define interfaces explicitly with strict TypeScript types
 
 ---
 
 ## 🔗 Integration Points
 
 **Authentication:** 
-- Context: `src/contexts/AuthContext.tsx` (provides `useAuth()` hook)
-- State: `user: User | null`, auth methods (`login`, `signup`, `logout`)
-- Usage: Wrap app in `<AuthProvider>` at layout level
+- Provider: Clerk authentication (provides `useAuth()`, `useUser()` hooks from `@clerk/nextjs`)
+- State: Managed by Clerk's built-in state management
+- Usage: Configure Clerk in layout with `<ClerkProvider>` (already set up)
 
 **Caching:**
 - Implementation: `src/lib/cache.ts` (LRU cache with TTL)

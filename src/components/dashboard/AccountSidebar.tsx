@@ -7,15 +7,22 @@ import {
   LogOut,
   LayoutDashboard,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser, useClerk } from "@clerk/nextjs";
 
 interface AccountSidebarProps {
   activeItem?: string;
 }
 
 const AccountSidebar: React.FC<AccountSidebarProps> = ({ activeItem }) => {
-  const { user, logout } = useAuth();
+  const { user: clerkUser } = useUser();
+  const { signOut } = useClerk();
   const router = useRouter();
+
+  // Extract user details from Clerk
+  const userType = (clerkUser?.publicMetadata?.userType as "student" | "instructor") || "student";
+  const displayName = clerkUser ? clerkUser.fullName || `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() : 'Sarah Instructor';
+  const displayEmail = clerkUser?.primaryEmailAddress?.emailAddress || 'instructor@demo.com';
+  const avatarUrl = clerkUser?.imageUrl;
 
   const allMenuItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", showFor: ["student", "instructor"] },
@@ -23,8 +30,12 @@ const AccountSidebar: React.FC<AccountSidebarProps> = ({ activeItem }) => {
 
   // Filter menu items based on user type
   const menuItems = allMenuItems.filter(item => 
-    item.showFor.includes(user?.userType || "student")
+    item.showFor.includes(userType)
   );
+
+  const handleLogout = () => {
+    signOut({ redirectUrl: "/" });
+  };
 
   return (
     <div className="flex flex-col gap-2" style={{ width: "266px" }}>
@@ -39,10 +50,10 @@ const AccountSidebar: React.FC<AccountSidebarProps> = ({ activeItem }) => {
             className="rounded-full bg-gray-300 flex items-center justify-center overflow-hidden"
             style={{ width: "64px", height: "64px" }}
           >
-            {user?.avatarUrl ? (
+            {avatarUrl ? (
               <img
-                src={user.avatarUrl}
-                alt={`${user.name}'s avatar`}
+                src={avatarUrl}
+                alt={`${displayName}'s avatar`}
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -61,7 +72,7 @@ const AccountSidebar: React.FC<AccountSidebarProps> = ({ activeItem }) => {
                 lineHeight: "1.5em",
               }}
             >
-              {user?.name || "Sarah Instructor"}
+              {displayName}
             </span>
             <span
               className="text-gray-500 text-center"
@@ -72,7 +83,7 @@ const AccountSidebar: React.FC<AccountSidebarProps> = ({ activeItem }) => {
                 lineHeight: "1.4em",
               }}
             >
-              {user?.email || "instructor@demo.com"}
+              {displayEmail}
             </span>
           </div>
         </div>
@@ -117,7 +128,7 @@ const AccountSidebar: React.FC<AccountSidebarProps> = ({ activeItem }) => {
       {/* Log Out - No Background */}
       <div className="px-4">
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors text-left text-red-500 hover:bg-red-50 w-full"
         >
           <LogOut size={16} className="text-red-500" />

@@ -26,13 +26,20 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   const t = (key: string): string => {
     const translations = language === "ka" ? translationsKa : translationsEn;
     const keys = key.split(".");
-    let value: any = translations;
+    let value: unknown = translations;
     
     for (const k of keys) {
-      value = value?.[k];
+      // Type guard: check if value is an object with the key
+      if (value && typeof value === 'object' && k in value) {
+        value = (value as Record<string, unknown>)[k];
+      } else {
+        // Key not found, return the original key as fallback
+        return key;
+      }
     }
     
-    return value || key;
+    // Final type guard: ensure return is always a string
+    return typeof value === 'string' ? value : key;
   };
 
   return (

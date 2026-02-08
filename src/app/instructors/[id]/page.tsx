@@ -5,6 +5,13 @@ import CommentSection from "@/components/instructor-profile/CommentSection";
 import FavoriteButton from "@/components/ui/FavoriteButton";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import {
+  buildInstructorName,
+  extractCityName,
+  formatLanguages,
+  buildVehicleInfo,
+  pickFirstValidPrice,
+} from "@/utils/instructor";
 
 type InstructorPost = {
   id: string;
@@ -29,46 +36,6 @@ type InstructorAsset = {
   asset_type: string;
   url: string;
   original_filename?: string | null;
-};
-
-const LANGUAGE_LABELS: Record<string, string> = {
-  en: "English",
-  ka: "Georgian",
-  ru: "Russian",
-  fr: "French",
-  de: "German",
-  es: "Spanish",
-  it: "Italian",
-  tr: "Turkish",
-  ar: "Arabic",
-};
-
-const normalizeLanguageCodes = (value?: string | null) =>
-  (value || "")
-    .split(",")
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
-
-const formatLanguages = (value?: string | null) =>
-  normalizeLanguageCodes(value).map((code) => LANGUAGE_LABELS[code] || code);
-
-const pickModePrice = (values: Array<number | null | undefined>) => {
-  const found = values.find((value) => value !== null && value !== undefined);
-  return found !== undefined && found !== null ? Number(found) : null;
-};
-
-const buildVehicles = (post: InstructorPost) => {
-  const brand = (post.vehicle_brand || "").trim();
-  const year = post.vehicle_year ? String(post.vehicle_year) : "";
-  if (brand && year) return [`${brand} (${year})`];
-  if (brand) return [brand];
-  if (year) return [`Vehicle (${year})`];
-  return ["Vehicle info unavailable"];
-};
-
-const toCityName = (value?: string | null) => {
-  if (!value) return "Location unavailable";
-  return value.split(",")[0].trim() || "Location unavailable";
 };
 
 export default async function InstructorProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -103,15 +70,12 @@ export default async function InstructorProfilePage({ params }: { params: Promis
   const post = (await postResponse.json()) as InstructorPost;
   const assets = assetsResponse.ok ? ((await assetsResponse.json()) as InstructorAsset[]) : [];
 
-  const nameParts = [post.applicant_first_name, post.applicant_last_name]
-    .map((part) => (part || "").trim())
-    .filter(Boolean);
-  const name = nameParts.length ? nameParts.join(" ") : (post.title || "Instructor");
-  const location = toCityName(post.located_at);
-  const vehicles = buildVehicles(post);
+  const name = buildInstructorName(post.applicant_first_name, post.applicant_last_name, post.title || "Instructor");
+  const location = extractCityName(post.located_at);
+  const vehicles = buildVehicleInfo(post.vehicle_brand, post.vehicle_year);
   const languages = formatLanguages(post.language_skills);
   const vehiclePhotos = assets.map((asset) => asset.url);
-  const cityPrice = pickModePrice([post.automatic_city_price, post.manual_city_price]);
+  const cityPrice = pickFirstValidPrice([post.automatic_city_price, post.manual_city_price]);
 
   return (
     <div className="min-h-screen bg-gray-50/50 pt-28 pb-12">

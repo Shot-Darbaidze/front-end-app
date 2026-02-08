@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useState, useCallback, memo, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useAuth as useClerkAuth } from "@clerk/nextjs";
+import { useUser, useAuth as useClerkAuth } from "@clerk/nextjs";
 import { DashboardNav } from "@/components/dashboard/student/DashboardNav";
 import { InstructorDashboardNav } from "@/components/dashboard/instructor/InstructorDashboardNav";
 import Button from "@/components/ui/Button";
-import { Clock, Star, MoreVertical, CheckCircle2, XCircle, AlertCircle, Loader2, ExternalLink } from "lucide-react";
-import { API_CONFIG } from "@/services/constants";
+import { Clock, MoreVertical, CheckCircle2, XCircle, AlertCircle, Loader2, ExternalLink } from "lucide-react";
+import { API_CONFIG } from '@/config/constants';
 import Link from "next/link";
 
 // Types for lessons from API
@@ -72,9 +71,10 @@ const TABS: Array<{ id: TabId; label: string }> = [
 ];
 
 export default function LessonsPage() {
-  const { user } = useAuth();
+  const { user: clerkUser } = useUser();
   const { getToken } = useClerkAuth();
-  const isInstructor = user?.userType === "instructor";
+  const userType = (clerkUser?.publicMetadata?.userType as "student" | "instructor") || "student";
+  const isInstructor = userType === "instructor";
   const [activeTab, setActiveTab] = useState<TabId>("upcoming");
   
   // State for lessons data

@@ -2,12 +2,7 @@
 
 import { FileText, Shield } from "lucide-react";
 import { useRef } from "react";
-
-interface Step3Props {
-  data: any;
-  updateData: (data: any) => void;
-  errors?: Record<string, string>;
-}
+import { StepProps, InstructorSignupFormData } from "@/types/instructor-signup";
 
 const FileUploadBox = ({ 
   label, 
@@ -85,7 +80,7 @@ const FileUploadBox = ({
   );
 };
 
-const ModernStep3 = ({ data, updateData, errors = {} }: Step3Props) => {
+const ModernStep3 = ({ data, updateData, errors = {} }: StepProps<InstructorSignupFormData>) => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
       <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">

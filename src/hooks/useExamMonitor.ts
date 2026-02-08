@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { logger } from "@/utils/secureLogger";
 
 const BASE_URL = "https://api-bookings.sa.gov.ge/api/v1/DrivingLicensePracticalExams2";
 const DATES_URL = `${BASE_URL}/DrivingLicenseExamsDates2`;
@@ -96,11 +97,12 @@ export const useExamMonitor = (
           const newSlots = slots.filter((s) => newDates.includes(s.bookingDate));
           setNewSlotsNotification(newSlots);
 
-          // Log to console for testing
-          console.log(
-            `🎉 New exam slots found for ${CITY_CENTERS[centerId as keyof typeof CITY_CENTERS] || centerId}:`,
-            newDates
-          );
+          // Log for monitoring
+          logger.info('New exam slots found', {
+            center: CITY_CENTERS[centerId as keyof typeof CITY_CENTERS] || centerId,
+            dates: newDates,
+            count: newDates.length,
+          });
 
           // Play sound if available
           if (typeof window !== "undefined" && "AudioContext" in window) {
@@ -129,7 +131,7 @@ export const useExamMonitor = (
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
         setError(message);
-        console.error("Error fetching exam slots:", message);
+        logger.error('Error fetching exam slots', { error: err, message });
       } finally {
         setIsLoading(false);
       }
@@ -144,9 +146,10 @@ export const useExamMonitor = (
       previousSlotsRef.current.clear();
       setNewSlotsNotification(null);
 
-      console.log(
-        `🚗 Started monitoring ${CITY_CENTERS[centerId as keyof typeof CITY_CENTERS] || centerId} for exam slots...`
-      );
+      logger.debug('Started monitoring exam slots', {
+        center: CITY_CENTERS[centerId as keyof typeof CITY_CENTERS] || centerId,
+        categoryCode: catCode,
+      });
 
       // Initial fetch
       fetchExamSlots(centerId);
@@ -170,7 +173,7 @@ export const useExamMonitor = (
       intervalRef.current = null;
     }
     previousSlotsRef.current.clear();
-    console.log("🛑 Stopped monitoring exam slots");
+    logger.debug('Stopped monitoring exam slots');
   }, []);
 
   const clearNotification = useCallback(() => {

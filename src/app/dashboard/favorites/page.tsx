@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { Heart, Trash2, Star, ShieldCheck, ArrowLeft, Loader2 } from "lucide-react";
-import { API_CONFIG } from "@/services/constants";
+import { API_CONFIG } from '@/config/constants';
 
 interface FavoriteItem {
   id: string;

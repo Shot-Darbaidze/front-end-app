@@ -175,7 +175,8 @@ src/
 ├── config/                      # App configuration
 │   └── constants.ts             # App-wide constants
 ├── contexts/                    # React contexts
-│   └── AuthContext.tsx          # Auth state
+│   ├── FavoritesContext.tsx     # Favorites state
+│   └── LanguageContext.tsx      # Language state
 └── __tests__/                   # Global test utilities
     └── test-utils.tsx           # Render helpers
 ```
@@ -487,7 +488,7 @@ npm run build                     # Check for errors
 - `src/hooks/` - All custom hooks
 - `src/utils/validation/` - Validation logic
 - `src/config/constants.ts` - App-wide constants
-- `src/contexts/AuthContext.tsx` - Auth state
+- `src/contexts/FavoritesContext.tsx` - Favorites state
 - `src/components/ui/ErrorBoundary.tsx` - Error handling
 
 ### Test Files

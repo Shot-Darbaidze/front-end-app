@@ -27,6 +27,7 @@ const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
   const handleLanguageToggle = () => {
@@ -43,6 +44,11 @@ const Navbar = () => {
     markAllAsRead,
     removeNotification,
   } = useNotifications(userType);
+
+  // Prevent hydration mismatch by only rendering auth content after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Handle scroll effect
   useEffect(() => {
@@ -119,8 +125,21 @@ const Navbar = () => {
 
           {/* Desktop Auth/User */}
           <div className="hidden md:flex items-center gap-4">
-            <SignedIn>
+            {!mounted ? (
+              // Placeholder while hydrating to prevent mismatch
               <div className="flex items-center gap-3">
+                <button 
+                  className="p-2 text-gray-600 opacity-0"
+                  aria-label="Change language"
+                  disabled
+                >
+                  <Languages className="w-5 h-5" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <SignedIn>
+                  <div className="flex items-center gap-3">
                 <button 
                   onClick={handleLanguageToggle}
                   className="p-2 text-gray-600 hover:text-[#F03D3D] transition-colors"
@@ -198,6 +217,8 @@ const Navbar = () => {
                 </SignUpButton>
               </>
             </SignedOut>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -233,45 +254,49 @@ const Navbar = () => {
 
             <div className="h-px bg-gray-100 my-2" />
             
-            <SignedIn>
+            {mounted && (
               <>
-                <Link 
-                  href="/dashboard" 
-                  className="flex items-center justify-center gap-2 text-lg font-medium text-gray-600 hover:text-[#F03D3D]"
-                >
-                  <Bell className="w-5 h-5" />
-                  <span>Notifications</span>
-                  {unreadCount > 0 && (
-                    <span className="px-2 py-0.5 bg-[#F03D3D] text-white text-xs font-bold rounded-full">
-                      {unreadCount}
-                    </span>
-                  )}
-                </Link>
-                <Link 
-                  href="/dashboard/favorites" 
-                  className="flex items-center justify-center gap-2 text-lg font-medium text-gray-600 hover:text-[#F03D3D]"
-                >
-                  <Heart className="w-5 h-5" />
-                  <span>Favorites</span>
-                </Link>
-                <Link href="/dashboard" className="text-lg font-medium text-gray-600">Dashboard</Link>
-                <button onClick={() => signOut({ redirectUrl: '/' })} className="text-lg font-bold text-red-600">Log Out</button>
+                <SignedIn>
+                  <>
+                    <Link 
+                      href="/dashboard" 
+                      className="flex items-center justify-center gap-2 text-lg font-medium text-gray-600 hover:text-[#F03D3D]"
+                    >
+                      <Bell className="w-5 h-5" />
+                      <span>Notifications</span>
+                      {unreadCount > 0 && (
+                        <span className="px-2 py-0.5 bg-[#F03D3D] text-white text-xs font-bold rounded-full">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </Link>
+                    <Link 
+                      href="/dashboard/favorites" 
+                      className="flex items-center justify-center gap-2 text-lg font-medium text-gray-600 hover:text-[#F03D3D]"
+                    >
+                      <Heart className="w-5 h-5" />
+                      <span>Favorites</span>
+                    </Link>
+                    <Link href="/dashboard" className="text-lg font-medium text-gray-600">Dashboard</Link>
+                    <button onClick={() => signOut({ redirectUrl: '/' })} className="text-lg font-bold text-red-600">Log Out</button>
+                  </>
+                </SignedIn>
+                <SignedOut>
+                  <div className="flex flex-col gap-4 mt-4">
+                    <SignInButton mode="modal">
+                      <button className="w-full py-3 rounded-xl border border-gray-200 font-bold text-gray-900 cursor-pointer">
+                        Log In
+                      </button>
+                    </SignInButton>
+                    <SignUpButton mode="modal">
+                      <button className="w-full py-3 rounded-xl bg-[#F03D3D] text-white font-bold shadow-lg shadow-red-500/20 cursor-pointer">
+                        Get Started
+                      </button>
+                    </SignUpButton>
+                  </div>
+                </SignedOut>
               </>
-            </SignedIn>
-            <SignedOut>
-              <div className="flex flex-col gap-4 mt-4">
-                <SignInButton mode="modal">
-                  <button className="w-full py-3 rounded-xl border border-gray-200 font-bold text-gray-900 cursor-pointer">
-                    Log In
-                  </button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <button className="w-full py-3 rounded-xl bg-[#F03D3D] text-white font-bold shadow-lg shadow-red-500/20 cursor-pointer">
-                    Get Started
-                  </button>
-                </SignUpButton>
-              </div>
-            </SignedOut>
+            )}
           </div>
         </div>
       )}

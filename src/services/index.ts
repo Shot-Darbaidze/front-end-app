@@ -1,6 +1,6 @@
 // Export API service and utilities
 export { api } from './api';
-export { API_ENDPOINTS, API_CONFIG, HTTP_STATUS, ERROR_MESSAGES, STORAGE_KEYS } from './constants';
+export { API_ENDPOINTS, API_CONFIG, HTTP_STATUS, ERROR_MESSAGES, STORAGE_KEYS } from '@/config/constants';
 
 // Type definitions
 export interface ApiError {

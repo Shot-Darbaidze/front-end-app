@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import { MessageCircle, Send, Reply, Trash2, Edit2, X, Check, Loader2, ChevronDown, ChevronUp, Star } from "lucide-react";
-import { API_CONFIG } from "@/services/constants";
+import { API_CONFIG } from "@/config/constants";
 
 interface CommentUser {
   id: string;

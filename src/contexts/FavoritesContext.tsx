@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { useAuth as useClerkAuth } from "@clerk/nextjs";
-import { API_CONFIG } from "@/services/constants";
+import { API_CONFIG } from "@/config/constants";
+import { logger } from "@/utils/secureLogger";
 
 interface FavoriteItem {
   id: string;
@@ -18,7 +19,13 @@ interface FavoritesContextType {
   refreshFavorites: () => Promise<void>;
 }
 
-const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
+const FavoritesContext = createContext<FavoritesContextType>({
+  favorites: new Set(),
+  isLoading: false,
+  isFavorite: () => false,
+  toggleFavorite: async () => false,
+  refreshFavorites: async () => {},
+});
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
   const { getToken, isSignedIn } = useClerkAuth();
@@ -48,7 +55,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         setFavorites(favoriteIds);
       }
     } catch (error) {
-      console.error("Failed to fetch favorites:", error);
+      logger.error('Failed to fetch favorites', { error });
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +109,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         }
         return isFavorite(postId);
       } catch (error) {
-        console.error("Failed to toggle favorite:", error);
+        logger.error('Failed to toggle favorite', { error, postId });
         return isFavorite(postId);
       }
     },
@@ -125,11 +132,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 }
 
 export function useFavorites(): FavoritesContextType {
-  const context = useContext(FavoritesContext);
-  if (context === undefined) {
-    throw new Error("useFavorites must be used within a FavoritesProvider");
-  }
-  return context;
+  return useContext(FavoritesContext);
 }
 
 // Hook for checking if a specific post is favorited

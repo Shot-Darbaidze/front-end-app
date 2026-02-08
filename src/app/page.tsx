@@ -3,7 +3,6 @@ import TrustStrip from "@/components/home/TrustStrip";
 import BentoFeatures from "@/components/home/BentoFeatures";
 import LearningRoadmap from "@/components/home/LearningRoadmap";
 import InstructorShowcase from "@/components/home/InstructorShowcase";
-import Link from "next/link";
 
 export default function MainPage() {
   return (

@@ -46,3 +46,13 @@ input.dc-date-custom[type="date"] {
   appearance: textfield;
   -moz-appearance: textfield; /* Firefox */
 }
+
+/* Hide native number input spinners globally for filter inputs */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}

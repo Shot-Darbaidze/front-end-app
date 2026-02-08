@@ -1,8 +1,7 @@
 'use client';
 
-import { HTTP_STATUS, ERROR_MESSAGES, API_CONFIG, STORAGE_KEYS } from './constants';
+import { HTTP_STATUS, ERROR_MESSAGES, API_CONFIG, STORAGE_KEYS, LIMITS } from '@/config/constants';
 import { CacheManager } from '@/lib/cache';
-import { LIMITS } from '@/config/constants';
 import { csrfProtection } from '@/utils/csrf';
 import { logger } from '@/utils/secureLogger';
 
@@ -50,7 +49,6 @@ class APIService {
   private timeout: number;
   private retryAttempts: number;
   private retryDelay: number;
-  private authToken: string | null = null;
   private cache: CacheManager;
   
   private requestInterceptors: RequestInterceptor[] = [];
@@ -64,36 +62,12 @@ class APIService {
     this.retryDelay = API_CONFIG.RETRY_DELAY;
     this.cache = new CacheManager(LIMITS.CACHE_MAX_SIZE);
     
-    // Load auth token from storage
+    // Initialize CSRF protection
     if (typeof window !== 'undefined') {
-      this.authToken = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-      
-      // Initialize CSRF protection
       csrfProtection.initialize().catch((err) => {
         logger.error('Failed to initialize CSRF protection', err);
       });
     }
-  }
-
-  /**
-   * Set authentication token
-   */
-  setAuthToken(token: string | null) {
-    this.authToken = token;
-    if (typeof window !== 'undefined') {
-      if (token) {
-        localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-      }
-    }
-  }
-
-  /**
-   * Get authentication token
-   */
-  getAuthToken(): string | null {
-    return this.authToken;
   }
 
   /**
@@ -128,16 +102,12 @@ class APIService {
   }
 
   /**
-   * Build headers with authentication and CSRF protection
+   * Build headers with CSRF protection
    */
   private buildHeaders(headers?: Record<string, string>): Record<string, string> {
     const defaultHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-
-    if (this.authToken) {
-      defaultHeaders['Authorization'] = `Bearer ${this.authToken}`;
-    }
 
     // Add CSRF token for state-changing operations
     const csrfHeaders = csrfProtection.addTokenToHeaders(defaultHeaders);
@@ -224,7 +194,7 @@ class APIService {
     }
 
     const status = response.status;
-    let message = ERROR_MESSAGES.UNKNOWN_ERROR;
+    let message: string = ERROR_MESSAGES.GENERIC_ERROR;
     let code: string | undefined;
 
     switch (status) {
@@ -235,8 +205,6 @@ class APIService {
       case HTTP_STATUS.UNAUTHORIZED:
         message = ERROR_MESSAGES.UNAUTHORIZED;
         code = 'UNAUTHORIZED';
-        // Clear auth token on 401
-        this.setAuthToken(null);
         break;
       case HTTP_STATUS.FORBIDDEN:
         message = ERROR_MESSAGES.FORBIDDEN;

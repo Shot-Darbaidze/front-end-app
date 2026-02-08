@@ -3,19 +3,15 @@
 import { Calendar, Camera } from "lucide-react";
 import Image from "next/image";
 import { useRef } from "react";
+import { logger } from "@/utils/secureLogger";
+import { StepProps, InstructorSignupFormData } from "@/types/instructor-signup";
 
-interface Step2Props {
-  data: any;
-  updateData: (data: any) => void;
-  errors?: Record<string, string>;
-}
-
-const ModernStep2 = ({ data, updateData, errors = {} }: Step2Props) => {
+const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSignupFormData>) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleBrandSelect = (brand: string) => {
     updateData({ vehicleBrand: brand });
-    console.log("[Vehicle Brand Selection] Brand selected:", brand);
+    logger.debug('[Vehicle Brand Selection] Brand selected', { brand });
   };
   
   const handleRegistrationChange = (e: React.ChangeEvent<HTMLInputElement>) => {

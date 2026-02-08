@@ -3,11 +3,11 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { InstructorDashboardNav } from "@/components/dashboard/instructor/InstructorDashboardNav";
-import { ResponsiveCalendar, SlotData, SlotStatus, getWeekStart, generateTimeSlots } from "@/components/dashboard/instructor/ResponsiveCalendar";
+import { ResponsiveCalendar, SlotData, SlotStatus, generateTimeSlots } from "@/components/dashboard/instructor/ResponsiveCalendar";
 import Button from "@/components/ui/Button";
 import { Save, RotateCcw, Clock, Loader2, AlertCircle, CheckCircle, Copy } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { API_CONFIG } from "@/services/constants";
+import { API_CONFIG } from '@/config/constants';
 
 // Duration options in minutes
 const DURATION_OPTIONS = [

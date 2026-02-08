@@ -1,4 +1,5 @@
 export { useInstructorFilters } from './useInstructorFilters';
+export { useFindInstructors } from './useFindInstructors';
 export { useForm } from './useForm';
 export { usePagination } from './usePagination';
 export { useMultiStepForm } from './useMultiStepForm';

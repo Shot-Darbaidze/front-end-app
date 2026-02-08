@@ -2,14 +2,16 @@
 
 import React from "react";
 import { Search, Bell, ChevronDown, Menu } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@clerk/nextjs";
 
 interface HeaderProps {
   onMenuClick?: () => void;
 }
 
 export const Header = ({ onMenuClick }: HeaderProps) => {
-  const { user } = useAuth();
+  const { user } = useUser();
+  const displayName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Instructor' : 'Instructor';
+  const initials = user?.firstName?.[0] || 'I';
 
   return (
     <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-gray-100 flex items-center justify-between px-4 md:px-8 sticky top-0 z-40">
@@ -39,11 +41,11 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
 
         <div className="flex items-center gap-3 pl-6 border-l border-gray-100">
           <div className="text-right hidden md:block">
-            <div className="text-sm font-medium text-gray-900">{user?.name || "Instructor"}</div>
+            <div className="text-sm font-medium text-gray-900">{displayName}</div>
             <div className="text-xs text-gray-500">Pro Instructor</div>
           </div>
           <div className="w-10 h-10 rounded-full bg-[#F03D3D] flex items-center justify-center text-white font-bold border-2 border-white shadow-sm">
-            {user?.name?.[0] || "I"}
+            {initials}
           </div>
           <ChevronDown className="w-4 h-4 text-gray-400" />
         </div>

@@ -8,19 +8,6 @@ const isProtectedRoute = createRouteMatcher([
   '/api/protected(.*)',
 ]);
 
-// Define public routes that don't require authentication
-const isPublicRoute = createRouteMatcher([
-  '/',
-  '/login(.*)',
-  '/signup(.*)',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-  '/find-instructors(.*)',
-  '/for-instructors(.*)',
-  '/blog(.*)',
-  '/instructors(.*)',
-  '/api/webhooks(.*)',
-]);
 
 /**
  * Add security headers to response

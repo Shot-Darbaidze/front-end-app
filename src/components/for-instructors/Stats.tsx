@@ -9,7 +9,7 @@ const Stats = () => {
     { label: t("stats.activeStudents"), value: "1,000+" },
     { label: t("stats.bookingsMonthly"), value: "5,000+" },
     { label: t("stats.instructorEarnings"), value: "₾1M+" },
-    { label: t("stats.citiesCovered"), value: "10" }
+    { label: t("stats.citiesCovered"), value: "10+" }
   ];
 
   return (

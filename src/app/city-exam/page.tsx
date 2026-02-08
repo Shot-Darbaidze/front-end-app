@@ -6,7 +6,7 @@ import { useExamMonitor, CITY_CENTERS } from "@/hooks/useExamMonitor";
 import { Bell, MapPin, Play, Square, AlertCircle, CheckCircle } from "lucide-react";
 
 const CityExamPage = () => {
-  const { user, isLoaded } = useUser();
+  const { user: _user, isLoaded } = useUser();
   const [selectedCity, setSelectedCity] = useState<number | null>(null);
   const {
     isMonitoring,

@@ -20,11 +20,92 @@ export const APP_CONFIG = {
 // ============================================================================
 
 export const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
   TIMEOUT: 30000, // milliseconds
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000, // milliseconds
   RETRY_BACKOFF_MULTIPLIER: 2,
+} as const;
+
+// ============================================================================
+// HTTP STATUS CODES
+// ============================================================================
+
+export const HTTP_STATUS = {
+  OK: 200,
+  CREATED: 201,
+  NO_CONTENT: 204,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  UNPROCESSABLE_ENTITY: 422,
+  INTERNAL_SERVER_ERROR: 500,
+  SERVICE_UNAVAILABLE: 503,
+} as const;
+
+// ============================================================================
+// ERROR MESSAGES
+// ============================================================================
+
+// ============================================================================
+// LOCAL STORAGE KEYS
+// ============================================================================
+
+export const STORAGE_KEYS = {
+  USER_DATA: 'user_data',
+  LANGUAGE: 'language',
+} as const;
+
+// ============================================================================
+// API ENDPOINTS
+// ============================================================================
+
+export const API_ENDPOINTS = {
+  // User endpoints
+  USER: '/api/user',
+  
+  // Instructor endpoints
+  INSTRUCTORS: '/api/instructors',
+  INSTRUCTOR_DETAIL: (id: string) => `/api/instructors/${id}`,
+  INSTRUCTOR_SEARCH: '/api/posts/search',
+  INSTRUCTOR_PROFILE: '/api/instructors/profile',
+  
+  // Lesson endpoints
+  LESSONS: '/api/lessons',
+  LESSON_DETAIL: (id: string) => `/api/lessons/${id}`,
+  LESSON_BOOK: '/api/lessons/book',
+  LESSON_CANCEL: (id: string) => `/api/lessons/${id}/cancel`,
+  
+  // Payment endpoints
+  PAYMENTS: '/api/payments',
+  PAYMENT_DETAIL: (id: string) => `/api/payments/${id}`,
+  PAYMENT_CREATE: '/api/payments/create',
+  PAYMENT_VERIFY: '/api/payments/verify',
+  
+  // Dashboard endpoints
+  DASHBOARD_STATS: '/api/dashboard/stats',
+  DASHBOARD_RECENT_LESSONS: '/api/dashboard/recent-lessons',
+  DASHBOARD_UPCOMING_LESSONS: '/api/dashboard/upcoming-lessons',
+  
+  // Blog endpoints
+  BLOG_POSTS: '/api/blog/posts',
+  BLOG_POST_DETAIL: (slug: string) => `/api/blog/posts/${slug}`,
+  
+  // Forum endpoints
+  FORUM_POSTS: '/api/forum/posts',
+  FORUM_POST_DETAIL: (id: string) => `/api/forum/posts/${id}`,
+  FORUM_COMMENT: '/api/forum/comments',
+  
+  // Help/Support endpoints
+  SUPPORT_ARTICLES: '/api/support/articles',
+  SUPPORT_ARTICLE_DETAIL: (id: string) => `/api/support/articles/${id}`,
+  SUPPORT_CATEGORY: (category: string) => `/api/support/categories/${category}`,
+  
+  // Vehicle endpoints
+  VEHICLE: '/api/vehicle',
+  VEHICLE_UPLOAD: '/api/vehicle/upload',
 } as const;
 
 // ============================================================================
@@ -89,6 +170,9 @@ export const TIME_CONFIG = {
   BUFFER_TIME_BETWEEN_LESSONS: 15, // minutes
   CALENDAR_MONTHS_AHEAD: 3,
   CALENDAR_MONTHS_PAST: 1,
+  // UI debounce/throttle
+  DEBOUNCE_DELAY: 500, // milliseconds
+  THROTTLE_DELAY: 1000, // milliseconds
 } as const;
 
 // ============================================================================
@@ -96,14 +180,17 @@ export const TIME_CONFIG = {
 // ============================================================================
 
 export const PRICING = {
-  CURRENCY: 'USD',
-  CURRENCY_SYMBOL: '$',
+  CURRENCY: 'GEL',
+  CURRENCY_SYMBOL: '₾',
   MIN_HOURLY_RATE: 15,
   MAX_HOURLY_RATE: 500,
   MIN_SESSION_PRICE: 25,
   MAX_SESSION_PRICE: 500,
   PLATFORM_COMMISSION_PERCENTAGE: 15, // 15% commission
   TAX_RATE: 0.08, // 8% tax
+  // Filter defaults
+  MIN_PRICE_FILTER: 40,
+  MAX_PRICE_FILTER: 100,
 } as const;
 
 // ============================================================================
@@ -116,6 +203,10 @@ export const INSTRUCTOR_CATEGORIES = {
   ADVANCED: 'advanced',
   PROFESSIONAL: 'professional',
 } as const;
+
+export const CITIES = ['Tbilisi', 'Batumi', 'Kutaisi', 'Rustavi'] as const;
+
+export const TRANSMISSION_TYPES = ['Manual', 'Automatic'] as const;
 
 export const INSTRUCTOR_CATEGORY_LABELS: Record<string, string> = {
   [INSTRUCTOR_CATEGORIES.BEGINNER]: 'Beginner (0-1 years)',
@@ -213,16 +304,20 @@ export const ERROR_MESSAGES = {
   GENERIC_ERROR: 'An unexpected error occurred. Please try again.',
   NETWORK_ERROR: 'Network error. Please check your connection.',
   TIMEOUT_ERROR: 'Request timed out. Please try again.',
+  TIMEOUT: 'Request timed out. Please try again.', // Alias for backward compatibility
   NOT_FOUND: 'The requested resource was not found.',
+  SERVER_ERROR: 'Server error. Please try again later.',
 
   // Authentication
   UNAUTHORIZED: 'You are not authorized to perform this action.',
+  FORBIDDEN: 'You do not have permission to access this resource.',
   UNAUTHENTICATED: 'Please log in to continue.',
   INVALID_CREDENTIALS: 'Invalid email or password.',
   SESSION_EXPIRED: 'Your session has expired. Please log in again.',
   TOKEN_INVALID: 'Invalid authentication token.',
 
   // Validation
+  VALIDATION_ERROR: 'Validation error. Please check your input.',
   REQUIRED_FIELD: 'This field is required.',
   INVALID_EMAIL: 'Please enter a valid email address.',
   INVALID_PHONE: 'Please enter a valid phone number.',
@@ -282,8 +377,6 @@ export const RATING_CONFIG = {
 
 export const ROUTES = {
   HOME: '/',
-  LOGIN: '/login',
-  SIGNUP: '/signup',
   DASHBOARD: '/dashboard',
   PROFILE: '/profile',
   SETTINGS: '/account-settings',
