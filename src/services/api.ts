@@ -1,6 +1,6 @@
 'use client';
 
-import { HTTP_STATUS, ERROR_MESSAGES, API_CONFIG, STORAGE_KEYS, LIMITS } from '@/config/constants';
+import { HTTP_STATUS, ERROR_MESSAGES, API_CONFIG, LIMITS } from '@/config/constants';
 import { CacheManager } from '@/lib/cache';
 import { csrfProtection } from '@/utils/csrf';
 import { logger } from '@/utils/secureLogger';
@@ -10,7 +10,7 @@ interface ErrorResponse {
   message: string;
   code?: string;
   status: number;
-  data?: any;
+  data?: unknown;
 }
 
 // Request interceptor type
@@ -31,8 +31,8 @@ interface ErrorInterceptor {
 // Request config interface
 interface RequestConfig {
   headers?: Record<string, string>;
-  body?: any;
-  [key: string]: any;
+  body?: BodyInit | null;
+  [key: string]: unknown;
 }
 
 /**
@@ -50,7 +50,7 @@ class APIService {
   private retryAttempts: number;
   private retryDelay: number;
   private cache: CacheManager;
-  
+
   private requestInterceptors: RequestInterceptor[] = [];
   private responseInterceptors: ResponseInterceptor[] = [];
   private errorInterceptors: ErrorInterceptor[] = [];
@@ -61,7 +61,7 @@ class APIService {
     this.retryAttempts = API_CONFIG.RETRY_ATTEMPTS;
     this.retryDelay = API_CONFIG.RETRY_DELAY;
     this.cache = new CacheManager(LIMITS.CACHE_MAX_SIZE);
-    
+
     // Initialize CSRF protection
     if (typeof window !== 'undefined') {
       csrfProtection.initialize().catch((err) => {
@@ -158,7 +158,7 @@ class APIService {
     message: string,
     status: number = 500,
     code?: string,
-    data?: any
+    data?: unknown
   ): ErrorResponse {
     return { message, status, code, data };
   }
@@ -186,7 +186,7 @@ class APIService {
    * Handle HTTP error responses
    */
   private async handleErrorResponse(response: Response): Promise<ErrorResponse> {
-    let data: any;
+    let data: unknown;
     try {
       data = await response.json();
     } catch {
@@ -222,8 +222,8 @@ class APIService {
     }
 
     // Use custom error message if provided
-    if (data?.message) {
-      message = data.message;
+    if (typeof data === 'object' && data !== null && 'message' in data) {
+      message = String((data as { message: unknown }).message);
     }
 
     return this.createErrorResponse(message, status, code, data);
@@ -272,11 +272,11 @@ class APIService {
       const data = await finalResponse.json();
 
       return data as T;
-    } catch (error: any) {
+    } catch (error: unknown) {
       clearTimeout(timeoutId);
 
       // Handle network errors
-      if (error.name === 'AbortError') {
+      if (error instanceof DOMException && error.name === 'AbortError') {
         const errorResponse = this.createErrorResponse(
           ERROR_MESSAGES.TIMEOUT,
           408,
@@ -302,7 +302,7 @@ class APIService {
   /**
    * GET request with optional caching
    */
-  async get<T = any>(endpoint: string, options?: RequestInit & { cache?: boolean; cacheTTL?: number }): Promise<T> {
+  async get<T = unknown>(endpoint: string, options?: RequestInit & { cache?: boolean; cacheTTL?: number }): Promise<T> {
     // Check cache first if enabled
     if (options?.cache !== false) {
       const cached = this.cache.get<T>(endpoint);
@@ -329,9 +329,9 @@ class APIService {
   /**
    * POST request
    */
-  async post<T = any>(
+  async post<T = unknown>(
     endpoint: string,
-    data?: any,
+    data?: Record<string, unknown>,
     options?: RequestInit
   ): Promise<T> {
     return this.request<T>(endpoint, {
@@ -344,9 +344,9 @@ class APIService {
   /**
    * PUT request
    */
-  async put<T = any>(
+  async put<T = unknown>(
     endpoint: string,
-    data?: any,
+    data?: Record<string, unknown>,
     options?: RequestInit
   ): Promise<T> {
     return this.request<T>(endpoint, {
@@ -359,9 +359,9 @@ class APIService {
   /**
    * PATCH request
    */
-  async patch<T = any>(
+  async patch<T = unknown>(
     endpoint: string,
-    data?: any,
+    data?: Record<string, unknown>,
     options?: RequestInit
   ): Promise<T> {
     return this.request<T>(endpoint, {
@@ -374,7 +374,7 @@ class APIService {
   /**
    * DELETE request
    */
-  async delete<T = any>(endpoint: string, options?: RequestInit): Promise<T> {
+  async delete<T = unknown>(endpoint: string, options?: RequestInit): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'DELETE',
@@ -384,11 +384,11 @@ class APIService {
   /**
    * File upload (multipart/form-data)
    */
-  async uploadFile<T = any>(
+  async uploadFile<T = unknown>(
     endpoint: string,
     file: File,
     fieldName: string = 'file',
-    additionalData?: Record<string, any>
+    additionalData?: Record<string, unknown>
   ): Promise<T> {
     const formData = new FormData();
     formData.append(fieldName, file);

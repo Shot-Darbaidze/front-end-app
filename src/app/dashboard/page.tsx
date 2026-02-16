@@ -98,9 +98,9 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pt-20">
         <InstructorDashboardNav />
-        
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-          
+
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900">Instructor Dashboard</h1>
             <p className="text-gray-500 mt-1">Manage your schedule and students.</p>
@@ -130,9 +130,9 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pt-20">
       <DashboardNav />
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Welcome back! 👋</h1>
           <p className="text-gray-500 mt-1">Here&apos;s your driving progress.</p>

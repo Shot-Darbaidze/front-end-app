@@ -37,7 +37,7 @@ const FAQ = () => {
   ];
 
   return (
-    <div className="py-20 px-6 bg-white">
+    <section className="py-20 px-6 bg-white">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -56,6 +56,8 @@ const FAQ = () => {
             >
               <button
                 onClick={() => setOpenIndex(openIndex === index ? null : index)}
+                aria-expanded={openIndex === index}
+                aria-controls={`faq-panel-${index}`}
                 className="w-full flex items-center justify-between p-6 text-left bg-white hover:bg-gray-50 transition-colors"
               >
                 <span className="font-bold text-gray-900 text-base md:text-lg pr-4">{faq.question}</span>
@@ -67,10 +69,12 @@ const FAQ = () => {
               </button>
               
               <div
+                id={`faq-panel-${index}`}
+                role="region"
                 ref={(el) => { contentRefs.current[index] = el; }}
                 className="overflow-hidden transition-all duration-300 ease-in-out"
                 style={{
-                  maxHeight: openIndex === index ? `${contentRefs.current[index]?.scrollHeight ?? 0}px` : "0px",
+                  maxHeight: openIndex === index ? `${contentRefs.current[index]?.scrollHeight ?? 500}px` : "0px",
                   opacity: openIndex === index ? 1 : 0,
                 }}
               >
@@ -82,7 +86,7 @@ const FAQ = () => {
           ))}
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

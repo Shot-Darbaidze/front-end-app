@@ -72,7 +72,7 @@ const InstructorCard = ({
     }
   }, [onCardClick, id, position]);
 
-  const hasCityPrice = cityPrice !== null && cityPrice !== undefined;
+  const hasCityPrice = cityPrice != null;
 
   return (
     <article className="bg-white rounded-2xl p-5 border border-gray-100 hover:border-[#F03D3D]/30 hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300 group flex flex-col h-full relative cursor-pointer">

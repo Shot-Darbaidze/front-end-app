@@ -193,7 +193,7 @@ export const useFindInstructors = () => {
         setIsLoading(false);
       }
     }
-  }, [buildParams, searchTerm, filters, fetchTotalCount]);
+  }, [buildParams, searchTerm, filters, sortBy, fetchTotalCount]);
 
   /** Execute a new search (resets to page 1) */
   const executeSearch = useCallback(() => {
@@ -247,7 +247,6 @@ export const useFindInstructors = () => {
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, filters, sortBy]);
 
   // Cleanup debounce timer on unmount

@@ -83,10 +83,11 @@ const HowItWorks = () => {
 
         {/* CTA */}
         <div className="mt-16 text-center">
-          <Link href="/for-instructors/signup">
-            <button className="inline-flex items-center gap-2 px-8 py-4 bg-[#F03D3D] text-white rounded-full font-bold text-lg shadow-lg shadow-red-500/25 hover:bg-red-600">
-              {t("howItWorks.cta")} <ArrowRight className="w-5 h-5" />
-            </button>
+          <Link 
+            href="/for-instructors/signup"
+            className="inline-flex items-center gap-2 px-8 py-4 bg-[#F03D3D] text-white rounded-full font-bold text-lg shadow-lg shadow-red-500/25 hover:bg-red-600 active:scale-95 transition-all"
+          >
+            {t("howItWorks.cta")} <ArrowRight className="w-5 h-5" />
           </Link>
           <p className="mt-4 text-sm text-gray-400">
             {t("howItWorks.ctaSubtext")}

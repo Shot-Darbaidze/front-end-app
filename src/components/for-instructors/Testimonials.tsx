@@ -10,28 +10,25 @@ const Testimonials = () => {
     {
       name: "Giorgi B.",
       role: `${t("testimonials.since")} 2023`,
-      image: undefined,
       content: t("testimonials.testimonial1"),
       rating: 5
     },
     {
       name: "Nino K.",
       role: `${t("testimonials.since")} 2024`,
-      image: undefined,
       content: t("testimonials.testimonial2"),
       rating: 5
     },
     {
       name: "David G.",
       role: `${t("testimonials.since")} 2023`,
-      image: undefined,
       content: t("testimonials.testimonial3"),
       rating: 5
     }
   ];
 
   return (
-    <div className="py-20 px-6 bg-[#0F172A]">
+    <section className="py-20 px-6 bg-[#0F172A]">
       <div className="max-w-7xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
@@ -70,7 +67,7 @@ const Testimonials = () => {
           ))}
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

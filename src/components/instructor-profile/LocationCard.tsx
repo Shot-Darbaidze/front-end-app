@@ -35,6 +35,8 @@ const LocationCard = ({ location, googleMapsUrl }: LocationCardProps) => {
           marginHeight={0} 
           marginWidth={0} 
           src={mapSrc}
+          title="Instructor location map"
+          loading="lazy"
           className="absolute inset-0"
         ></iframe>
       </div>

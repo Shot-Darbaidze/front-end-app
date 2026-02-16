@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
-import { MessageCircle, Send, Reply, Trash2, Edit2, X, Check, Loader2, ChevronDown, ChevronUp, Star } from "lucide-react";
+import { Send, Reply, Trash2, Edit2, X, Check, Loader2, ChevronDown, ChevronUp, Star } from "lucide-react";
 import { API_CONFIG } from "@/config/constants";
 
 interface CommentUser {
@@ -80,7 +80,7 @@ function SingleComment({
   const hasReplies = comment.replies && comment.replies.length > 0;
 
   return (
-    <div className={`${depth > 0 ? "ml-8 border-l-2 border-gray-100 pl-4" : ""}`}>
+    <div className={`${depth > 0 ? "ml-4 sm:ml-8 border-l-2 border-gray-100 pl-3 sm:pl-4" : ""}`}>
       <div className="flex gap-3 py-4">
         {/* Avatar */}
         <div className="flex-shrink-0">
@@ -191,7 +191,7 @@ function SingleComment({
         <div>
           <button
             onClick={() => setShowReplies(!showReplies)}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 mb-2 ml-13"
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 mb-2 ml-[3.25rem]"
           >
             {showReplies ? (
               <>
@@ -247,19 +247,6 @@ export default function CommentSection({ postId }: CommentSectionProps) {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
 
-  // Fetch current user's DB ID
-  useEffect(() => {
-    const fetchUserId = async () => {
-      if (!isSignedIn) {
-        setCurrentUserId(null);
-        return;
-      }
-      // For now, we'll match by comparing with comment user IDs
-      // The actual matching happens when we compare comment.user.id
-    };
-    fetchUserId();
-  }, [isSignedIn]);
-
   const fetchComments = useCallback(async () => {
     try {
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/comments/post/${postId}`);
@@ -277,14 +264,6 @@ export default function CommentSection({ postId }: CommentSectionProps) {
   useEffect(() => {
     fetchComments();
   }, [fetchComments]);
-
-  // Get current user's DB ID from comments
-  useEffect(() => {
-    if (user && comments.length > 0) {
-      // We'll need to identify our user in the comments by their clerk_user_id
-      // For now, we'll store the user ID when we create a comment
-    }
-  }, [user, comments]);
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -460,7 +439,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm">
+      <div className="bg-white rounded-3xl border border-gray-100 p-4 sm:p-8 shadow-sm">
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
         </div>
@@ -469,7 +448,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
   }
 
   return (
-    <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm">
+    <div className="bg-white rounded-3xl border border-gray-100 p-4 sm:p-8 shadow-sm">
       <div className="flex items-center gap-3 mb-6">
         <Star className="w-6 h-6 text-[#F03D3D] fill-[#F03D3D]" />
         <h2 className="text-2xl font-bold text-gray-900">
@@ -576,8 +555,8 @@ export default function CommentSection({ postId }: CommentSectionProps) {
 
               {/* Reply Form */}
               {replyingTo === comment.id && isSignedIn && (
-                <div className="ml-13 pb-4">
-                  <div className="flex gap-3 ml-8 border-l-2 border-gray-100 pl-4">
+                <div className="pb-4">
+                  <div className="flex gap-3 ml-4 sm:ml-8 border-l-2 border-gray-100 pl-3 sm:pl-4">
                     <div className="flex-shrink-0">
                       <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100">
                         {user?.imageUrl ? (

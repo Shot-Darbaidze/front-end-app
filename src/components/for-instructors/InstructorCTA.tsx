@@ -9,7 +9,7 @@ const InstructorCTA = () => {
   const { t } = useLanguage();
   
   return (
-    <div id="instructor-cta" className="py-24 px-6 bg-[#0F172A] relative transform-gpu will-change-[transform]">
+    <section id="instructor-cta" className="py-24 px-6 bg-[#0F172A] relative">
       
       <div className="max-w-6xl mx-auto relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -39,7 +39,7 @@ const InstructorCTA = () => {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

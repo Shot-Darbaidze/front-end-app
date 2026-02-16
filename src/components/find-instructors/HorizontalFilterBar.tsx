@@ -261,7 +261,7 @@ const HorizontalFilterBar = memo(({
                 onChange={(e) => setLocalMin(e.target.value)}
                 onBlur={commitMinPrice}
                 onKeyDown={(e) => e.key === "Enter" && commitMinPrice()}
-                className="w-18 pl-6 pr-2 py-2 border border-gray-200 rounded-lg text-sm font-medium focus:outline-none focus:border-[#F03D3D]"
+                className="w-[4.5rem] pl-6 pr-2 py-2 border border-gray-200 rounded-lg text-sm font-medium focus:outline-none focus:border-[#F03D3D]"
                 placeholder="Min"
                 aria-label="Minimum price"
               />
@@ -277,7 +277,7 @@ const HorizontalFilterBar = memo(({
                 onChange={(e) => setLocalMax(e.target.value)}
                 onBlur={commitMaxPrice}
                 onKeyDown={(e) => e.key === "Enter" && commitMaxPrice()}
-                className="w-18 pl-6 pr-2 py-2 border border-gray-200 rounded-lg text-sm font-medium focus:outline-none focus:border-[#F03D3D]"
+                className="w-[4.5rem] pl-6 pr-2 py-2 border border-gray-200 rounded-lg text-sm font-medium focus:outline-none focus:border-[#F03D3D]"
                 placeholder="Max"
                 aria-label="Maximum price"
               />

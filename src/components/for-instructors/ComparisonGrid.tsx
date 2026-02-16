@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { CheckCircle, XCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -83,9 +84,7 @@ const ComparisonGrid = () => {
               {features.map((feature, index) => (
                 <tr
                   key={index}
-                  className={`border-b border-gray-100 ${
-                    index === features.length - 1 ? "" : ""
-                  }`}
+                  className="border-b border-gray-100"
                 >
                   <td className="py-6 px-6 font-semibold text-gray-900">
                     {feature.name}
@@ -130,12 +129,12 @@ const ComparisonGrid = () => {
           <p className="text-gray-600 mb-6">
             {t("comparison.ctaText")}
           </p>
-          <a
+          <Link
             href="/for-instructors/signup"
             className="inline-flex px-8 py-4 bg-[#F03D3D] text-white rounded-xl font-bold hover:bg-[#d62f2f] transition-all shadow-lg shadow-red-500/20 active:scale-95"
           >
             {t("comparison.ctaButton")}
-          </a>
+          </Link>
         </div>
       </div>
     </section>

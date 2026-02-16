@@ -1,5 +1,3 @@
-"use client";
-
 import InstructorHero from "@/components/for-instructors/InstructorHero";
 import Stats from "@/components/for-instructors/Stats";
 import HowItWorks from "@/components/for-instructors/HowItWorks";

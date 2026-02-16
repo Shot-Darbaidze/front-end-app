@@ -16,7 +16,7 @@ const InstructorHero = () => {
   };
 
   return (
-    <div className="relative bg-[#0F172A] pt-32 pb-16 px-6 overflow-hidden">
+    <section className="relative bg-[#0F172A] pt-32 pb-16 px-6 overflow-hidden">
        {/* Abstract Background Shapes - Matching Home Page */}
       <div className="absolute top-0 right-0 w-1/2 h-full bg-[#F03D3D]/5 skew-x-12 transform origin-top-right" />
       <div className="absolute bottom-0 left-0 w-1/3 h-1/2 bg-blue-500/5 -skew-x-12 transform origin-bottom-left" />
@@ -49,7 +49,7 @@ const InstructorHero = () => {
             </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 
