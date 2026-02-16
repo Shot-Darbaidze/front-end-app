@@ -23,7 +23,7 @@ const Error404 = () => {
 
       {/* Title */}
       <h1 className="text-center text-gray-900 font-semibold text-3xl sm:text-4xl md:text-5xl leading-tight">
-        Error 404...
+        Page couldn't be found
       </h1>
 
       {/* Go Back Button */}

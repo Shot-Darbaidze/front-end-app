@@ -44,8 +44,8 @@ const Testimonials = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {TESTIMONIALS.map((testimonial, index) => (
-            <div key={index} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 relative">
-              <Quote className="absolute top-6 right-6 w-8 h-8 text-[#F03D3D] fill-[#F03D3D]" />
+            <div key={index} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 relative">
+              <Quote className="absolute top-4 right-4 md:top-6 md:right-6 w-6 h-6 md:w-8 md:h-8 text-[#F03D3D]/20 fill-[#F03D3D]/20 md:text-[#F03D3D] md:fill-[#F03D3D]" />
               
               <div className="flex gap-1 mb-6">
                 {[...Array(testimonial.rating)].map((_, i) => (

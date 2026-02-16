@@ -66,6 +66,18 @@ const Navbar = () => {
     setIsNotificationsOpen(false);
   }, [pathname]);
 
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
+
   const isDashboard = pathname?.startsWith('/dashboard');
 
   // Hide navbar on signup pages
@@ -77,7 +89,6 @@ const Navbar = () => {
     { href: "/", label: "Home" },
     { href: "/find-instructors", label: "Find Instructors" },
     { href: "/for-instructors", label: "For Instructors" },
-    { href: "/blog", label: "Blog" },
     ...(userType === "student" ? [{ href: "/city-exam", label: "City Exam" }] : []),
   ];
 
@@ -222,8 +233,10 @@ const Navbar = () => {
           </div>
 
           {/* Mobile Menu Button */}
-          <button 
-            className="md:hidden p-2 text-gray-900"
+          <button
+            className={`md:hidden p-2 transition-colors ${
+              isScrolled || isMobileMenuOpen ? "text-gray-900" : "text-white"
+            }`}
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
             {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}

@@ -49,10 +49,10 @@ const ComparisonGrid = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 tracking-tight">
+          <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-6 tracking-tight">
             {t("comparison.title")} <span className="text-[#F03D3D]">{t("comparison.titleHighlight")}</span>
           </h2>
-          <p className="text-xl text-gray-500 leading-relaxed">
+          <p className="text-base md:text-xl text-gray-500 leading-relaxed">
             {t("comparison.description")}
           </p>
         </div>

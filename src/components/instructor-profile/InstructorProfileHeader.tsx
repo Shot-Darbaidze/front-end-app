@@ -33,7 +33,7 @@ const InstructorProfileHeader = ({
         <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-black/50 to-transparent" />
       </div>
 
-      <div className="px-8 pb-8 relative">
+      <div className="px-4 sm:px-8 pb-6 sm:pb-8 relative">
         {/* Profile Image & Main Info */}
         <div className="flex flex-col md:flex-row gap-6 items-start -mt-16 mb-8">
           <div className="relative">

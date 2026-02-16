@@ -13,7 +13,7 @@ const Copyright = () => {
           color: '#4E5562'
         }}
       >
-        © All rights reserved.
+        Inksturktori.ge © All rights reserved.
       </p>
     </div>
   );

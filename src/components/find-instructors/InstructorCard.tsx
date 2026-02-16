@@ -165,8 +165,8 @@ const InstructorCard = ({
             </div>
           )}
         </div>
-        <Link 
-          href={`/instructors/${id}`} 
+        <Link
+          href={`/instructors/${id}`}
           className="flex-1 max-w-[55%] inline-flex items-center justify-center py-2.5 px-3 sm:px-4 bg-white border-2 border-[#F03D3D] text-[#F03D3D] rounded-xl font-bold text-sm hover:bg-[#F03D3D] hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95 after:content-[''] after:absolute after:inset-0 after:z-[1] after:rounded-2xl"
           onClick={handleCardClick}
         >

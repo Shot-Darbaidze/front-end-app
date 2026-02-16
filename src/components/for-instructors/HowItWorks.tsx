@@ -40,10 +40,10 @@ const HowItWorks = () => {
             </span>
             {t("howItWorks.badge")}
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 tracking-tight">
+          <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-6 tracking-tight">
             {t("howItWorks.title")} <span className="text-[#F03D3D]">{t("howItWorks.titleHighlight")}</span>
           </h2>
-          <p className="text-xl text-gray-500 leading-relaxed">
+          <p className="text-base md:text-xl text-gray-500 leading-relaxed">
             {t("howItWorks.description")}
           </p>
         </div>

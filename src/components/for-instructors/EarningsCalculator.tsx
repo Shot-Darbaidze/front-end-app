@@ -34,7 +34,7 @@ const EarningsCalculator = () => {
             step="5"
             value={hourlyRate}
             onChange={(e) => setHourlyRate(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#F03D3D]"
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#F03D3D] [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#F03D3D] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:shadow-md [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#F03D3D] [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:shadow-md"
           />
           <div className="flex justify-between mt-1 text-xs text-gray-400">
             <span>₾20</span>
@@ -55,7 +55,7 @@ const EarningsCalculator = () => {
             step="5"
             value={hoursPerWeek}
             onChange={(e) => setHoursPerWeek(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#F03D3D]"
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#F03D3D] [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#F03D3D] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:shadow-md [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#F03D3D] [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:shadow-md"
           />
           <div className="flex justify-between mt-1 text-xs text-gray-400">
             <span>5 hrs</span>

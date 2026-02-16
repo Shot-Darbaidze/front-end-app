@@ -92,9 +92,9 @@ export default async function InstructorProfilePage({ params }: { params: Promis
           <FavoriteButton postId={id} variant="button" size="md" />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+          {/* 1. Profile Card — mobile: 1st, desktop: main column */}
+          <div className="order-1 lg:col-span-2 lg:row-span-1">
             <InstructorProfileHeader
               name={name}
               rating={Number(post.rating ?? 0)}
@@ -107,19 +107,21 @@ export default async function InstructorProfilePage({ params }: { params: Promis
               bio={post.description || "Instructor bio coming soon."}
               imageUrl={post.image_url ?? undefined}
             />
-            
-            {/* Reviews & Comments Section */}
-            <CommentSection postId={id} />
           </div>
 
-          {/* Sidebar */}
-          <div className="lg:col-span-1 space-y-6 sticky top-24 h-fit">
-            <BookingSidebar 
+          {/* 2. Booking + Location — mobile: 2nd & 3rd, desktop: sticky sidebar */}
+          <div className="order-2 lg:col-span-1 lg:row-span-2 space-y-6 lg:sticky lg:top-24 lg:h-fit">
+            <BookingSidebar
               cityPrice={cityPrice}
               lessonDuration={60}
               instructorId={post.id}
             />
             <LocationCard location={location} googleMapsUrl={post.google_maps_url} />
+          </div>
+
+          {/* 3. Reviews — mobile: 4th (last), desktop: main column */}
+          <div className="order-3 lg:col-span-2">
+            <CommentSection postId={id} />
           </div>
         </div>
       </div>

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const FAQ = () => {
   const { t } = useLanguage();
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const contentRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const FAQS = [
     {
@@ -57,18 +58,21 @@ const FAQ = () => {
                 onClick={() => setOpenIndex(openIndex === index ? null : index)}
                 className="w-full flex items-center justify-between p-6 text-left bg-white hover:bg-gray-50 transition-colors"
               >
-                <span className="font-bold text-gray-900 text-lg">{faq.question}</span>
+                <span className="font-bold text-gray-900 text-base md:text-lg pr-4">{faq.question}</span>
                 {openIndex === index ? (
-                  <ChevronUp className="w-5 h-5 text-[#F03D3D]" />
+                  <ChevronUp className="w-5 h-5 text-[#F03D3D] flex-shrink-0" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                  <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
                 )}
               </button>
               
-              <div 
-                className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  openIndex === index ? "max-h-48 opacity-100" : "max-h-0 opacity-0"
-                }`}
+              <div
+                ref={(el) => { contentRefs.current[index] = el; }}
+                className="overflow-hidden transition-all duration-300 ease-in-out"
+                style={{
+                  maxHeight: openIndex === index ? `${contentRefs.current[index]?.scrollHeight ?? 0}px` : "0px",
+                  opacity: openIndex === index ? 1 : 0,
+                }}
               >
                 <div className="p-6 pt-0 text-gray-600 leading-relaxed border-t border-gray-100">
                   {faq.answer}
