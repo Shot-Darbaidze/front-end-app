@@ -3,6 +3,7 @@ import TrustStrip from "@/components/home/TrustStrip";
 import BentoFeatures from "@/components/home/BentoFeatures";
 import LearningRoadmap from "@/components/home/LearningRoadmap";
 import InstructorShowcase from "@/components/home/InstructorShowcase";
+import InstructorCTA from "@/components/home/InstructorCTA";
 
 export default function MainPage() {
   return (
@@ -12,6 +13,7 @@ export default function MainPage() {
       <BentoFeatures />
       <LearningRoadmap />
       <InstructorShowcase />
+      <InstructorCTA />
     </div>
   );
 }
