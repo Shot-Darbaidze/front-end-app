@@ -56,9 +56,9 @@ const LearningRoadmap = () => {
           
           {/* Sticky Header */}
           <div className="md:w-1/3 md:sticky md:top-24">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Your Journey to the Driver's Seat</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-6">Everything you need to pass</h2>
             <p className="text-lg text-gray-600 mb-8">
-              We've streamlined the process so you can focus on driving, not admin.
+              From finding your perfect instructor to acing the test, we've simplified every step of the journey so you can focus on the road ahead.
             </p>
             <Link 
               href="/find-instructors"

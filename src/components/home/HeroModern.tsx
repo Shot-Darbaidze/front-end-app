@@ -58,7 +58,7 @@ const HeroModern = () => {
             </p>
 
             {/* Search Box */}
-            <div className="bg-white p-2 rounded-2xl shadow-xl max-w-md flex flex-col sm:flex-row gap-2">
+            <div className="bg-white p-2 rounded-2xl shadow-xl max-w-lg flex flex-col sm:flex-row gap-2">
               <div className="flex-1 relative">
                 <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input 
