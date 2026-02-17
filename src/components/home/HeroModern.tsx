@@ -3,16 +3,13 @@
 import { MapPin, Star } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
+
+const cityOptions = ["Tbilisi", "Batumi", "Kutaisi", "Rustavi"];
 
 const HeroModern = () => {
   const router = useRouter();
   const [searchInput, setSearchInput] = useState("");
-
-  const cityOptions = useMemo(
-    () => ["Tbilisi", "Batumi", "Kutaisi", "Rustavi"],
-    []
-  );
 
   const handleFindInstructors = () => {
     const trimmed = searchInput.trim();
@@ -34,14 +31,14 @@ const HeroModern = () => {
     <section className="relative bg-[#0F172A] text-white overflow-hidden">
       {/* Abstract Background Shapes */}
       <div className="absolute top-0 right-0 w-1/2 h-full bg-[#F03D3D]/5 skew-x-12 transform origin-top-right" />
-      <div className="absolute bottom-0 left-0 w-1/3 h-1/2 bg-blue-500/5 -skew-x-12 transform origin-bottom-left" />
+      <div className="absolute bottom-0 -left-32 sm:-left-10 md:left-0 w-2/3 sm:w-1/2 md:w-1/3 h-1/2 bg-blue-500/5 -skew-x-12 transform origin-bottom-left" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 md:py-32 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           
           {/* Left Content */}
-          <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-sm font-medium text-blue-200">
+          <div className="flex flex-col items-center lg:items-start space-y-8 text-center lg:text-left">
+            <div className="mt-6 sm:mt-0 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-sm font-medium text-blue-200">
               <Star className="w-4 h-4 fill-blue-200" />
               <span>#1 Rated Driving Platform in 2025</span>
             </div>
@@ -53,17 +50,17 @@ const HeroModern = () => {
               </span>
             </h1>
             
-            <p className="text-base sm:text-lg text-gray-400 max-w-xl leading-relaxed">
+            <p className="text-base sm:text-lg text-gray-400 max-w-xl mx-auto lg:mx-0 leading-relaxed">
               Ditch the anxiety. Connect with elite, patient instructors who tailor every lesson to your learning style. Your license is just a few clicks away.
             </p>
 
             {/* Search Box */}
-            <div className="bg-white p-2 rounded-2xl shadow-xl max-w-lg flex flex-col sm:flex-row gap-2">
+            <div className="bg-white p-2 rounded-2xl shadow-xl max-w-[95%] sm:max-w-xl mx-auto lg:mx-0 flex flex-col sm:flex-row gap-2">
               <div className="flex-1 relative">
                 <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input 
                   type="text" 
-                  placeholder="Search by city or instructor name" 
+                  placeholder="Search by city or instructor" 
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
                   onKeyDown={(event) => {
@@ -84,7 +81,7 @@ const HeroModern = () => {
               </Button>
             </div>
 
-            <div className="flex items-center gap-4 text-sm text-gray-500">
+            <div className="flex items-center justify-center lg:justify-start gap-4 text-sm text-gray-500">
               <div className="flex -space-x-2">
                 {[1,2,3,4].map(i => (
                   <div key={i} className="w-8 h-8 rounded-full bg-gray-700 border-2 border-[#0F172A]" />

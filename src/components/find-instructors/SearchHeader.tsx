@@ -14,7 +14,7 @@ const SearchHeader = ({ value, onChange, onSearch, isLoading = false }: SearchHe
     <div className="relative bg-[#0F172A] pt-24 pb-10 sm:pt-32 sm:pb-16 px-4 sm:px-6 overflow-hidden">
        {/* Abstract Background Shapes - Matching Home Page */}
       <div className="absolute top-0 right-0 w-1/2 h-full bg-[#F03D3D]/5 skew-x-12 transform origin-top-right" />
-      <div className="absolute bottom-0 left-0 w-1/3 h-1/2 bg-blue-500/5 -skew-x-12 transform origin-bottom-left" />
+      <div className="absolute bottom-0 -left-32 sm:-left-10 md:left-0 w-2/3 sm:w-1/2 md:w-1/3 h-1/2 bg-blue-500/5 -skew-x-12 transform origin-bottom-left" />
       
       <div className="relative max-w-7xl mx-auto z-10">
         <div className="text-center max-w-2xl mx-auto mb-10">

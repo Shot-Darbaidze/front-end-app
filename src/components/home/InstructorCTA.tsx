@@ -3,8 +3,8 @@ import { ArrowRight, CheckCircle2, TrendingUp } from 'lucide-react';
 import Image from 'next/image';
 
 const benefits = [
-  "Set your own schedule",
   "Grow your student base",
+  "Set your own schedule",
   "Guaranteed payments",
   "Professional tools"
 ];
@@ -30,9 +30,9 @@ const InstructorCTA = () => {
               </p>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4 text-left max-w-md mx-auto lg:mx-0 lg:max-w-none">
+            <div className="grid sm:grid-cols-2 gap-4 text-left max-w-md mx-auto lg:mx-0 lg:max-w-none justify-items-center lg:justify-items-start">
               {benefits.map((benefit, idx) => (
-                <div key={idx} className="flex items-center gap-3">
+                <div key={idx} className="flex items-center gap-3 w-fit">
                   <CheckCircle2 className="w-5 h-5 text-[#F03D3D] shrink-0" />
                   <span className="font-medium text-gray-700">{benefit}</span>
                 </div>
@@ -64,6 +64,7 @@ const InstructorCTA = () => {
                  src="https://images.unsplash.com/photo-1580273916550-e323be2ebcc6?auto=format&fit=crop&w=800&q=80"
                  alt="Instructor teaching student"
                  fill
+                 sizes="(max-width: 1024px) 0px, 50vw"
                  className="object-cover"
                />
 

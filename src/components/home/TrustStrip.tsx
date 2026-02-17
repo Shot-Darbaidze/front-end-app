@@ -1,10 +1,10 @@
 import { Shield, Users, Trophy, Clock } from "lucide-react";
 
 const stats = [
-  { label: "Active Students", value: "12k+", icon: Users },
+  { label: "Active Students", value: "1k+", icon: Users },
   { label: "Pass Rate", value: "94%", icon: Trophy },
-  { label: "Verified Instructors", value: "850+", icon: Shield },
-  { label: "Lesson Hours", value: "50k+", icon: Clock },
+  { label: "Verified Instructors", value: "50+", icon: Shield },
+  { label: "Lesson Hours", value: "7k+", icon: Clock },
 ];
 
 const TrustStrip = () => {
