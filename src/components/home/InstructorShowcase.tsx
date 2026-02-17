@@ -3,21 +3,19 @@ import Link from "next/link";
 
 const InstructorShowcase = () => {
   return (
-    <section className="relative py-24 px-6 bg-[#0F172A] text-white overflow-hidden">
+    <section className="relative py-16 sm:py-24 px-4 sm:px-6 bg-[#0F172A] text-white overflow-hidden">
       <div className="relative max-w-7xl mx-auto z-10">
-        <div className="flex justify-between items-end mb-12">
-          <div>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Meet Our Top Instructors</h2>
-            <p className="text-gray-400">Highly rated professionals ready to teach you.</p>
-          </div>
-          <Link href="/find-instructors" className="hidden md:flex items-center text-[#F03D3D] hover:text-white transition">
+        <div className="text-center mb-12">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Meet Our Top Instructors</h2>
+          <p className="text-gray-400 mb-4">Highly rated professionals ready to teach you.</p>
+          <Link href="/find-instructors" className="hidden md:inline-flex items-center text-[#F03D3D] hover:text-white transition">
             View all instructors <ArrowRight className="ml-2 w-4 h-4" />
           </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700 hover:border-[#F03D3D]/50 transition group">
+            <div key={i} className="bg-gray-800/50 rounded-2xl p-4 sm:p-6 border border-gray-700 hover:border-[#F03D3D]/50 transition group">
               <div className="flex items-start justify-between mb-6">
                 <div className="w-16 h-16 rounded-full bg-gray-600" />
                 <div className="flex items-center gap-1 bg-gray-900 px-2 py-1 rounded-lg border border-gray-700">

@@ -50,13 +50,13 @@ const LearningRoadmap = () => {
   }, []);
 
   return (
-    <section className="py-24 px-6 bg-white overflow-hidden">
+    <section className="py-16 sm:py-24 px-4 sm:px-6 bg-white overflow-hidden">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row gap-16 items-start">
+        <div className="flex flex-col md:flex-row gap-10 sm:gap-16 items-start">
           
           {/* Sticky Header */}
           <div className="md:w-1/3 md:sticky md:top-24">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Everything you need to pass</h2>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 sm:mb-6"><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F03D3D] to-orange-500">Everything you need to pass</span></h2>
             <p className="text-lg text-gray-600 mb-8">
               From finding your perfect instructor to acing the test, we've simplified every step of the journey so you can focus on the road ahead.
             </p>
@@ -69,10 +69,10 @@ const LearningRoadmap = () => {
           </div>
 
           {/* Timeline */}
-          <div ref={containerRef} className="md:w-2/3 space-y-12 relative pl-8 pb-12">
+          <div ref={containerRef} className="md:w-2/3 space-y-8 sm:space-y-12 relative pl-6 sm:pl-8 pb-12">
             
             {/* The Road */}
-            <div className="absolute left-[3.5rem] top-0 bottom-0 w-16 -translate-x-1/2 bg-gray-800 rounded-full border-x-4 border-gray-900 overflow-hidden shadow-inner">
+            <div className="absolute left-[2.75rem] sm:left-[3.5rem] top-0 bottom-0 w-12 sm:w-16 -translate-x-1/2 bg-gray-800 rounded-full border-x-4 border-gray-900 overflow-hidden shadow-inner">
                {/* Center white dashed line - animated */}
                <div className="absolute left-1/2 top-0 bottom-0 w-0 border-l-[4px] border-dashed border-white/40 -translate-x-1/2" />
                
@@ -109,8 +109,8 @@ const LearningRoadmap = () => {
             </div>
             
             {steps.map((step, idx) => (
-              <div key={idx} className="relative pl-24 group">
-                <div className="relative bg-gray-50 rounded-2xl p-8 hover:bg-white hover:shadow-xl transition duration-300 border border-transparent hover:border-gray-100 ml-6">
+              <div key={idx} className="relative pl-16 sm:pl-24 group">
+                <div className="relative bg-gray-50 rounded-2xl p-5 sm:p-8 hover:bg-white hover:shadow-xl transition duration-300 border border-transparent hover:border-gray-100 ml-4 sm:ml-6">
                   {/* Step ID Badge on the box - "Give Way" Sign Shape (Inverted Triangle) */}
                   <div className="absolute top-1/2 -left-7 -translate-y-1/2 w-[3.25rem] h-[3.25rem] flex items-center justify-center transform group-hover:scale-110 transition z-10 drop-shadow-md">
                     <svg viewBox="0 0 100 100" className="w-full h-full filter drop-shadow-sm">

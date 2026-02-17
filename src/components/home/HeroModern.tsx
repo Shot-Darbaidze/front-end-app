@@ -36,7 +36,7 @@ const HeroModern = () => {
       <div className="absolute top-0 right-0 w-1/2 h-full bg-[#F03D3D]/5 skew-x-12 transform origin-top-right" />
       <div className="absolute bottom-0 left-0 w-1/3 h-1/2 bg-blue-500/5 -skew-x-12 transform origin-bottom-left" />
 
-      <div className="max-w-7xl mx-auto px-6 py-24 md:py-32 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 md:py-32 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           
           {/* Left Content */}
@@ -46,14 +46,14 @@ const HeroModern = () => {
               <span>#1 Rated Driving Platform in 2025</span>
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold leading-tight tracking-tight">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold leading-tight tracking-tight">
               Master the Road <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F03D3D] to-orange-500">
                 With Confidence
               </span>
             </h1>
             
-            <p className="text-lg text-gray-400 max-w-xl leading-relaxed">
+            <p className="text-base sm:text-lg text-gray-400 max-w-xl leading-relaxed">
               Ditch the anxiety. Connect with elite, patient instructors who tailor every lesson to your learning style. Your license is just a few clicks away.
             </p>
 
