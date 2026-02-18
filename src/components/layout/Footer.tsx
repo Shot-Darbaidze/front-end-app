@@ -21,7 +21,7 @@ const Footer = () => {
   return (
     <footer className="relative bg-[#0F172A] text-white pt-20 pb-10 transform-gpu will-change-[transform]">
       <div className="relative max-w-7xl mx-auto px-6 z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 mb-16">
           {/* Brand Column */}
           <div className="space-y-6">
             <Link href="/" className="text-2xl font-bold tracking-tighter">
@@ -56,13 +56,8 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link href="/for-instructors" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
-                  For Instructors
-                </Link>
-              </li>
-              <li>
-                <Link href="/about" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
-                  About Us
+                <Link href="/city-exam" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
+                  City Exam
                 </Link>
               </li>
             </ul>
@@ -74,18 +69,35 @@ const Footer = () => {
             <ul className="space-y-4">
               <li>
                 <Link href="/for-instructors" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
-                  Join the Network
+                  Why Instruktori
                 </Link>
               </li>
               <li>
-                <Link href="/for-instructors/benefits" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
-                  Instructor Benefits
+                <Link href="/for-instructors/signup" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
+                  Become an Instructor
                 </Link>
               </li>
+            </ul>
+          </div>
+
+          {/* Sagency */}
+          <div>
+            <h3 className="font-bold text-lg mb-6">Sagency</h3>
+            <ul className="space-y-4">
               <li>
-                <Link href="/for-instructors/success-stories" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
-                  Success Stories
-                </Link>
+                <a href="https://www.sa.gov.ge/p/bookingterms" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
+                  Reservation
+                </a>
+              </li>
+              <li>
+                <a href="https://my.sa.gov.ge/drivinglicenses/theoreticalexam" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
+                  Theory Exam
+                </a>
+              </li>
+              <li>
+                <a href="https://my.sa.gov.ge/drivinglicenses/practicalexam" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
+                  City Exam
+                </a>
               </li>
             </ul>
           </div>
@@ -115,9 +127,8 @@ const Footer = () => {
             © {currentYear} Instruktori Inc. All rights reserved.
           </p>
           <div className="flex gap-6 text-sm text-gray-500">
-            <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-            <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
-            <Link href="/cookies" className="hover:text-white transition-colors">Cookie Policy</Link>
+            <span>Privacy Policy</span>
+            <span>Terms of Service</span>
           </div>
         </div>
       </div>

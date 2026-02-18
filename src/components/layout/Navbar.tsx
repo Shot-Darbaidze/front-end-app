@@ -101,15 +101,15 @@ const Navbar = () => {
             : "bg-transparent py-5"
         }`}
       >
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-          
+        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between relative">
+
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-8 h-8 flex items-center justify-center transform group-hover:rotate-12 transition duration-300">
-              <Image 
-                src="/icon.svg" 
-                alt="Instruktori Logo" 
-                width={32} 
+              <Image
+                src="/icon.svg"
+                alt="Instruktori Logo"
+                width={32}
                 height={32}
                 className="w-full h-full object-contain"
               />
@@ -120,10 +120,10 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
             {navLinks.map((link) => (
-              <Link 
-                key={link.href} 
+              <Link
+                key={link.href}
                 href={link.href}
                 className={`text-sm font-medium transition-colors hover:text-[#F03D3D] ${
                   pathname === link.href ? "text-[#F03D3D]" : "text-gray-600"

@@ -30,7 +30,7 @@ const InstructorCTA = () => {
               </p>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4 text-left max-w-md mx-auto lg:mx-0 lg:max-w-none justify-items-center lg:justify-items-start">
+            <div className="grid sm:grid-cols-2 gap-y-4 gap-x-2 text-left max-w-md mx-auto lg:mx-0 lg:max-w-lg justify-items-center lg:justify-items-start">
               {benefits.map((benefit, idx) => (
                 <div key={idx} className="flex items-center gap-3 w-fit">
                   <CheckCircle2 className="w-5 h-5 text-[#F03D3D] shrink-0" />
