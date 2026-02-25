@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useAuth as useClerkAuth } from "@clerk/nextjs";
-import { InstructorDashboardNav } from "@/components/dashboard/instructor/InstructorDashboardNav";
+import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import { ResponsiveCalendar, SlotData, SlotStatus, generateTimeSlots } from "@/components/dashboard/instructor/ResponsiveCalendar";
 import Button from "@/components/ui/Button";
 import { Save, RotateCcw, Clock, Loader2, AlertCircle, CheckCircle, Copy } from "lucide-react";
@@ -37,18 +37,18 @@ interface BatchCreateResponse {
 export default function SchedulePage() {
   const { getToken } = useClerkAuth();
   const router = useRouter();
-  
+
   // Auth state
   const [isApproved, setIsApproved] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
-  
+
   // Schedule state
   const [slots, setSlots] = useState<Record<string, SlotData>>({});
   const [pendingSlots, setPendingSlots] = useState<Set<string>>(new Set());
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date | null>(null);
   const [currentWeekDays, setCurrentWeekDays] = useState<Date[]>([]);
-  
+
   // UI state
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -140,7 +140,7 @@ export default function SchedulePage() {
   const fetchSlots = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const token = await getToken();
       if (!token) {
@@ -163,7 +163,7 @@ export default function SchedulePage() {
       }
 
       const data: SlotResponse[] = await response.json();
-      
+
       // Convert API response to slot map
       const slotMap: Record<string, SlotData> = {};
       data.forEach((slot) => {
@@ -173,7 +173,7 @@ export default function SchedulePage() {
         const localHours = utcDate.getHours().toString().padStart(2, "0");
         const localMins = utcDate.getMinutes().toString().padStart(2, "0");
         const slotKey = `${localDateStr}_${localHours}:${localMins}`;
-        
+
         slotMap[slotKey] = {
           id: slot.id,
           status: slot.status,
@@ -181,7 +181,7 @@ export default function SchedulePage() {
           mode: slot.mode,
         };
       });
-      
+
       setSlots(slotMap);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch slots");
@@ -201,14 +201,14 @@ export default function SchedulePage() {
   const handleSlotToggle = useCallback((date: Date, timeString: string) => {
     const dateStr = date.toISOString().split("T")[0];
     const slotKey = `${dateStr}_${timeString}`;
-    
+
     // Check if it's an existing slot from backend
     const existingSlot = slots[slotKey];
     if (existingSlot?.id) {
       // Existing slot - don't toggle, user should use delete button
       return;
     }
-    
+
     setPendingSlots((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(slotKey)) {
@@ -250,7 +250,7 @@ export default function SchedulePage() {
         delete newSlots[slotKey];
         return newSlots;
       });
-      
+
       setSuccessMessage("Slot deleted successfully");
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
@@ -261,7 +261,7 @@ export default function SchedulePage() {
   // Combine existing slots with pending slots for display
   const combinedSlots = React.useMemo(() => {
     const result: Record<string, SlotData> = { ...slots };
-    
+
     // Add pending slots
     pendingSlots.forEach((key) => {
       if (!result[key]) {
@@ -271,17 +271,17 @@ export default function SchedulePage() {
         };
       }
     });
-    
+
     return result;
   }, [slots, pendingSlots, durationMinutes]);
 
   // Save pending slots to backend
   const handleSave = async () => {
     if (pendingSlots.size === 0) return;
-    
+
     setIsSaving(true);
     setError(null);
-    
+
     try {
       const token = await getToken();
       if (!token) {
@@ -319,7 +319,7 @@ export default function SchedulePage() {
       }
 
       const data: BatchCreateResponse = await response.json();
-      
+
       // Update local state with created slots
       const newSlots: Record<string, SlotData> = { ...slots };
       data.created.forEach((slot) => {
@@ -328,7 +328,7 @@ export default function SchedulePage() {
         const localHours = utcDate.getHours().toString().padStart(2, "0");
         const localMins = utcDate.getMinutes().toString().padStart(2, "0");
         const slotKey = `${localDateStr}_${localHours}:${localMins}`;
-        
+
         newSlots[slotKey] = {
           id: slot.id,
           status: slot.status,
@@ -336,17 +336,17 @@ export default function SchedulePage() {
           mode: slot.mode,
         };
       });
-      
+
       setSlots(newSlots);
       setPendingSlots(new Set());
-      
+
       // Show success message
       const successMsg = data.failed.length > 0
         ? `Created ${data.created.length} slots. ${data.failed.length} failed (overlapping).`
         : `Created ${data.created.length} slots successfully!`;
       setSuccessMessage(successMsg);
       setTimeout(() => setSuccessMessage(null), 5000);
-      
+
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save slots");
     } finally {
@@ -357,7 +357,7 @@ export default function SchedulePage() {
   // Reset pending slots
   const handleReset = () => {
     if (pendingSlots.size === 0) return;
-    
+
     if (confirm("Discard unsaved changes?")) {
       setPendingSlots(new Set());
     }
@@ -426,17 +426,17 @@ export default function SchedulePage() {
       lastWeekSlotKeys.forEach((lastWeekKey) => {
         const [dateStr, timeStr] = lastWeekKey.split("_");
         const lastWeekDate = new Date(dateStr);
-        
+
         // Calculate day of week (0-6, where 0 is Monday in our system)
         const dayOfWeek = (lastWeekDate.getDay() + 6) % 7; // Convert to Mon=0, Sun=6
-        
+
         // Get the corresponding day in current week
         const currentWeekDay = currentWeekDays[dayOfWeek];
         if (!currentWeekDay) return;
-        
+
         const currentWeekDateStr = currentWeekDay.toISOString().split("T")[0];
         const newSlotKey = `${currentWeekDateStr}_${timeStr}`;
-        
+
         // Only add if slot doesn't already exist and is not in the past
         const existingSlot = slots[newSlotKey];
         if (!existingSlot?.id) {
@@ -444,7 +444,7 @@ export default function SchedulePage() {
           const [hours, mins] = timeStr.split(":").map(Number);
           const slotDateTime = new Date(currentWeekDay);
           slotDateTime.setHours(hours, mins, 0, 0);
-          
+
           if (slotDateTime > new Date()) {
             newPendingSlots.add(newSlotKey);
           }
@@ -481,8 +481,8 @@ export default function SchedulePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pt-20">
-      <InstructorDashboardNav />
-      
+      <MobileDashboardNav isInstructor />
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
@@ -490,7 +490,7 @@ export default function SchedulePage() {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Schedule</h1>
             <p className="text-gray-500 mt-1 text-sm sm:text-base">Manage your weekly availability.</p>
           </div>
-          
+
           <div className="flex items-center gap-3">
             {/* Duration Selector */}
             <div className="flex items-center gap-2">
@@ -509,8 +509,8 @@ export default function SchedulePage() {
             </div>
 
             {/* Copy from Last Week Button */}
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleCopyFromLastWeek}
               disabled={isCopying || isSaving || isLoading}
               className="text-sm"
@@ -522,9 +522,9 @@ export default function SchedulePage() {
               )}
               Copy Last Week
             </Button>
-            
-            <Button 
-              variant="outline" 
+
+            <Button
+              variant="outline"
               onClick={handleReset}
               disabled={!hasChanges || isSaving}
               className="text-sm"
@@ -532,7 +532,7 @@ export default function SchedulePage() {
               <RotateCcw className="w-4 h-4 mr-2" />
               Reset
             </Button>
-            <Button 
+            <Button
               onClick={handleSave}
               disabled={!hasChanges || isSaving}
               className="text-sm"
@@ -574,7 +574,7 @@ export default function SchedulePage() {
             </button>
           </div>
         )}
-        
+
         {/* Calendar Card */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-200 shadow-sm">
           {/* Legend */}
@@ -612,7 +612,7 @@ export default function SchedulePage() {
               <span className="ml-3 text-gray-500">Loading schedule...</span>
             </div>
           ) : (
-            <ResponsiveCalendar 
+            <ResponsiveCalendar
               slots={combinedSlots}
               onSlotToggle={handleSlotToggle}
               onSlotDelete={handleSlotDelete}

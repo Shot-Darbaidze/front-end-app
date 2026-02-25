@@ -3,13 +3,13 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Languages, Bell, Heart } from "lucide-react";
-import { 
-  SignInButton, 
-  SignUpButton, 
-  SignedIn, 
-  SignedOut, 
+import {
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
   UserButton,
   useUser,
   useClerk
@@ -18,11 +18,13 @@ import { useNotifications } from "@/hooks";
 import Button from "@/components/ui/Button";
 import NotificationsDropdown from "@/components/navbar-components/NotificationsDropdown";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { removeLocaleFromPathname } from "@/lib/i18n";
 
 const Navbar = () => {
   const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
   const { language, setLanguage } = useLanguage();
+  const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -30,8 +32,15 @@ const Navbar = () => {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
+  // Helper to prefix links with current locale
+  const localeHref = (path: string) => `/${language}${path === "/" ? "" : path}`;
+
   const handleLanguageToggle = () => {
-    setLanguage(language === "en" ? "ka" : "en");
+    const newLang = language === "en" ? "ka" : "en";
+    setLanguage(newLang);
+    // Navigate to the same page with the new locale
+    const pathWithoutLocale = removeLocaleFromPathname(pathname);
+    router.push(`/${newLang}${pathWithoutLocale === "/" ? "" : pathWithoutLocale}`);
   };
 
   // Determine user type from Clerk metadata (default to "student")
@@ -78,33 +87,33 @@ const Navbar = () => {
     };
   }, [isMobileMenuOpen]);
 
-  const isDashboard = pathname?.startsWith('/dashboard');
+  const isDashboard = pathname?.includes('/dashboard');
 
   // Hide navbar on signup pages
-  if (pathname === '/for-instructors/signup') {
+  if (pathname?.endsWith('/for-instructors/signup')) {
     return null;
   }
 
   const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/find-instructors", label: "Find Instructors" },
-    { href: "/for-instructors", label: "For Instructors" },
-    ...(userType === "student" ? [{ href: "/city-exam", label: "City Exam" }] : []),
+    { href: "/", label: language === "ka" ? "მთავარი" : "Home" },
+    { href: "/find-instructors", label: language === "ka" ? "ინსტრუქტორების ძებნა" : "Find Instructors" },
+    { href: "/for-instructors", label: language === "ka" ? "ინსტრუქტორებისთვის" : "For Instructors" },
+    ...(userType === "student" ? [{ href: "/city-exam", label: language === "ka" ? "ქალაქის გამოცდა" : "City Exam" }] : []),
   ];
 
   return (
     <>
-      <nav 
+      <nav
         className={`${isDashboard ? "absolute" : "fixed"} top-0 left-0 right-0 z-50 ${!isDashboard ? "transition-all duration-300" : ""} ${
           (!isDashboard && isScrolled) || isMobileMenuOpen
-            ? "bg-white/90 backdrop-blur-md py-3 shadow-sm" 
+            ? "bg-white/90 backdrop-blur-md py-3 shadow-sm"
             : "bg-transparent py-5"
         }`}
       >
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between relative">
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href={localeHref("/")} className="flex items-center gap-2 group">
             <div className="w-8 h-8 flex items-center justify-center transform group-hover:rotate-12 transition duration-300">
               <Image
                 src="/icon.svg"
@@ -124,9 +133,9 @@ const Navbar = () => {
             {navLinks.map((link) => (
               <Link
                 key={link.href}
-                href={link.href}
+                href={localeHref(link.href)}
                 className={`text-sm font-medium transition-colors hover:text-[#F03D3D] ${
-                  pathname === link.href ? "text-[#F03D3D]" : "text-gray-600"
+                  pathname === localeHref(link.href) ? "text-[#F03D3D]" : "text-gray-600"
                 }`}
               >
                 {link.label}
@@ -139,7 +148,7 @@ const Navbar = () => {
             {!mounted ? (
               // Placeholder while hydrating to prevent mismatch
               <div className="flex items-center gap-3">
-                <button 
+                <button
                   className="p-2 text-gray-600 opacity-0"
                   aria-label="Change language"
                   disabled
@@ -151,14 +160,14 @@ const Navbar = () => {
               <>
                 <SignedIn>
                   <div className="flex items-center gap-3">
-                <button 
+                <button
                   onClick={handleLanguageToggle}
                   className="p-2 text-gray-600 hover:text-[#F03D3D] transition-colors"
                   aria-label="Change language"
                 >
                   <Languages className="w-5 h-5" />
                 </button>
-                
+
                 <NotificationsDropdown
                   isOpen={isNotificationsOpen}
                   onClose={() => setIsNotificationsOpen(false)}
@@ -173,25 +182,25 @@ const Navbar = () => {
                   onRemove={removeNotification}
                 />
 
-                <Link 
-                  href="/dashboard/favorites" 
+                <Link
+                  href={localeHref("/dashboard/favorites")}
                   className="p-2 text-gray-600 hover:text-[#F03D3D] transition-colors rounded-full hover:bg-gray-50"
                   aria-label="Favorites"
                 >
                   <Heart className="w-5 h-5" />
                 </Link>
 
-                <Link 
-                  href="/dashboard" 
+                <Link
+                  href={localeHref("/dashboard")}
                   className="p-2 text-gray-600 hover:text-[#F03D3D] transition-colors rounded-full hover:bg-gray-50"
                   aria-label="Dashboard"
                 >
                   <LayoutDashboard className="w-5 h-5" />
                 </Link>
-                
+
                 {/* Clerk UserButton - provides access to profile management */}
-                <UserButton 
-                  afterSignOutUrl="/"
+                <UserButton
+                  afterSignOutUrl={localeHref("/")}
                   appearance={{
                     elements: {
                       avatarBox: "w-9 h-9",
@@ -203,13 +212,13 @@ const Navbar = () => {
                     },
                   }}
                   userProfileMode="navigation"
-                  userProfileUrl="/dashboard/settings"
+                  userProfileUrl={localeHref("/dashboard/settings")}
                 />
               </div>
             </SignedIn>
             <SignedOut>
               <>
-                <button 
+                <button
                   onClick={handleLanguageToggle}
                   className="p-2 text-gray-600 hover:text-[#F03D3D] transition-colors"
                   aria-label="Change language"
@@ -218,12 +227,12 @@ const Navbar = () => {
                 </button>
                 <SignInButton mode="modal">
                   <button className="text-sm font-medium text-gray-600 hover:text-[#F03D3D] transition-colors cursor-pointer">
-                    Log In
+                    {language === "ka" ? "შესვლა" : "Log In"}
                   </button>
                 </SignInButton>
                 <SignUpButton mode="modal">
                   <Button size="sm" className="rounded-full px-6 shadow-lg shadow-red-500/20">
-                    Get Started
+                    {language === "ka" ? "დაწყება" : "Get Started"}
                   </Button>
                 </SignUpButton>
               </>
@@ -249,61 +258,65 @@ const Navbar = () => {
         <div className="fixed inset-0 z-40 bg-white pt-24 px-6 md:hidden animate-in slide-in-from-top-10 duration-300">
           <div className="flex flex-col gap-6 text-center">
             {navLinks.map((link) => (
-              <Link 
-                key={link.href} 
-                href={link.href}
+              <Link
+                key={link.href}
+                href={localeHref(link.href)}
                 className="text-xl font-bold text-gray-900 hover:text-[#F03D3D]"
               >
                 {link.label}
               </Link>
             ))}
-            
+
             <div className="h-px bg-gray-100 my-2" />
-            
+
             <button onClick={handleLanguageToggle} className="flex items-center justify-center gap-2 text-lg font-medium text-gray-600 hover:text-[#F03D3D] mx-auto">
                <Languages className="w-5 h-5" />
-               <span>Language</span>
+               <span>{language === "ka" ? "English" : "ქართული"}</span>
             </button>
 
             <div className="h-px bg-gray-100 my-2" />
-            
+
             {mounted && (
               <>
                 <SignedIn>
                   <>
-                    <Link 
-                      href="/dashboard" 
+                    <Link
+                      href={localeHref("/dashboard")}
                       className="flex items-center justify-center gap-2 text-lg font-medium text-gray-600 hover:text-[#F03D3D]"
                     >
                       <Bell className="w-5 h-5" />
-                      <span>Notifications</span>
+                      <span>{language === "ka" ? "შეტყობინებები" : "Notifications"}</span>
                       {unreadCount > 0 && (
                         <span className="px-2 py-0.5 bg-[#F03D3D] text-white text-xs font-bold rounded-full">
                           {unreadCount}
                         </span>
                       )}
                     </Link>
-                    <Link 
-                      href="/dashboard/favorites" 
+                    <Link
+                      href={localeHref("/dashboard/favorites")}
                       className="flex items-center justify-center gap-2 text-lg font-medium text-gray-600 hover:text-[#F03D3D]"
                     >
                       <Heart className="w-5 h-5" />
-                      <span>Favorites</span>
+                      <span>{language === "ka" ? "ფავორიტები" : "Favorites"}</span>
                     </Link>
-                    <Link href="/dashboard" className="text-lg font-medium text-gray-600">Dashboard</Link>
-                    <button onClick={() => signOut({ redirectUrl: '/' })} className="text-lg font-bold text-red-600">Log Out</button>
+                    <Link href={localeHref("/dashboard")} className="text-lg font-medium text-gray-600">
+                      {language === "ka" ? "დაფა" : "Dashboard"}
+                    </Link>
+                    <button onClick={() => signOut({ redirectUrl: localeHref("/") })} className="text-lg font-bold text-red-600">
+                      {language === "ka" ? "გამოსვლა" : "Log Out"}
+                    </button>
                   </>
                 </SignedIn>
                 <SignedOut>
                   <div className="flex flex-col gap-4 mt-4">
                     <SignInButton mode="modal">
                       <button className="w-full py-3 rounded-xl border border-gray-200 font-bold text-gray-900 cursor-pointer">
-                        Log In
+                        {language === "ka" ? "შესვლა" : "Log In"}
                       </button>
                     </SignInButton>
                     <SignUpButton mode="modal">
                       <button className="w-full py-3 rounded-xl bg-[#F03D3D] text-white font-bold shadow-lg shadow-red-500/20 cursor-pointer">
-                        Get Started
+                        {language === "ka" ? "დაწყება" : "Get Started"}
                       </button>
                     </SignUpButton>
                   </div>

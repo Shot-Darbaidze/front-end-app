@@ -2,8 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth as useClerkAuth, useUser, UserProfile } from "@clerk/nextjs";
-import { DashboardNav } from "@/components/dashboard/student/DashboardNav";
-import { InstructorDashboardNav } from "@/components/dashboard/instructor/InstructorDashboardNav";
+import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import Button from "@/components/ui/Button";
 import Link from "next/link";
 import { Camera, User as UserIcon, Bell, Settings, Trash2 } from "lucide-react";
@@ -22,8 +21,8 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pt-20">
-      {isInstructor ? <InstructorDashboardNav /> : <DashboardNav />}
-      
+      <MobileDashboardNav isInstructor={isInstructor} />
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
@@ -40,8 +39,8 @@ export default function SettingsPage() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`
                     w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all
-                    ${activeTab === tab.id 
-                      ? "bg-white text-[#F03D3D] shadow-sm ring-1 ring-gray-200" 
+                    ${activeTab === tab.id
+                      ? "bg-white text-[#F03D3D] shadow-sm ring-1 ring-gray-200"
                       : "text-gray-600 hover:bg-white/50 hover:text-gray-900"
                     }
                   `}
@@ -73,7 +72,7 @@ const AccountSettings = () => {
       <p className="text-sm text-gray-500 mb-6">
         Manage your account settings, security, and connected accounts through Clerk.
       </p>
-      <UserProfile 
+      <UserProfile
         routing="hash"
         appearance={{
           elements: {
@@ -407,11 +406,10 @@ const ProfileSettings = ({ user, isInstructor }: { user: ClerkUser; isInstructor
                     type="button"
                     onClick={() => handleLanguageToggle(option.code)}
                     disabled={!isEditable}
-                    className={`px-3 py-2 text-sm rounded-lg border transition-all ${
-                      selected
+                    className={`px-3 py-2 text-sm rounded-lg border transition-all ${selected
                         ? "border-[#F03D3D] text-[#F03D3D] bg-[#F03D3D]/5"
                         : "border-gray-200 text-gray-700 bg-white"
-                    } disabled:opacity-60 disabled:cursor-not-allowed`}
+                      } disabled:opacity-60 disabled:cursor-not-allowed`}
                   >
                     {option.label}
                   </button>
@@ -421,11 +419,10 @@ const ProfileSettings = ({ user, isInstructor }: { user: ClerkUser; isInstructor
                 type="button"
                 onClick={() => setShowOtherLanguages((prev) => !prev)}
                 disabled={!isEditable}
-                className={`px-3 py-2 text-sm rounded-lg border transition-all ${
-                  showOtherLanguages
+                className={`px-3 py-2 text-sm rounded-lg border transition-all ${showOtherLanguages
                     ? "border-[#F03D3D] text-[#F03D3D] bg-[#F03D3D]/5"
                     : "border-gray-200 text-gray-700 bg-white"
-                } disabled:opacity-60 disabled:cursor-not-allowed`}
+                  } disabled:opacity-60 disabled:cursor-not-allowed`}
               >
                 Other
               </button>
@@ -440,11 +437,10 @@ const ProfileSettings = ({ user, isInstructor }: { user: ClerkUser; isInstructor
                       type="button"
                       onClick={() => handleLanguageToggle(option.code)}
                       disabled={!isEditable}
-                      className={`px-3 py-2 text-sm rounded-lg border transition-all ${
-                        selected
+                      className={`px-3 py-2 text-sm rounded-lg border transition-all ${selected
                           ? "border-[#F03D3D] text-[#F03D3D] bg-[#F03D3D]/5"
                           : "border-gray-200 text-gray-700 bg-white"
-                      } disabled:opacity-60 disabled:cursor-not-allowed`}
+                        } disabled:opacity-60 disabled:cursor-not-allowed`}
                     >
                       {option.label}
                     </button>

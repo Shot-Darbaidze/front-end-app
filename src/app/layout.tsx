@@ -1,10 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ClerkProvider } from "@clerk/nextjs";
-import Navbar from "@/components/layout/Navbar";
-import Footer from "@/components/layout/Footer";
-import ClientProviders from "@/components/providers/ClientProviders";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -52,7 +48,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    locale: "en_US",
+    locale: "ka_GE",
     url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
     title: "Instruktori.ge - Find Driving Instructors in Georgia",
     description:
@@ -77,16 +73,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="en">
-        <body className={`${inter.variable} font-sans font-medium antialiased`}>
-          <ClientProviders>
-            <Navbar />
-            {children}
-            <Footer />
-          </ClientProviders>
-        </body>
-      </html>
-    </ClerkProvider>
+    <html>
+      <body className={`${inter.variable} font-sans font-medium antialiased`}>
+        {children}
+      </body>
+    </html>
   );
 }

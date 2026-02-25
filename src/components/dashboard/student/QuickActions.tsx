@@ -1,52 +1,66 @@
-import React from "react";
-import { Search, MessageSquare, CalendarPlus, FileText } from "lucide-react";
-import Link from "next/link";
+"use client";
 
-const actions = [
-  { 
-    icon: Search, 
-    label: "Find Instructor", 
-    desc: "Browse & book",
-    href: "/find-instructors",
-    color: "bg-blue-50 text-blue-600"
-  },
-  { 
-    icon: CalendarPlus, 
-    label: "Book Lesson", 
-    desc: "Schedule now",
-    href: "/dashboard/lessons",
-    color: "bg-purple-50 text-purple-600"
-  },
-  { 
-    icon: MessageSquare, 
-    label: "Messages", 
-    desc: "Chat with instructor",
-    href: "/dashboard/messages",
-    color: "bg-orange-50 text-orange-600"
-  },
-  { 
-    icon: FileText, 
-    label: "My License", 
-    desc: "View documents",
-    href: "/dashboard/documents",
-    color: "bg-green-50 text-green-600"
-  },
-];
+import React from "react";
+import { Search, MessageSquare, CalendarPlus, FileText, ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export const QuickActions = () => {
+  const localeHref = useLocaleHref();
+  const { t } = useLanguage();
+
+  const actions = [
+    {
+      icon: Search,
+      label: t("dashboard.quickActions.findInstructor"),
+      desc: t("dashboard.quickActions.findInstructorDesc"),
+      href: "/find-instructors",
+      gradient: "from-blue-500 to-indigo-600",
+      shadow: "group-hover:shadow-blue-500/20",
+    },
+    {
+      icon: CalendarPlus,
+      label: t("dashboard.quickActions.bookLesson"),
+      desc: t("dashboard.quickActions.bookLessonDesc"),
+      href: "/dashboard/lessons",
+      gradient: "from-purple-500 to-violet-600",
+      shadow: "group-hover:shadow-purple-500/20",
+    },
+    {
+      icon: MessageSquare,
+      label: t("dashboard.quickActions.messages"),
+      desc: t("dashboard.quickActions.messagesDesc"),
+      href: "/dashboard/messages",
+      gradient: "from-orange-500 to-red-500",
+      shadow: "group-hover:shadow-orange-500/20",
+    },
+    {
+      icon: FileText,
+      label: t("dashboard.quickActions.myLicense"),
+      desc: t("dashboard.quickActions.myLicenseDesc"),
+      href: "/dashboard/documents",
+      gradient: "from-emerald-500 to-teal-600",
+      shadow: "group-hover:shadow-emerald-500/20",
+    },
+  ];
+
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="space-y-2">
       {actions.map((action, idx) => (
-        <Link 
-          key={idx} 
-          href={action.href}
-          className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all active:scale-95"
+        <Link
+          key={idx}
+          href={localeHref(action.href)}
+          className={`flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100/80 hover:shadow-lg ${action.shadow} transition-all duration-300 group`}
         >
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${action.color}`}>
-            <action.icon className="w-5 h-5" />
+          <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${action.gradient} flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 transition-transform duration-300`}>
+            <action.icon className="w-4 h-4 text-white" />
           </div>
-          <h4 className="font-bold text-gray-900">{action.label}</h4>
-          <p className="text-xs text-gray-500">{action.desc}</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900">{action.label}</p>
+            <p className="text-[11px] text-gray-400">{action.desc}</p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#F03D3D] group-hover:translate-x-0.5 transition-all shrink-0" />
         </Link>
       ))}
     </div>

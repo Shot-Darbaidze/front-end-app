@@ -1,57 +1,53 @@
+"use client";
+
 import React from "react";
 import { Users, Clock, Calendar, DollarSign } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export const InstructorStats = () => {
-  // Mock data - replace with real data later
+  const { t } = useLanguage();
+
   const stats = [
+
     {
-      label: "Active Students",
-      value: "8",
-      subtext: "Currently teaching",
-      icon: Users,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
-    },
-    {
-      label: "Hours Taught",
-      value: "124h",
-      subtext: "Total time",
-      icon: Clock,
-      color: "text-green-600",
-      bg: "bg-green-50",
-    },
-    {
-      label: "Upcoming",
+      label: "Upcoming today",
       value: "5",
-      subtext: "Scheduled lessons",
       icon: Calendar,
-      color: "text-purple-600",
-      bg: "bg-purple-50",
+      gradient: "from-purple-500 to-violet-600",
+      shadow: "shadow-purple-500/20",
     },
     {
-      label: "Earnings",
-      value: "$1,250",
-      subtext: "This month",
+      label: t("dashboard.stats.earnings"),
+      value: "₾1,250",
       icon: DollarSign,
-      color: "text-orange-600",
-      bg: "bg-orange-50",
+      gradient: "from-orange-500 to-red-500",
+      shadow: "shadow-orange-500/20",
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-6">
       {stats.map((stat, index) => (
         <div
           key={index}
-          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-start transition-all hover:shadow-md"
+          className="relative bg-white/90 backdrop-blur-xl rounded-3xl p-5 md:p-6 border border-slate-200 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-500 group overflow-hidden"
         >
-          <div className={`p-3 rounded-xl ${stat.bg} mb-4`}>
-            <stat.icon className={`w-6 h-6 ${stat.color}`} />
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-gray-500">{stat.label}</p>
-            <h4 className="text-2xl font-bold text-gray-900">{stat.value}</h4>
-            <p className="text-xs text-gray-400">{stat.subtext}</p>
+          {/* subtle animated background glow */}
+          <div className="absolute -inset-2 bg-gradient-to-r opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-xl rounded-3xl pointer-events-none" />
+
+          <div className="flex flex-col justify-between h-full relative z-10">
+            <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${stat.gradient} ${stat.shadow} shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-500`}>
+              <stat.icon className="w-6 h-6 text-white drop-shadow-md" />
+            </div>
+
+            <div className="mt-4">
+              <p className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                {stat.value}
+              </p>
+              <p className="text-sm font-medium text-slate-500 mt-1 uppercase tracking-wide">
+                {stat.label}
+              </p>
+            </div>
           </div>
         </div>
       ))}

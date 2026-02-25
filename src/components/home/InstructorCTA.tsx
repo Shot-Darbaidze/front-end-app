@@ -1,15 +1,22 @@
+"use client";
+
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2, TrendingUp } from 'lucide-react';
 import Image from 'next/image';
-
-const benefits = [
-  "Grow your student base",
-  "Set your own schedule",
-  "Guaranteed payments",
-  "Professional tools"
-];
+import { useLocaleHref } from "@/hooks/useLocaleHref";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const InstructorCTA = () => {
+  const localeHref = useLocaleHref();
+  const { t } = useLanguage();
+
+  const benefits = [
+    t("home.instructorCta.benefit1"),
+    t("home.instructorCta.benefit2"),
+    t("home.instructorCta.benefit3"),
+    t("home.instructorCta.benefit4"),
+  ];
+
   return (
     <section className="py-16 sm:py-24">
       <div className="max-w-[85rem] mx-auto px-4 md:px-8">
@@ -17,16 +24,16 @@ const InstructorCTA = () => {
           <div className="space-y-8 text-center lg:text-left">
             <div className="space-y-4">
               <span className="inline-block px-4 py-1.5 rounded-full bg-red-50 text-[#F03D3D] font-semibold text-sm">
-                For Instructors
+                {t("home.instructorCta.badge")}
               </span>
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F03D3D] to-orange-500">
-                  Want to become an instructor?
+                  {t("home.instructorCta.title")}
                 </span> <br/>
-                Start teaching today.
+                {t("home.instructorCta.titleLine2")}
               </h2>
               <p className="text-base sm:text-lg text-gray-600 max-w-lg mx-auto lg:mx-0">
-                Join the fastest-growing driving school platform. We handle the marketing and booking, so you can focus on teaching.
+                {t("home.instructorCta.description")}
               </p>
             </div>
 
@@ -41,17 +48,17 @@ const InstructorCTA = () => {
 
             <div className="flex flex-col sm:flex-row justify-center lg:justify-start gap-4 pt-4">
               <Link
-                href="/for-instructors"
+                href={localeHref("/for-instructors")}
                 className="inline-flex items-center justify-center px-8 py-4 bg-[#0F172A] text-white rounded-xl font-bold hover:bg-[#1E293B] transition shadow-lg shadow-gray-900/20 group"
               >
-                Become an Instructor
+                {t("home.instructorCta.becomeInstructor")}
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link
-                href="/for-instructors"
+                href={localeHref("/for-instructors")}
                 className="inline-flex items-center justify-center px-8 py-4 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 transition"
               >
-                Learn More
+                {t("home.instructorCta.learnMore")}
               </Link>
             </div>
           </div>
@@ -73,7 +80,7 @@ const InstructorCTA = () => {
                    <TrendingUp className="w-6 h-6" />
                  </div>
                  <div>
-                   <p className="text-xs text-gray-500 font-semibold uppercase">Monthly Earnings</p>
+                   <p className="text-xs text-gray-500 font-semibold uppercase">{t("home.instructorCta.monthlyEarnings")}</p>
                    <p className="text-lg font-bold text-gray-900">₾4,500+</p>
                  </div>
                </div>

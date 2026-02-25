@@ -1,13 +1,18 @@
-import { Shield, Users, Trophy, Clock } from "lucide-react";
+"use client";
 
-const stats = [
-  { label: "Active Students", value: "1k+", icon: Users },
-  { label: "Pass Rate", value: "94%", icon: Trophy },
-  { label: "Verified Instructors", value: "50+", icon: Shield },
-  { label: "Lesson Hours", value: "7k+", icon: Clock },
-];
+import { Shield, Users, Trophy, Clock } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const TrustStrip = () => {
+  const { t } = useLanguage();
+
+  const stats = [
+    { label: t("home.trust.activeStudents"), value: "1k+", icon: Users },
+    { label: t("home.trust.passRate"), value: "94%", icon: Trophy },
+    { label: t("home.trust.verifiedInstructors"), value: "50+", icon: Shield },
+    { label: t("home.trust.lessonHours"), value: "7k+", icon: Clock },
+  ];
+
   return (
     <section className="bg-gray-100 border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-6 sm:px-10 py-8 sm:py-10">

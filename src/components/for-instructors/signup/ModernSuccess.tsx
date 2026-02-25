@@ -2,8 +2,10 @@
 
 import { Check, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 
 const ModernSuccess = () => {
+  const localeHref = useLocaleHref();
   return (
     <div className="flex flex-col items-center justify-center text-center animate-in fade-in zoom-in duration-500">
       <div className="w-24 h-24 bg-gray-800/50 backdrop-blur-sm rounded-full flex items-center justify-center mb-8 border border-gray-700 shadow-2xl">
@@ -16,8 +18,8 @@ const ModernSuccess = () => {
         Thank you for applying to join <span className="text-white font-semibold">Instruktori</span>. Our team will review your documents and get back to you within 24-48 hours.
       </p>
       
-      <Link 
-        href="/" 
+      <Link
+        href={localeHref("/")} 
         className="inline-flex items-center px-8 py-4 bg-[#F03D3D] text-white rounded-xl font-bold hover:bg-red-600 transition shadow-lg shadow-red-500/20 group text-lg"
       >
         Return to Home

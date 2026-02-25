@@ -2,11 +2,29 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+const locales = ["ka", "en"] as const;
+const defaultLocale = "ka";
+
+function isValidLocale(locale: string): boolean {
+  return locales.includes(locale as typeof locales[number]);
+}
+
 // Define protected routes that require authentication
 const isProtectedRoute = createRouteMatcher([
-  '/dashboard(.*)',
+  '/:locale/dashboard(.*)',
   '/api/protected(.*)',
 ]);
+
+// Paths that should NOT get a locale prefix
+const isExcludedPath = (pathname: string) => {
+  return (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/sign-in') ||
+    pathname.startsWith('/sign-up') ||
+    pathname.match(/\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)$/)
+  );
+};
 
 
 /**
@@ -86,7 +104,7 @@ function addSecurityHeaders(response: NextResponse, request: NextRequest) {
 }
 
 export default clerkMiddleware(async (auth, request) => {
-  const { userId, redirectToSignIn } = await auth();
+  const { pathname } = request.nextUrl;
 
   // Handle OPTIONS preflight requests
   if (request.method === 'OPTIONS') {
@@ -94,7 +112,21 @@ export default clerkMiddleware(async (auth, request) => {
     return addSecurityHeaders(response, request);
   }
 
+  // Locale redirect — must happen before auth checks
+  if (!isExcludedPath(pathname)) {
+    const segments = pathname.split('/');
+    const maybeLocale = segments[1];
+
+    if (!maybeLocale || !isValidLocale(maybeLocale)) {
+      // No valid locale in URL → redirect to default locale
+      const url = request.nextUrl.clone();
+      url.pathname = `/${defaultLocale}${pathname === '/' ? '' : pathname}`;
+      return NextResponse.redirect(url);
+    }
+  }
+
   // Protect routes that require authentication
+  const { userId, redirectToSignIn } = await auth();
   if (isProtectedRoute(request) && !userId) {
     return redirectToSignIn();
   }

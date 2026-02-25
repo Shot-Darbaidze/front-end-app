@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { CheckCircle, XCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 
 const ComparisonGrid = () => {
   const { t } = useLanguage();
+  const localeHref = useLocaleHref();
   
   const features = [
     {
@@ -130,7 +132,7 @@ const ComparisonGrid = () => {
             {t("comparison.ctaText")}
           </p>
           <Link
-            href="/for-instructors/signup"
+            href={localeHref("/for-instructors/signup")}
             className="inline-flex px-8 py-4 bg-[#F03D3D] text-white rounded-xl font-bold hover:bg-[#d62f2f] transition-all shadow-lg shadow-red-500/20 active:scale-95"
           >
             {t("comparison.ctaButton")}

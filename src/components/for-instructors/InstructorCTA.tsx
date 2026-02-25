@@ -4,9 +4,11 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import EarningsCalculator from "./EarningsCalculator";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 
 const InstructorCTA = () => {
   const { t } = useLanguage();
+  const localeHref = useLocaleHref();
   
   return (
     <section id="instructor-cta" className="py-24 px-6 bg-[#0F172A] relative">
@@ -28,8 +30,8 @@ const InstructorCTA = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <Link 
-                href="/for-instructors/signup" 
+              <Link
+                href={localeHref("/for-instructors/signup")} 
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#F03D3D] text-white rounded-xl font-bold hover:bg-[#d62f2f] transition-all shadow-lg shadow-red-500/20 active:scale-95"
               >
                 {t("cta.button")}

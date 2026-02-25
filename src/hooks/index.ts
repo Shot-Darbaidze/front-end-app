@@ -14,3 +14,4 @@ export { useNotifications } from './useNotifications';
 export type { Notification } from './useNotifications';
 export { useExamMonitor, CITY_CENTERS } from './useExamMonitor';
 export type { ExamSlot, UseExamMonitorReturn } from './useExamMonitor';
+export { useLocaleHref } from './useLocaleHref';

@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useAuth as useClerkAuth } from "@clerk/nextjs";
+import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import { Heart, Trash2, Star, ShieldCheck, ArrowLeft, Loader2 } from "lucide-react";
 import { API_CONFIG } from '@/config/constants';
+import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 
 interface FavoriteItem {
   id: string;
@@ -26,6 +27,8 @@ interface FavoritesResponse {
 
 export default function FavoritesPage() {
   const { getToken, isSignedIn } = useClerkAuth();
+  const { user } = useUser();
+  const isInstructor = (user?.publicMetadata?.userType as string) === "instructor";
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +76,7 @@ export default function FavoritesPage() {
   const handleRemoveFavorite = async (postId: string) => {
     try {
       setRemovingIds((prev) => new Set(prev).add(postId));
-      
+
       const token = await getToken();
       if (!token) return;
 
@@ -131,8 +134,9 @@ export default function FavoritesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-24 pb-12">
-      <div className="max-w-6xl mx-auto px-6">
+    <div className="min-h-screen bg-gray-50 pt-20 pb-12">
+      <MobileDashboardNav isInstructor={isInstructor} />
+      <div className="max-w-6xl mx-auto px-6 mt-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
@@ -174,9 +178,8 @@ export default function FavoritesPage() {
                   <div className="flex gap-4">
                     <div className="relative">
                       <div
-                        className={`w-16 h-16 rounded-2xl ${
-                          favorite.post_image_url ? "" : "bg-gradient-to-br from-gray-100 to-gray-200"
-                        } overflow-hidden shadow-inner`}
+                        className={`w-16 h-16 rounded-2xl ${favorite.post_image_url ? "" : "bg-gradient-to-br from-gray-100 to-gray-200"
+                          } overflow-hidden shadow-inner`}
                       >
                         {favorite.post_image_url ? (
                           <img

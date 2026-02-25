@@ -1,64 +1,63 @@
+"use client";
+
 import React from "react";
-import { Calendar, Clock, MapPin, ChevronRight } from "lucide-react";
+import { Calendar, Clock, MapPin, ChevronRight, Car } from "lucide-react";
 import Link from "next/link";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export const NextLessonCard = () => {
+  const localeHref = useLocaleHref();
+  const { t } = useLanguage();
+
   return (
-    <div className="bg-gradient-to-br from-[#F03D3D] to-[#d62f2f] rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-red-200 relative overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl" />
-      
+    <div className="relative bg-gradient-to-br from-[#0F172A] to-[#1E293B] rounded-2xl p-6 text-white overflow-hidden">
+      {/* Subtle background glow */}
+      <div className="absolute top-0 right-0 w-40 h-40 bg-[#F03D3D]/10 rounded-full blur-3xl -mr-10 -mt-10" />
+      <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -ml-10 -mb-10" />
+
       <div className="relative z-10">
-        <div className="flex justify-between items-start mb-6 sm:mb-8">
-          <div>
-            <span className="inline-block px-3 py-1 bg-white/20 rounded-full text-xs sm:text-sm font-medium mb-3 backdrop-blur-sm">
-              Upcoming Lesson
-            </span>
-            <h3 className="text-2xl sm:text-3xl font-bold">Tomorrow, 10:00 AM</h3>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-[#F03D3D]/20 flex items-center justify-center">
+              <Calendar className="w-4 h-4 text-[#F03D3D]" />
+            </div>
+            <span className="text-sm font-semibold text-white/90">{t("dashboard.nextLesson.title")}</span>
           </div>
-          <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-sm">
-            <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center shrink-0">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-white/60 text-xs sm:text-sm">Duration</p>
-              <p className="font-semibold">2 Hours</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center shrink-0">
-              <MapPin className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-white/60 text-xs sm:text-sm">Meeting Point</p>
-              <p className="font-semibold truncate">Tbilisi Central Station</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between pt-6 border-t border-white/20">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#F03D3D] font-bold shrink-0">
-              GB
-            </div>
-            <div>
-              <p className="text-xs sm:text-sm text-white/80">Instructor</p>
-              <p className="font-semibold text-sm sm:text-base">Giorgi Beridze</p>
-            </div>
-          </div>
-          <Link 
-            href="/dashboard/lessons"
-            className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-white text-[#F03D3D] rounded-xl font-bold hover:bg-gray-50 transition-colors text-sm sm:text-base"
+          <Link
+            href={localeHref("/dashboard/lessons")}
+            className="flex items-center gap-1 text-xs text-white/50 hover:text-white transition-colors font-medium bg-white/5 px-3 py-1.5 rounded-lg hover:bg-white/10"
           >
-            Details
-            <ChevronRight className="w-4 h-4" />
+            {t("dashboard.nextLesson.viewDetails")}
+            <ChevronRight className="w-3.5 h-3.5" />
           </Link>
+        </div>
+
+        <h3 className="text-xl font-bold mb-5">{t("dashboard.nextLesson.tomorrow")}, 10:00</h3>
+
+        <div className="flex flex-wrap gap-3 mb-5">
+          <div className="flex items-center gap-2 bg-white/5 px-3 py-2 rounded-lg border border-white/10">
+            <Clock className="w-3.5 h-3.5 text-white/40" />
+            <span className="text-sm text-white/70">2h</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/5 px-3 py-2 rounded-lg border border-white/10">
+            <MapPin className="w-3.5 h-3.5 text-white/40" />
+            <span className="text-sm text-white/70">Tbilisi Central</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/5 px-3 py-2 rounded-lg border border-white/10">
+            <Car className="w-3.5 h-3.5 text-white/40" />
+            <span className="text-sm text-white/70">Manual</span>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-white/10 flex items-center gap-3">
+          <div className="w-9 h-9 bg-gradient-to-br from-[#F03D3D] to-orange-500 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-lg shadow-red-500/20">
+            GB
+          </div>
+          <div>
+            <p className="text-[11px] text-white/40 uppercase tracking-wider">{t("dashboard.nextLesson.instructor")}</p>
+            <p className="text-sm font-semibold">Giorgi Beridze</p>
+          </div>
         </div>
       </div>
     </div>

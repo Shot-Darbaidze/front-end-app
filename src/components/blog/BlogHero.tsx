@@ -1,7 +1,11 @@
+"use client";
+
 import { Search, Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 
 const BlogHero = () => {
+  const localeHref = useLocaleHref();
   return (
     <section className="relative bg-[#0F172A] text-white overflow-hidden pt-32 pb-20">
       {/* Abstract Background Shapes - Inspired by Main Page */}
@@ -66,7 +70,7 @@ const BlogHero = () => {
                   <div className="w-8 h-8 rounded-full bg-gray-600" />
                   <span className="text-sm text-gray-300">Sarah Jenkins</span>
                 </div>
-                <Link href="/blog/post-1" className="flex items-center text-[#F03D3D] font-medium hover:gap-2 transition-all">
+                <Link href={localeHref("/blog/post-1")} className="flex items-center text-[#F03D3D] font-medium hover:gap-2 transition-all">
                   Read Article <ArrowRight className="ml-1 w-4 h-4" />
                 </Link>
               </div>

@@ -1,8 +1,9 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode } from "react";
+import type { Locale } from "@/lib/i18n";
 
-type Language = "en" | "ka";
+type Language = Locale;
 
 interface LanguageContextType {
   language: Language;
@@ -20,8 +21,8 @@ export const useLanguage = () => {
   return context;
 };
 
-export const LanguageProvider = ({ children }: { children: ReactNode }) => {
-  const [language, setLanguage] = useState<Language>("en");
+export const LanguageProvider = ({ children, initialLocale = "ka" }: { children: ReactNode; initialLocale?: Language }) => {
+  const [language, setLanguage] = useState<Language>(initialLocale);
 
   const t = (key: string): string => {
     const translations = language === "ka" ? translationsKa : translationsEn;
@@ -50,6 +51,133 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 };
 
 const translationsEn = {
+  dashboard: {
+    nav: {
+      overview: "Overview",
+      myLessons: "My Lessons",
+      favorites: "Favorites",
+      notifications: "Notifications",
+      settings: "Settings",
+      schedule: "Schedule",
+      logout: "Log out",
+    },
+    welcome: "Welcome back",
+    welcomeInstructor: "Instructor Dashboard",
+    subtitle: "Here's your driving progress.",
+    subtitleInstructor: "Manage your schedule and students.",
+    stats: {
+      totalLessons: "Total Lessons",
+      completed: "Completed",
+      hoursDriven: "Hours Driven",
+      totalTime: "Total time",
+      upcoming: "Upcoming",
+      scheduled: "Scheduled",
+      progress: "Progress",
+      toLicense: "To license",
+      activeStudents: "Active Students",
+      teaching: "Currently teaching",
+      hoursTaught: "Hours Taught",
+      scheduledLessons: "Scheduled lessons",
+      earnings: "Earnings",
+      thisMonth: "This month",
+    },
+    nextLesson: {
+      title: "Next Lesson",
+      noLesson: "No upcoming lessons",
+      bookNow: "Book a lesson now",
+      duration: "Duration",
+      meetingPoint: "Meeting Point",
+      instructor: "Instructor",
+      student: "Student",
+      viewDetails: "View Details",
+      tomorrow: "Tomorrow",
+    },
+    quickActions: {
+      findInstructor: "Find Instructor",
+      findInstructorDesc: "Browse & book",
+      bookLesson: "Book Lesson",
+      bookLessonDesc: "Schedule now",
+      messages: "Messages",
+      messagesDesc: "Chat with instructor",
+      myLicense: "My License",
+      myLicenseDesc: "View documents",
+      addStudent: "Add Student",
+      addStudentDesc: "Register new student",
+      scheduleLessonDesc: "Book a time slot",
+      earningsLabel: "Earnings",
+      earningsDesc: "View financial report",
+      messagesInstructorDesc: "Chat with students",
+    },
+    activity: {
+      title: "Recent Activity",
+      lessonCompleted: "Lesson completed with",
+      bookingConfirmed: "Booking confirmed",
+      lessonCancelled: "Lesson cancelled",
+      reviewLeft: "Review left for",
+      noActivity: "No recent activity",
+    },
+    progressRing: {
+      title: "Your Progress",
+      toLicense: "to license",
+    },
+  },
+  home: {
+    hero: {
+      badge: "#1 Rated Driving Platform in 2025",
+      title: "Master the Road",
+      titleHighlight: "With Confidence",
+      description: "Ditch the anxiety. Connect with elite, patient instructors who tailor every lesson to your learning style. Your license is just a few clicks away.",
+      searchPlaceholder: "Search by city or instructor",
+      findInstructors: "Find Instructors",
+      joinStudents: "Join 10,000+ students learning today",
+      instructorName: "Nino Kalandadze",
+      topRated: "Top Rated Instructor",
+      automatic: "Automatic",
+      weekendAvailability: "Weekend Availability",
+    },
+    trust: {
+      activeStudents: "Active Students",
+      passRate: "Pass Rate",
+      verifiedInstructors: "Verified Instructors",
+      lessonHours: "Lesson Hours",
+    },
+    roadmap: {
+      title: "Everything you need to pass",
+      description: "From finding your perfect instructor to acing the test, we've simplified every step of the journey so you can focus on the road ahead.",
+      cta: "Start Your Journey",
+      step1Title: "Search & Filter",
+      step1Desc: "Enter your city and filter by transmission (manual/auto), price, and rating.",
+      step2Title: "Compare Profiles",
+      step2Desc: "Read verified reviews, check car types, and view instructor pass rates.",
+      step3Title: "Book Instantly",
+      step3Desc: "Select a time slot that works for you and pay securely through the platform.",
+      step4Title: "Track Progress",
+      step4Desc: "Get digital feedback after every lesson and track your readiness for the test.",
+    },
+    showcase: {
+      title: "Meet Our Top Instructors",
+      subtitle: "Highly rated professionals ready to teach you.",
+      viewAll: "View all instructors",
+      specialty: "Specializes in Nervous Students",
+      manual: "Manual",
+      languages: "Georgian & English",
+      perHour: "/hr",
+      viewProfile: "View Profile",
+    },
+    instructorCta: {
+      badge: "For Instructors",
+      title: "Want to become an instructor?",
+      titleLine2: "Start teaching today.",
+      description: "Join the fastest-growing driving school platform. We handle the marketing and booking, so you can focus on teaching.",
+      benefit1: "Grow your student base",
+      benefit2: "Set your own schedule",
+      benefit3: "Guaranteed payments",
+      benefit4: "Professional tools",
+      becomeInstructor: "Become an Instructor",
+      learnMore: "Learn More",
+      monthlyEarnings: "Monthly Earnings",
+    },
+  },
   hero: {
     title: "Grow Your Business as a",
     titleHighlight: "Driving Instructor",
@@ -151,6 +279,133 @@ const translationsEn = {
 };
 
 const translationsKa = {
+  dashboard: {
+    nav: {
+      overview: "მიმოხილვა",
+      myLessons: "ჩემი გაკვეთილები",
+      favorites: "რჩეულები",
+      notifications: "შეტყობინებები",
+      settings: "პარამეტრები",
+      schedule: "განრიგი",
+      logout: "გასვლა",
+    },
+    welcome: "გამარჯობა",
+    welcomeInstructor: "ინსტრუქტორის პანელი",
+    subtitle: "აი შენი მართვის პროგრესი.",
+    subtitleInstructor: "მართე შენი განრიგი და მოსწავლეები.",
+    stats: {
+      totalLessons: "სულ გაკვეთილები",
+      completed: "დასრულებული",
+      hoursDriven: "მართვის საათები",
+      totalTime: "სულ დრო",
+      upcoming: "მომავალი",
+      scheduled: "დაგეგმილი",
+      progress: "პროგრესი",
+      toLicense: "მოწმობამდე",
+      activeStudents: "აქტიური მოსწავლეები",
+      teaching: "ამჟამად ასწავლი",
+      hoursTaught: "სწავლების საათები",
+      scheduledLessons: "დაგეგმილი გაკვეთილები",
+      earnings: "შემოსავალი",
+      thisMonth: "ამ თვეში",
+    },
+    nextLesson: {
+      title: "მომდევნო გაკვეთილი",
+      noLesson: "მომავალი გაკვეთილები არ არის",
+      bookNow: "დაჯავშნე გაკვეთილი",
+      duration: "ხანგრძლივობა",
+      meetingPoint: "შეხვედრის ადგილი",
+      instructor: "ინსტრუქტორი",
+      student: "მოსწავლე",
+      viewDetails: "დეტალების ნახვა",
+      tomorrow: "ხვალ",
+    },
+    quickActions: {
+      findInstructor: "ინსტრუქტორის ძიება",
+      findInstructorDesc: "დათვალიერე და დაჯავშნე",
+      bookLesson: "გაკვეთილის ჯავშანი",
+      bookLessonDesc: "დაგეგმე ახლავე",
+      messages: "შეტყობინებები",
+      messagesDesc: "ინსტრუქტორთან ჩატი",
+      myLicense: "ჩემი მოწმობა",
+      myLicenseDesc: "დოკუმენტების ნახვა",
+      addStudent: "მოსწავლის დამატება",
+      addStudentDesc: "ახალი მოსწავლის რეგისტრაცია",
+      scheduleLessonDesc: "დროის სლოტის დაჯავშნა",
+      earningsLabel: "შემოსავალი",
+      earningsDesc: "ფინანსური ანგარიშის ნახვა",
+      messagesInstructorDesc: "მოსწავლეებთან ჩატი",
+    },
+    activity: {
+      title: "ბოლო აქტივობა",
+      lessonCompleted: "გაკვეთილი დასრულდა",
+      bookingConfirmed: "ჯავშანი დადასტურდა",
+      lessonCancelled: "გაკვეთილი გაუქმდა",
+      reviewLeft: "შეფასება დატოვეთ",
+      noActivity: "ბოლო აქტივობა არ არის",
+    },
+    progressRing: {
+      title: "შენი პროგრესი",
+      toLicense: "მოწმობამდე",
+    },
+  },
+  home: {
+    hero: {
+      badge: "#1 შეფასებული სამართავი პლატფორმა 2025 წელს",
+      title: "იმართე გზებზე",
+      titleHighlight: "თავდაჯერებულად",
+      description: "დაივიწყე შფოთვა. დაუკავშირდი გამოცდილ, მოთმინე ინსტრუქტორებს, რომლებიც ყოველ გაკვეთილს შენს სწავლის სტილზე მოარგებენ. მართვის მოწმობამდე მხოლოდ რამდენიმე დაწკაპუნებაა.",
+      searchPlaceholder: "ძიება ქალაქით ან ინსტრუქტორით",
+      findInstructors: "ინსტრუქტორის ძიება",
+      joinStudents: "შემოუერთდი 10,000+ მოსწავლეს",
+      instructorName: "ნინო კალანდაძე",
+      topRated: "საუკეთესო შეფასების ინსტრუქტორი",
+      automatic: "ავტომატიკა",
+      weekendAvailability: "შაბათ-კვირას ხელმისაწვდომი",
+    },
+    trust: {
+      activeStudents: "აქტიური მოსწავლე",
+      passRate: "ჩაბარების მაჩვენებელი",
+      verifiedInstructors: "ვერიფიცირებული ინსტრუქტორი",
+      lessonHours: "გაკვეთილის საათი",
+    },
+    roadmap: {
+      title: "ყველაფერი, რაც ჩაბარებისთვის გჭირდება",
+      description: "იდეალური ინსტრუქტორის მოძებნიდან გამოცდის წარმატებით ჩაბარებამდე — ჩვენ გავამარტივეთ გზის ყოველი ნაბიჯი, რათა შენ მხოლოდ მართვაზე კონცენტრირდე.",
+      cta: "დაიწყე შენი გზა",
+      step1Title: "ძიება და ფილტრაცია",
+      step1Desc: "შეიყვანე შენი ქალაქი და გაფილტრე გადაცემათა კოლოფის ტიპით (მექანიკა/ავტომატიკა), ფასით და რეიტინგით.",
+      step2Title: "პროფილების შედარება",
+      step2Desc: "წაიკითხე ვერიფიცირებული შეფასებები, შეამოწმე ავტომობილის ტიპები და ნახე ინსტრუქტორის ჩაბარების მაჩვენებლები.",
+      step3Title: "დაჯავშნე მყისიერად",
+      step3Desc: "აირჩიე შენთვის მოსახერხებელი დრო და გადაიხადე უსაფრთხოდ პლატფორმის საშუალებით.",
+      step4Title: "თვალი ადევნე პროგრესს",
+      step4Desc: "მიიღე ციფრული უკუკავშირი ყოველი გაკვეთილის შემდეგ და აკონტროლე გამოცდისთვის მზადყოფნა.",
+    },
+    showcase: {
+      title: "გაიცანი ჩვენი საუკეთესო ინსტრუქტორები",
+      subtitle: "მაღალი შეფასების პროფესიონალები, მზად არიან გასწავლონ.",
+      viewAll: "ყველა ინსტრუქტორის ნახვა",
+      specialty: "სპეციალიზდება ნერვიულ მოსწავლეებზე",
+      manual: "მექანიკა",
+      languages: "ქართული და ინგლისური",
+      perHour: "/სთ",
+      viewProfile: "პროფილის ნახვა",
+    },
+    instructorCta: {
+      badge: "ინსტრუქტორებისთვის",
+      title: "გსურს ინსტრუქტორი გახდე?",
+      titleLine2: "დაიწყე სწავლება დღესვე.",
+      description: "შემოუერთდი ყველაზე სწრაფად მზარდ ავტოსკოლის პლატფორმას. ჩვენ ვმართავთ მარკეტინგსა და ჯავშნებს, შენ კი სწავლებაზე ფოკუსირდი.",
+      benefit1: "გაზარდე მოსწავლეთა ბაზა",
+      benefit2: "დააწესე საკუთარი განრიგი",
+      benefit3: "გარანტირებული გადახდები",
+      benefit4: "პროფესიონალური ინსტრუმენტები",
+      becomeInstructor: "გახდი ინსტრუქტორი",
+      learnMore: "გაიგე მეტი",
+      monthlyEarnings: "ყოველთვიური შემოსავალი",
+    },
+  },
   hero: {
     title: "გაზარდეთ თქვენი ბიზნესი როგორც",
     titleHighlight: "მართვის ინსტრუქტორი",

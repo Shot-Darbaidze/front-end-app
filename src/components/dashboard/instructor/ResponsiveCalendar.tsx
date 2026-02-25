@@ -45,14 +45,14 @@ export const generateTimeSlots = (durationMinutes: number): string[] => {
   const slots: string[] = [];
   let currentMinutes = START_HOUR * 60;
   const endMinutes = END_HOUR * 60;
-  
+
   while (currentMinutes + durationMinutes <= endMinutes) {
     const hours = Math.floor(currentMinutes / 60);
     const mins = currentMinutes % 60;
     slots.push(`${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`);
     currentMinutes += durationMinutes;
   }
-  
+
   return slots;
 };
 
@@ -71,7 +71,7 @@ const getSlotStyles = (status: SlotStatus | undefined, isPast: boolean) => {
   if (isPast) {
     return "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-50";
   }
-  
+
   switch (status) {
     case "available":
       return "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300";
@@ -167,17 +167,17 @@ export const ResponsiveCalendar: React.FC<ResponsiveCalendarProps> = ({
 
   const handleSlotClick = useCallback((date: Date, timeString: string) => {
     if (readOnly) return;
-    
+
     const isPast = isSlotPast(date, timeString);
     if (isPast) return;
 
     const slotData = getSlotData(date, timeString);
-    
+
     // If slot is booked or completed, don't allow changes
     if (slotData?.status === "booked" || slotData?.status === "completed") {
       return;
     }
-    
+
     onSlotToggle?.(date, timeString);
   }, [readOnly, isSlotPast, getSlotData, onSlotToggle]);
 
@@ -254,16 +254,14 @@ export const ResponsiveCalendar: React.FC<ResponsiveCalendarProps> = ({
             <div className="w-20"></div>
             {weekDays.map((day, idx) => (
               <div key={idx} className="w-28 text-center">
-                <div className={`text-xs font-bold transition-colors mb-1 ${
-                  isToday(day) ? "text-[#F03D3D]" : "text-gray-600"
-                }`}>
+                <div className={`text-xs font-bold transition-colors mb-1 ${isToday(day) ? "text-[#F03D3D]" : "text-gray-600"
+                  }`}>
                   {DAYS_OF_WEEK[day.getDay() === 0 ? 6 : day.getDay() - 1]}
                 </div>
-                <div className={`text-sm font-semibold px-2 py-1 rounded-lg transition-colors ${
-                  isToday(day) 
-                    ? "text-white bg-[#F03D3D]" 
-                    : "text-gray-700 bg-gray-100"
-                }`}>
+                <div className={`text-sm font-semibold px-2 py-1 rounded-lg transition-colors ${isToday(day)
+                  ? "text-white bg-[#F03D3D]"
+                  : "text-gray-700 bg-gray-100"
+                  }`}>
                   {day.getDate()}
                 </div>
               </div>
@@ -299,7 +297,7 @@ export const ResponsiveCalendar: React.FC<ResponsiveCalendarProps> = ({
                       >
                         {getStatusLabel(slotData?.status)}
                       </button>
-                      
+
                       {/* Delete button for existing deletable slots */}
                       {canDelete && !readOnly && !showDeleteConfirm && (
                         <button
@@ -351,16 +349,14 @@ export const ResponsiveCalendar: React.FC<ResponsiveCalendarProps> = ({
                   <div className="px-2 py-3 text-xs font-bold text-gray-600 border-r border-gray-200"></div>
                   {daySet.map((day, idx) => (
                     <div key={idx} className={`text-center px-2 py-3 ${idx !== daySet.length - 1 ? "border-r border-gray-200" : ""}`}>
-                      <div className={`text-xs font-bold transition-colors mb-1 ${
-                        isToday(day) ? "text-[#F03D3D]" : "text-gray-600"
-                      }`}>
+                      <div className={`text-xs font-bold transition-colors mb-1 ${isToday(day) ? "text-[#F03D3D]" : "text-gray-600"
+                        }`}>
                         {DAYS_OF_WEEK[day.getDay() === 0 ? 6 : day.getDay() - 1]}
                       </div>
-                      <div className={`text-sm font-semibold px-2 py-1 rounded-lg transition-colors ${
-                        isToday(day) 
-                          ? "text-white bg-[#F03D3D]" 
-                          : "text-gray-700 bg-gray-200"
-                      }`}>
+                      <div className={`text-sm font-semibold px-2 py-1 rounded-lg transition-colors ${isToday(day)
+                        ? "text-white bg-[#F03D3D]"
+                        : "text-gray-700 bg-gray-200"
+                        }`}>
                         {day.getDate()}
                       </div>
                     </div>
@@ -407,14 +403,12 @@ export const ResponsiveCalendar: React.FC<ResponsiveCalendarProps> = ({
       <div className="md:hidden space-y-4 pb-4">
         {weekDays.map((day, dayIdx) => (
           <div key={dayIdx} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-            <div className={`px-4 py-3 transition-colors ${
-              isToday(day)
-                ? "bg-gradient-to-r from-red-50 to-red-100 border-b border-red-200"
-                : "bg-gray-50 border-b border-gray-200"
-            }`}>
-              <div className={`text-sm font-bold transition-colors ${
-                isToday(day) ? "text-[#F03D3D]" : "text-gray-900"
+            <div className={`px-4 py-3 transition-colors ${isToday(day)
+              ? "bg-gradient-to-r from-red-50 to-red-100 border-b border-red-200"
+              : "bg-gray-50 border-b border-gray-200"
               }`}>
+              <div className={`text-sm font-bold transition-colors ${isToday(day) ? "text-[#F03D3D]" : "text-gray-900"
+                }`}>
                 {DAYS_OF_WEEK[day.getDay() === 0 ? 6 : day.getDay() - 1]}
               </div>
               <div className="text-xs text-gray-600 mt-1">

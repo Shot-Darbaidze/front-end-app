@@ -5,6 +5,10 @@ import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { API_CONFIG } from "@/config/constants";
 import { logger } from "@/utils/secureLogger";
 
+const FAVORITES_CACHE_KEY = "favorites-cache-v1";
+const FAVORITES_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const FAVORITES_TIMEOUT_MS = 5_000; // 5 seconds
+
 interface FavoriteItem {
   id: string;
   post_id: string;
@@ -24,12 +28,26 @@ const FavoritesContext = createContext<FavoritesContextType>({
   isLoading: false,
   isFavorite: () => false,
   toggleFavorite: async () => false,
-  refreshFavorites: async () => {},
+  refreshFavorites: async () => { },
 });
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
   const { getToken, isSignedIn } = useClerkAuth();
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [favorites, setFavorites] = useState<Set<string>>(() => {
+    // Initialize from cache for instant render
+    if (typeof window === "undefined") return new Set();
+    try {
+      const cached = localStorage.getItem(FAVORITES_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as { ids?: string[]; timestamp?: number };
+        if (parsed.timestamp && Date.now() - parsed.timestamp < FAVORITES_CACHE_TTL) {
+          return new Set(parsed.ids || []);
+        }
+        localStorage.removeItem(FAVORITES_CACHE_KEY);
+      }
+    } catch { /* ignore */ }
+    return new Set();
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   const refreshFavorites = useCallback(async () => {
@@ -43,27 +61,44 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       const token = await getToken();
       if (!token) return;
 
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FAVORITES_TIMEOUT_MS);
+
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/favorites`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        signal: controller.signal,
       });
+      clearTimeout(timer);
 
       if (response.ok) {
         const data: { favorites: FavoriteItem[] } = await response.json();
         const favoriteIds = new Set(data.favorites.map((f) => f.post_id));
         setFavorites(favoriteIds);
+
+        // Cache to localStorage
+        try {
+          localStorage.setItem(
+            FAVORITES_CACHE_KEY,
+            JSON.stringify({ ids: Array.from(favoriteIds), timestamp: Date.now() })
+          );
+        } catch { /* storage full — ignore */ }
       }
     } catch (error) {
+      // Timeout or network error — keep cached/empty state
       logger.error('Failed to fetch favorites', { error });
     } finally {
       setIsLoading(false);
     }
   }, [getToken, isSignedIn]);
 
-  // Fetch favorites on mount and when sign-in state changes
+  // Fetch favorites after a short delay to avoid blocking initial paint
   useEffect(() => {
-    refreshFavorites();
+    const timer = setTimeout(() => {
+      refreshFavorites();
+    }, 100);
+    return () => clearTimeout(timer);
   }, [refreshFavorites]);
 
   const isFavorite = useCallback(
@@ -94,7 +129,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
         if (response.ok) {
           const data: { is_favorited: boolean } = await response.json();
-          
+
           setFavorites((prev) => {
             const next = new Set(prev);
             if (data.is_favorited) {

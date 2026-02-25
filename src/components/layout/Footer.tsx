@@ -3,18 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Facebook, Twitter, Instagram, Linkedin, Mail, MapPin, Phone } from "lucide-react";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 
 const Footer = () => {
   const pathname = usePathname();
+  const localeHref = useLocaleHref();
   
-  if (pathname?.startsWith('/dashboard')) {
+  if (pathname?.includes('/dashboard')) {
     return null;
   }
 
   const currentYear = new Date().getFullYear();
 
   // Hide footer on specific pages
-  if (pathname === "/main1" || pathname?.startsWith("/for-instructors/signup") || pathname?.startsWith("/dashboard")) {
+  if (pathname?.includes("/for-instructors/signup")) {
     return null;
   }
 
@@ -24,7 +26,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 mb-16">
           {/* Brand Column */}
           <div className="space-y-6">
-            <Link href="/" className="text-2xl font-bold tracking-tighter">
+            <Link href={localeHref("/")} className="text-2xl font-bold tracking-tighter">
               Instruktori
             </Link>
             <p className="text-gray-400 leading-relaxed">
@@ -51,12 +53,12 @@ const Footer = () => {
             <h3 className="font-bold text-lg mb-6">Quick Links</h3>
             <ul className="space-y-4">
               <li>
-                <Link href="/find-instructors" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
+                <Link href={localeHref("/find-instructors")} className="text-gray-400 hover:text-[#F03D3D] transition-colors">
                   Find Instructors
                 </Link>
               </li>
               <li>
-                <Link href="/city-exam" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
+                <Link href={localeHref("/city-exam")} className="text-gray-400 hover:text-[#F03D3D] transition-colors">
                   City Exam
                 </Link>
               </li>
@@ -68,12 +70,12 @@ const Footer = () => {
             <h3 className="font-bold text-lg mb-6">For Instructors</h3>
             <ul className="space-y-4">
               <li>
-                <Link href="/for-instructors" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
+                <Link href={localeHref("/for-instructors")} className="text-gray-400 hover:text-[#F03D3D] transition-colors">
                   Why Instruktori
                 </Link>
               </li>
               <li>
-                <Link href="/for-instructors/signup" className="text-gray-400 hover:text-[#F03D3D] transition-colors">
+                <Link href={localeHref("/for-instructors/signup")} className="text-gray-400 hover:text-[#F03D3D] transition-colors">
                   Become an Instructor
                 </Link>
               </li>

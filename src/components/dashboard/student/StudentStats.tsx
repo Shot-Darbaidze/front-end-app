@@ -1,58 +1,61 @@
+"use client";
+
 import React from "react";
 import { CheckCircle2, Clock, Calendar, TrendingUp } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export const StudentStats = () => {
-  // Mock data - replace with real data later
+  const { t } = useLanguage();
+
   const stats = [
     {
-      label: "Total Lessons",
+      label: t("dashboard.stats.totalLessons"),
       value: "12",
-      subtext: "Completed",
+      subtext: t("dashboard.stats.completed"),
       icon: CheckCircle2,
-      color: "text-green-600",
-      bg: "bg-green-50",
+      gradient: "from-emerald-500 to-teal-600",
+      shadow: "shadow-emerald-500/20",
     },
     {
-      label: "Hours Driven",
+      label: t("dashboard.stats.hoursDriven"),
       value: "18h",
-      subtext: "Total time",
+      subtext: t("dashboard.stats.totalTime"),
       icon: Clock,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
+      gradient: "from-blue-500 to-indigo-600",
+      shadow: "shadow-blue-500/20",
     },
     {
-      label: "Upcoming",
+      label: t("dashboard.stats.upcoming"),
       value: "3",
-      subtext: "Scheduled",
+      subtext: t("dashboard.stats.scheduled"),
       icon: Calendar,
-      color: "text-purple-600",
-      bg: "bg-purple-50",
+      gradient: "from-purple-500 to-violet-600",
+      shadow: "shadow-purple-500/20",
     },
     {
-      label: "Progress",
+      label: t("dashboard.stats.progress"),
       value: "45%",
-      subtext: "To license",
+      subtext: t("dashboard.stats.toLicense"),
       icon: TrendingUp,
-      color: "text-orange-600",
-      bg: "bg-orange-50",
+      gradient: "from-orange-500 to-red-500",
+      shadow: "shadow-orange-500/20",
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
       {stats.map((stat, index) => (
         <div
           key={index}
-          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-start transition-all hover:shadow-md"
+          className="bg-white rounded-2xl p-4 border border-gray-100/80 hover:shadow-lg transition-all duration-300 group"
         >
-          <div className={`p-3 rounded-xl ${stat.bg} mb-4`}>
-            <stat.icon className={`w-6 h-6 ${stat.color}`} />
+          <div className="flex items-center justify-between mb-3">
+            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.gradient} ${stat.shadow} shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+              <stat.icon className="w-5 h-5 text-white" />
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-gray-500">{stat.label}</p>
-            <h4 className="text-2xl font-bold text-gray-900">{stat.value}</h4>
-            <p className="text-xs text-gray-400">{stat.subtext}</p>
-          </div>
+          <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
         </div>
       ))}
     </div>

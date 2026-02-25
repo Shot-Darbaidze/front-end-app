@@ -1,5 +1,8 @@
+"use client";
+
 import { Check, ChevronRight, Shield } from "lucide-react";
 import Link from "next/link";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 
 interface BookingSidebarProps {
   cityPrice: number | null;
@@ -9,8 +12,9 @@ interface BookingSidebarProps {
 
 const BookingSidebar = ({ cityPrice, lessonDuration, instructorId }: BookingSidebarProps) => {
   const canBook = cityPrice != null;
+  const localeHref = useLocaleHref();
 
-  const bookingHref = `/instructors/${instructorId}/book`;
+  const bookingHref = localeHref(`/instructors/${instructorId}/book`);
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-xl shadow-gray-200/50 p-6">

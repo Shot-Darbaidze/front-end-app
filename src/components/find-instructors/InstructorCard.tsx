@@ -7,6 +7,7 @@ import { useState, useCallback, memo } from "react";
 import { useRouter } from "next/navigation";
 import { trackFavoriteToggle } from "@/utils/analytics";
 import { PRICING } from "@/config/constants";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 
 interface InstructorCardProps {
   id: string;
@@ -50,6 +51,7 @@ const InstructorCard = ({
   const { isFavorited, toggle } = useIsFavorite(id);
   const [isToggling, setIsToggling] = useState(false);
   const router = useRouter();
+  const localeHref = useLocaleHref();
 
   const handleToggleFavorite = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -166,7 +168,7 @@ const InstructorCard = ({
           )}
         </div>
         <Link
-          href={`/instructors/${id}`}
+          href={localeHref(`/instructors/${id}`)}
           className="flex-1 max-w-[55%] inline-flex items-center justify-center py-2.5 px-3 sm:px-4 bg-white border-2 border-[#F03D3D] text-[#F03D3D] rounded-xl font-bold text-sm hover:bg-[#F03D3D] hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95 after:content-[''] after:absolute after:inset-0 after:z-[1] after:rounded-2xl"
           onClick={handleCardClick}
         >

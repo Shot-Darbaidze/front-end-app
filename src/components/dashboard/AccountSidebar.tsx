@@ -1,151 +1,124 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   User,
   LogOut,
   LayoutDashboard,
+  Calendar,
+  Heart,
+  Bell,
+  Settings,
+  CalendarDays,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/nextjs";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface AccountSidebarProps {
-  activeItem?: string;
+  isInstructor?: boolean;
 }
 
-const AccountSidebar: React.FC<AccountSidebarProps> = ({ activeItem }) => {
+const AccountSidebar: React.FC<AccountSidebarProps> = ({ isInstructor = false }) => {
   const { user: clerkUser } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
+  const pathname = usePathname();
+  const localeHref = useLocaleHref();
+  const { t } = useLanguage();
 
-  // Extract user details from Clerk
-  const userType = (clerkUser?.publicMetadata?.userType as "student" | "instructor") || "student";
-  const displayName = clerkUser ? clerkUser.fullName || `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() : 'Sarah Instructor';
-  const displayEmail = clerkUser?.primaryEmailAddress?.emailAddress || 'instructor@demo.com';
+  const displayName = clerkUser
+    ? clerkUser.fullName || `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim()
+    : "";
+  const displayEmail = clerkUser?.primaryEmailAddress?.emailAddress || "";
   const avatarUrl = clerkUser?.imageUrl;
 
-  const allMenuItems = [
-    { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", showFor: ["student", "instructor"] },
+  const studentNav = [
+    { icon: LayoutDashboard, label: t("dashboard.nav.overview"), href: "/dashboard" },
+    { icon: Calendar, label: t("dashboard.nav.myLessons"), href: "/dashboard/lessons" },
+    { icon: Heart, label: t("dashboard.nav.favorites"), href: "/dashboard/favorites" },
+    { icon: Bell, label: t("dashboard.nav.notifications"), href: "/dashboard/notifications" },
+    { icon: Settings, label: t("dashboard.nav.settings"), href: "/dashboard/settings" },
   ];
 
-  // Filter menu items based on user type
-  const menuItems = allMenuItems.filter(item => 
-    item.showFor.includes(userType)
-  );
+  const instructorNav = [
+    { icon: LayoutDashboard, label: t("dashboard.nav.overview"), href: "/dashboard" },
+    { icon: CalendarDays, label: t("dashboard.nav.schedule"), href: "/dashboard/schedule" },
+    { icon: Bell, label: t("dashboard.nav.notifications"), href: "/dashboard/notifications" },
+    { icon: Settings, label: t("dashboard.nav.settings"), href: "/dashboard/settings" },
+  ];
+
+  const navItems = isInstructor ? instructorNav : studentNav;
+
+  const isActiveLink = (href: string) => {
+    const fullHref = localeHref(href);
+    if (href === "/dashboard") return pathname === fullHref;
+    return pathname.startsWith(fullHref);
+  };
 
   const handleLogout = () => {
-    signOut({ redirectUrl: "/" });
+    signOut({ redirectUrl: localeHref("/") });
   };
 
   return (
-    <div className="flex flex-col gap-2" style={{ width: "266px" }}>
-      <div
-        className="bg-white rounded-lg shadow-sm border border-gray-100"
-        style={{ minHeight: "350px" }}
-      >
-        {/* Header */}
-        <div className="flex flex-col items-center gap-3 p-6 pb-4">
-          {/* Avatar */}
-          <div
-            className="rounded-full bg-gray-300 flex items-center justify-center overflow-hidden"
-            style={{ width: "64px", height: "64px" }}
-          >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={`${displayName}'s avatar`}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <User size={24} className="text-gray-600" />
-            )}
-          </div>
-
-          {/* Name and Email */}
-          <div className="flex flex-col items-center gap-1">
-            <span
-              className="text-gray-900 font-semibold text-center"
-              style={{
-                fontFamily: "Inter",
-                fontWeight: 600,
-                fontSize: "16px",
-                lineHeight: "1.5em",
-              }}
-            >
-              {displayName}
-            </span>
-            <span
-              className="text-gray-500 text-center"
-              style={{
-                fontFamily: "Inter",
-                fontWeight: 400,
-                fontSize: "14px",
-                lineHeight: "1.4em",
-              }}
-            >
-              {displayEmail}
-            </span>
+    <aside className="hidden lg:flex flex-col w-[260px] shrink-0">
+      <div className="bg-white/90 backdrop-blur-xl rounded-2xl overflow-hidden shadow-xl border border-slate-200 sticky top-24">
+        {/* User Profile */}
+        <div className="p-5 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 border border-slate-200 shadow-sm">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                <User size={18} className="text-slate-400" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-slate-900 truncate">{displayName}</p>
+              <p className="text-xs font-medium text-slate-500 truncate">{displayEmail}</p>
+            </div>
           </div>
         </div>
 
-        {/* Navigation Links */}
-        <div className="flex flex-col px-4 pb-4">
-          {menuItems.map((item, index) => {
+        {/* Divider */}
+        <div className="mx-4 h-px bg-slate-100" />
+
+        {/* Navigation */}
+        <nav className="p-3 space-y-0.5 mt-1">
+          {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeItem === item.label;
+            const active = isActiveLink(item.href);
 
             return (
               <button
-                key={index}
-                onClick={() => router.push(item.href)}
-                className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-colors text-left ${
-                  isActive
-                    ? "bg-gray-100 text-gray-900"
-                    : "text-gray-600 hover:bg-gray-50"
-                }`}
+                key={item.href}
+                onClick={() => router.push(localeHref(item.href))}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-[13px] font-semibold transition-all duration-200 ${active
+                    ? "bg-gradient-to-r from-[#F03D3D] to-[#e04545] text-white shadow-lg shadow-red-500/20"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
               >
-                <Icon
-                  size={16}
-                  className={`${isActive ? "text-gray-900" : "text-gray-500"}`}
-                />
-                <span
-                  className="font-medium"
-                  style={{
-                    fontFamily: "Inter",
-                    fontWeight: 500,
-                    fontSize: "14px",
-                    lineHeight: "1.4em",
-                  }}
-                >
-                  {item.label}
-                </span>
+                <Icon size={17} className={active ? "text-white" : "text-slate-400"} />
+                {item.label}
               </button>
             );
           })}
+        </nav>
+
+        {/* Logout */}
+        <div className="p-3 pt-2 mt-auto">
+          <div className="mx-1 mb-2 h-px bg-slate-100" />
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-[13px] font-semibold text-slate-500 hover:text-red-500 hover:bg-red-50 transition-all duration-200"
+          >
+            <LogOut size={17} />
+            {t("dashboard.nav.logout")}
+          </button>
         </div>
       </div>
-
-      {/* Log Out - No Background */}
-      <div className="px-4">
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors text-left text-red-500 hover:bg-red-50 w-full"
-        >
-          <LogOut size={16} className="text-red-500" />
-          <span
-            className="font-medium"
-            style={{
-              fontFamily: "Inter",
-              fontWeight: 500,
-              fontSize: "14px",
-              lineHeight: "1.4em",
-            }}
-          >
-            Log out
-          </span>
-        </button>
-      </div>
-    </div>
+    </aside>
   );
 };
 

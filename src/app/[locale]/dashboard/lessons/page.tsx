@@ -2,8 +2,7 @@
 
 import React, { useState, useCallback, memo, useEffect } from "react";
 import { useUser, useAuth as useClerkAuth } from "@clerk/nextjs";
-import { DashboardNav } from "@/components/dashboard/student/DashboardNav";
-import { InstructorDashboardNav } from "@/components/dashboard/instructor/InstructorDashboardNav";
+import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import Button from "@/components/ui/Button";
 import { Clock, MoreVertical, CheckCircle2, XCircle, AlertCircle, Loader2, ExternalLink } from "lucide-react";
 import { API_CONFIG } from '@/config/constants';
@@ -36,7 +35,7 @@ interface CancellationResponse {
 }
 
 // Structured cancellation reasons
-type CancellationReason = 
+type CancellationReason =
   | "schedule_conflict"
   | "personal_emergency"
   | "illness"
@@ -76,7 +75,7 @@ export default function LessonsPage() {
   const userType = (clerkUser?.publicMetadata?.userType as "student" | "instructor") || "student";
   const isInstructor = userType === "instructor";
   const [activeTab, setActiveTab] = useState<TabId>("upcoming");
-  
+
   // State for lessons data
   const [upcomingLessons, setUpcomingLessons] = useState<BookingResponse[]>([]);
   const [pastLessons, setPastLessons] = useState<BookingResponse[]>([]);
@@ -85,7 +84,7 @@ export default function LessonsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingCodes, setIsLoadingCodes] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Cancel modal state
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [lessonToCancel, setLessonToCancel] = useState<BookingResponse | null>(null);
@@ -120,10 +119,10 @@ export default function LessonsPage() {
       }
 
       const allBookings: BookingResponse[] = await bookingsResponse.json();
-      const allCancellations: CancellationResponse[] = cancellationsResponse.ok 
-        ? await cancellationsResponse.json() 
+      const allCancellations: CancellationResponse[] = cancellationsResponse.ok
+        ? await cancellationsResponse.json()
         : [];
-      
+
       const now = new Date();
 
       // Filter by status and time
@@ -142,7 +141,7 @@ export default function LessonsPage() {
       if (upcoming.length > 0) {
         setIsLoadingCodes(true);
         const codes: Record<string, string> = {};
-        
+
         await Promise.all(
           upcoming.map(async (lesson) => {
             try {
@@ -159,7 +158,7 @@ export default function LessonsPage() {
             }
           })
         );
-        
+
         setLessonCodes(codes);
         setIsLoadingCodes(false);
       }
@@ -194,7 +193,7 @@ export default function LessonsPage() {
       setCancelError("No lesson selected");
       return;
     }
-    
+
     if (cancelReason === "other" && !cancelDescription.trim()) {
       setCancelError("Please provide a description for 'Other' reason");
       return;
@@ -217,7 +216,7 @@ export default function LessonsPage() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             reason: cancelReason,
             description: cancelDescription.trim() || null,
           }),
@@ -255,8 +254,8 @@ export default function LessonsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pt-20">
-      {isInstructor ? <InstructorDashboardNav /> : <DashboardNav />}
-      
+      <MobileDashboardNav isInstructor={isInstructor} />
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
@@ -274,8 +273,8 @@ export default function LessonsPage() {
               onClick={() => handleTabClick(tab.id)}
               className={`
                 px-6 py-2.5 text-sm font-medium rounded-lg transition-all
-                ${activeTab === tab.id 
-                  ? "bg-gray-900 text-white shadow-sm" 
+                ${activeTab === tab.id
+                  ? "bg-gray-900 text-white shadow-sm"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 }
               `}
@@ -305,8 +304,8 @@ export default function LessonsPage() {
           ) : (
             <>
               {activeTab === "upcoming" && (
-                <UpcomingLessons 
-                  lessons={upcomingLessons} 
+                <UpcomingLessons
+                  lessons={upcomingLessons}
                   onCancelClick={handleCancelClick}
                   canCancelLesson={canCancelLesson}
                   lessonCodes={lessonCodes}
@@ -333,7 +332,7 @@ export default function LessonsPage() {
               </span>
               ?
             </p>
-            
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Reason for cancellation
@@ -432,8 +431,8 @@ interface UpcomingLessonCardProps {
   minCancelHours: number;
 }
 
-const UpcomingLessonCard = memo(function UpcomingLessonCard({ 
-  lesson, 
+const UpcomingLessonCard = memo(function UpcomingLessonCard({
+  lesson,
   onCancelClick,
   canCancel,
   lessonCode,
@@ -448,7 +447,7 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        
+
         {/* Left: Time & Date */}
         <div className="flex items-start gap-4 min-w-[200px]">
           <div className="w-12 h-12 bg-red-50 rounded-xl flex flex-col items-center justify-center text-[#F03D3D] border border-red-100">
@@ -461,7 +460,7 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
               <Clock className="w-4 h-4" />
               {formatTime(lesson.start_time_utc, lesson.duration_minutes)}
             </div>
-            <Link 
+            <Link
               href={`/instructors/${lesson.post_id}`}
               className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline mt-1"
             >
@@ -477,7 +476,7 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
             <p className="text-sm text-gray-500">Lesson Type</p>
             <p className="font-medium text-gray-900 capitalize">{lesson.mode || "N/A"} Driving</p>
           </div>
-          
+
           <div>
             <p className="text-sm text-gray-500">Duration</p>
             <p className="font-medium text-gray-900">{lesson.duration_minutes} minutes</p>
@@ -508,8 +507,8 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
         <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-4 md:pt-0 mt-2 md:mt-0">
           <div className="flex gap-2">
             {canCancel ? (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => onCancelClick(lesson)}
               >
@@ -539,7 +538,7 @@ interface PastLessonCardProps {
 const PastLessonCard = memo(function PastLessonCard({ lesson }: PastLessonCardProps) {
   const startDate = new Date(lesson.start_time_utc);
   const fullDate = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  
+
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm opacity-75 hover:opacity-100 transition-opacity">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -573,7 +572,7 @@ const CancelledLessonCard = memo(function CancelledLessonCard({ cancellation }: 
   const cancelledDate = new Date(cancellation.cancelled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const reasonLabel = CANCELLATION_REASON_LABELS[cancellation.reason] || cancellation.reason;
   const priceDisplay = cancellation.original_price != null ? `$${cancellation.original_price.toFixed(2)}` : null;
-  
+
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm opacity-60">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -612,8 +611,8 @@ interface UpcomingLessonsProps {
   minCancelHours: number;
 }
 
-const UpcomingLessons = memo(function UpcomingLessons({ 
-  lessons, 
+const UpcomingLessons = memo(function UpcomingLessons({
+  lessons,
   onCancelClick,
   canCancelLesson,
   lessonCodes,
@@ -635,9 +634,9 @@ const UpcomingLessons = memo(function UpcomingLessons({
   return (
     <div className="grid gap-4">
       {lessons.map((lesson) => (
-        <UpcomingLessonCard 
-          key={lesson.id} 
-          lesson={lesson} 
+        <UpcomingLessonCard
+          key={lesson.id}
+          lesson={lesson}
           onCancelClick={onCancelClick}
           canCancel={canCancelLesson(lesson)}
           lessonCode={lessonCodes[lesson.id]}

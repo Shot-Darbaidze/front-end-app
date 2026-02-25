@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Notification } from "@/hooks/useNotifications";
 import { getNotificationIcon, getTimeAgo } from "@/utils/notifications";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 
 interface NotificationsDropdownProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
   onRemove,
 }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const localeHref = useLocaleHref();
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -186,7 +188,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
           {notifications.length > 0 && (
             <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
               <Link
-                href="/dashboard/notifications"
+                href={localeHref("/dashboard/notifications")}
                 onClick={onClose}
                 className="block text-center text-sm text-[#F03D3D] hover:text-red-700 font-medium"
               >
