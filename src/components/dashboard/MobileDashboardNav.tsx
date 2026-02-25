@@ -57,10 +57,10 @@ export const MobileDashboardNav = ({ isInstructor = false }: MobileDashboardNavP
                 href={localeHref(item.href)}
                 className={`
                   flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl
-                  text-sm font-semibold whitespace-nowrap transition-all duration-300
+                  text-sm font-semibold whitespace-nowrap transition-all duration-300 py-2.5 px-3
                   ${active
-                    ? "bg-[#F03D3D] text-white shadow-sm px-4 py-2.5"
-                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 py-2.5 px-2"
+                    ? "text-[#F03D3D]"
+                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"
                   }
                 `}
               >

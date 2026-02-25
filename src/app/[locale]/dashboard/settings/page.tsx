@@ -20,7 +20,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pt-20">
+    <div className="min-h-screen bg-gray-50 pt-20">
       <MobileDashboardNav isInstructor={isInstructor} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -407,8 +407,8 @@ const ProfileSettings = ({ user, isInstructor }: { user: ClerkUser; isInstructor
                     onClick={() => handleLanguageToggle(option.code)}
                     disabled={!isEditable}
                     className={`px-3 py-2 text-sm rounded-lg border transition-all ${selected
-                        ? "border-[#F03D3D] text-[#F03D3D] bg-[#F03D3D]/5"
-                        : "border-gray-200 text-gray-700 bg-white"
+                      ? "border-[#F03D3D] text-[#F03D3D] bg-[#F03D3D]/5"
+                      : "border-gray-200 text-gray-700 bg-white"
                       } disabled:opacity-60 disabled:cursor-not-allowed`}
                   >
                     {option.label}
@@ -420,8 +420,8 @@ const ProfileSettings = ({ user, isInstructor }: { user: ClerkUser; isInstructor
                 onClick={() => setShowOtherLanguages((prev) => !prev)}
                 disabled={!isEditable}
                 className={`px-3 py-2 text-sm rounded-lg border transition-all ${showOtherLanguages
-                    ? "border-[#F03D3D] text-[#F03D3D] bg-[#F03D3D]/5"
-                    : "border-gray-200 text-gray-700 bg-white"
+                  ? "border-[#F03D3D] text-[#F03D3D] bg-[#F03D3D]/5"
+                  : "border-gray-200 text-gray-700 bg-white"
                   } disabled:opacity-60 disabled:cursor-not-allowed`}
               >
                 Other
@@ -438,8 +438,8 @@ const ProfileSettings = ({ user, isInstructor }: { user: ClerkUser; isInstructor
                       onClick={() => handleLanguageToggle(option.code)}
                       disabled={!isEditable}
                       className={`px-3 py-2 text-sm rounded-lg border transition-all ${selected
-                          ? "border-[#F03D3D] text-[#F03D3D] bg-[#F03D3D]/5"
-                          : "border-gray-200 text-gray-700 bg-white"
+                        ? "border-[#F03D3D] text-[#F03D3D] bg-[#F03D3D]/5"
+                        : "border-gray-200 text-gray-700 bg-white"
                         } disabled:opacity-60 disabled:cursor-not-allowed`}
                     >
                       {option.label}
