@@ -13,32 +13,36 @@ export const StudentStats = () => {
       value: "12",
       subtext: t("dashboard.stats.completed"),
       icon: CheckCircle2,
-      gradient: "from-emerald-500 to-teal-600",
-      shadow: "shadow-emerald-500/20",
+      iconBg: "bg-emerald-50",
+      iconColor: "text-emerald-600",
+      borderColor: "border-emerald-100",
     },
     {
       label: t("dashboard.stats.hoursDriven"),
       value: "18h",
       subtext: t("dashboard.stats.totalTime"),
       icon: Clock,
-      gradient: "from-blue-500 to-indigo-600",
-      shadow: "shadow-blue-500/20",
+      iconBg: "bg-blue-50",
+      iconColor: "text-blue-600",
+      borderColor: "border-blue-100",
     },
     {
       label: t("dashboard.stats.upcoming"),
       value: "3",
       subtext: t("dashboard.stats.scheduled"),
       icon: Calendar,
-      gradient: "from-purple-500 to-violet-600",
-      shadow: "shadow-purple-500/20",
+      iconBg: "bg-red-50",
+      iconColor: "text-[#F03D3D]",
+      borderColor: "border-red-100",
     },
     {
       label: t("dashboard.stats.progress"),
       value: "45%",
       subtext: t("dashboard.stats.toLicense"),
       icon: TrendingUp,
-      gradient: "from-orange-500 to-red-500",
-      shadow: "shadow-orange-500/20",
+      iconBg: "bg-orange-50",
+      iconColor: "text-orange-600",
+      borderColor: "border-orange-100",
     },
   ];
 
@@ -47,15 +51,17 @@ export const StudentStats = () => {
       {stats.map((stat, index) => (
         <div
           key={index}
-          className="bg-white rounded-2xl p-4 border border-gray-100/80 hover:shadow-lg transition-all duration-300 group"
+          className="bg-white rounded-2xl p-4 border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-300 group"
         >
-          <div className="flex items-center justify-between mb-3">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.gradient} ${stat.shadow} shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-              <stat.icon className="w-5 h-5 text-white" />
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl ${stat.iconBg} flex items-center justify-center border ${stat.borderColor} group-hover:scale-105 transition-transform duration-300 shrink-0`}>
+              <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
+            </div>
+            <div>
+              <p className="text-xl font-bold text-slate-900 leading-none">{stat.value}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{stat.label}</p>
             </div>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
         </div>
       ))}
     </div>

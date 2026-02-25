@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Calendar,
-  Heart,
   Bell,
   Settings,
   CalendarDays,
@@ -26,7 +25,6 @@ export const MobileDashboardNav = ({ isInstructor = false }: MobileDashboardNavP
   const studentNav = [
     { icon: LayoutDashboard, label: t("dashboard.nav.overview"), href: "/dashboard" },
     { icon: Calendar, label: t("dashboard.nav.myLessons"), href: "/dashboard/lessons" },
-    { icon: Heart, label: t("dashboard.nav.favorites"), href: "/dashboard/favorites" },
     { icon: Bell, label: t("dashboard.nav.notifications"), href: "/dashboard/notifications" },
     { icon: Settings, label: t("dashboard.nav.settings"), href: "/dashboard/settings" },
   ];
@@ -47,25 +45,34 @@ export const MobileDashboardNav = ({ isInstructor = false }: MobileDashboardNavP
   };
 
   return (
-    <div className="overflow-x-auto no-scrollbar bg-white/80 backdrop-blur-lg border-b border-gray-200/60">
-      <div className="flex px-4 sm:px-6 lg:px-8 gap-1 md:gap-6 md:justify-center max-w-7xl mx-auto w-full">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active = isActiveLink(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={localeHref(item.href)}
-              className={`flex items-center gap-2 px-3 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${active
-                ? "border-[#F03D3D] text-[#F03D3D]"
-                : "border-transparent text-gray-400 hover:text-gray-600"
-                }`}
-            >
-              <Icon className="w-4 h-4" />
-              {item.label}
-            </Link>
-          );
-        })}
+    <div className="bg-white border-b border-gray-200/70 shadow-sm">
+      <div className="max-w-7xl mx-auto w-full">
+        <div className="flex items-center py-2 px-3 sm:px-6 lg:px-8 sm:justify-center gap-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActiveLink(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={localeHref(item.href)}
+                className={`
+                  flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl
+                  text-sm font-semibold whitespace-nowrap transition-all duration-300
+                  ${active
+                    ? "bg-[#F03D3D] text-white shadow-sm px-4 py-2.5"
+                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-800 py-2.5 px-2"
+                  }
+                `}
+              >
+                <Icon
+                  className="w-[18px] h-[18px] shrink-0"
+                  strokeWidth={active ? 2 : 1.5}
+                />
+                <span className="hidden sm:inline">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

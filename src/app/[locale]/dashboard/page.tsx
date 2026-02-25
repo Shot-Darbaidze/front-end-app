@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import { API_CONFIG } from "@/config/constants";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Sparkles } from "lucide-react";
+
 
 // Shared
 
@@ -12,10 +12,9 @@ import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 
 // Student components
 import { NextLessonCard } from "@/components/dashboard/student/NextLessonCard";
-import { QuickActions } from "@/components/dashboard/student/QuickActions";
 import { StudentStats } from "@/components/dashboard/student/StudentStats";
 import { RecentActivity } from "@/components/dashboard/student/RecentActivity";
-import { ProgressRing } from "@/components/dashboard/student/ProgressRing";
+import { DrivingTips } from "@/components/dashboard/student/DrivingTips";
 
 import { InstructorNextLessonCard } from "@/components/dashboard/instructor/InstructorNextLessonCard";
 import { InstructorUpcomingLessonCard } from "@/components/dashboard/instructor/InstructorUpcomingLessonCard";
@@ -157,35 +156,19 @@ export default function DashboardPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         <main className="flex-1 min-w-0 space-y-6">
-          {/* Welcome Banner */}
-          <div className="relative bg-gradient-to-r from-[#0F172A] to-[#1E293B] rounded-2xl p-6 text-white overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#F03D3D]/10 rounded-full blur-3xl -mr-20 -mt-20" />
-            <div className="absolute bottom-0 left-1/2 w-48 h-48 bg-blue-500/5 rounded-full blur-3xl" />
-            <div className="relative z-10 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#F03D3D] to-orange-500 flex items-center justify-center shadow-lg shadow-red-500/20">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">
-                  {t("dashboard.welcome")}{firstName ? `, ${firstName}!` : "!"}
-                </h1>
-                <p className="text-sm text-white/60">{t("dashboard.subtitle")}</p>
-              </div>
-            </div>
-          </div>
 
           <StudentStats />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2">
               <NextLessonCard />
-              <RecentActivity />
             </div>
-            <div className="space-y-6">
-              <QuickActions />
-              <ProgressRing />
+            <div className="lg:col-span-1">
+              <DrivingTips />
             </div>
           </div>
+
+          <RecentActivity />
         </main>
       </div>
     </div>

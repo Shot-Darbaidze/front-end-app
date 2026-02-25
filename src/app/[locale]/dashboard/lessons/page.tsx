@@ -274,8 +274,8 @@ export default function LessonsPage() {
               className={`
                 px-6 py-2.5 text-sm font-medium rounded-lg transition-all
                 ${activeTab === tab.id
-                  ? "bg-gray-900 text-white shadow-sm"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  ? "bg-[#F03D3D] text-white shadow-sm"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-700"
                 }
               `}
             >

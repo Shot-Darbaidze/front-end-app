@@ -28,7 +28,7 @@ export const LanguageProvider = ({ children, initialLocale = "ka" }: { children:
     const translations = language === "ka" ? translationsKa : translationsEn;
     const keys = key.split(".");
     let value: unknown = translations;
-    
+
     for (const k of keys) {
       // Type guard: check if value is an object with the key
       if (value && typeof value === 'object' && k in value) {
@@ -38,7 +38,7 @@ export const LanguageProvider = ({ children, initialLocale = "ka" }: { children:
         return key;
       }
     }
-    
+
     // Final type guard: ensure return is always a string
     return typeof value === 'string' ? value : key;
   };
@@ -54,7 +54,7 @@ const translationsEn = {
   dashboard: {
     nav: {
       overview: "Overview",
-      myLessons: "My Lessons",
+      myLessons: "Lessons",
       favorites: "Favorites",
       notifications: "Notifications",
       settings: "Settings",
