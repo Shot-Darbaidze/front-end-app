@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  
+
   // Security headers (additional layer beyond middleware)
   async headers() {
     return [
@@ -33,7 +33,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  
+
   // Optimize images
   images: {
     remotePatterns: [
@@ -56,13 +56,13 @@ const nextConfig: NextConfig = {
     ],
     formats: ['image/avif', 'image/webp'],
   },
-  
+
   // Enable React strict mode for better error detection
   reactStrictMode: true,
-  
+
   // Production source maps for debugging (disable in production for security)
   productionBrowserSourceMaps: false,
-  
+
   // Environment variables validation
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',

@@ -17,7 +17,80 @@ interface BookingResponse {
   duration_minutes: number;
   status: "available" | "booked" | "cancelled" | "completed";
   mode: "city" | "yard" | null;
+  price?: number | null;
+  instructor_name?: string | null;
 }
+
+// ─── MOCK UPCOMING LESSONS (remove before production) ───────────────────────
+const MOCK_UPCOMING: BookingResponse[] = [
+  {
+    id: "mock-1",
+    user_id: null,
+    post_id: "abc",
+    start_time_utc: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
+    duration_minutes: 60,
+    status: "booked",
+    mode: "city",
+    price: 45,
+    instructor_name: "Giorgi Beridze",
+  },
+  {
+    id: "mock-2",
+    user_id: null,
+    post_id: "def",
+    start_time_utc: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+    duration_minutes: 90,
+    status: "booked",
+    mode: "yard",
+    price: 60,
+    instructor_name: "Nino Kvaratskhelia",
+  },
+];
+// ────────────────────────────────────────────────────────────────────────────
+
+// ─── MOCK CANCELLED LESSONS (remove before production) ───────────────────────
+const MOCK_CANCELLED: CancellationResponse[] = [
+  {
+    id: "cancel-1",
+    booking_id: "bk-1",
+    cancelled_by_user_id: null,
+    reason: "schedule_conflict",
+    description: null,
+    original_start_time_utc: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    original_duration_minutes: 60,
+    original_mode: "city",
+    original_price: 45,
+    original_post_id: "abc",
+    cancelled_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "cancel-2",
+    booking_id: "bk-2",
+    cancelled_by_user_id: null,
+    reason: "illness",
+    description: "Had a fever that day",
+    original_start_time_utc: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+    original_duration_minutes: 90,
+    original_mode: "yard",
+    original_price: 60,
+    original_post_id: "def",
+    cancelled_at: new Date(Date.now() - 13 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "cancel-3",
+    booking_id: "bk-3",
+    cancelled_by_user_id: null,
+    reason: "instructor_request",
+    description: null,
+    original_start_time_utc: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+    original_duration_minutes: 60,
+    original_mode: "city",
+    original_price: null,
+    original_post_id: "ghi",
+    cancelled_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
+// ────────────────────────────────────────────────────────────────────────────
 
 // Cancellation record from API
 interface CancellationResponse {
@@ -133,9 +206,9 @@ export default function LessonsPage() {
         (b) => b.status === "completed" || (b.status === "booked" && new Date(b.start_time_utc) <= now)
       );
 
-      setUpcomingLessons(upcoming);
+      setUpcomingLessons([...MOCK_UPCOMING, ...upcoming]); // TODO: remove MOCK_UPCOMING before production
       setPastLessons(past);
-      setCancelledLessons(allCancellations);
+      setCancelledLessons([...MOCK_CANCELLED, ...allCancellations]); // TODO: remove MOCK_CANCELLED before production
 
       // Fetch lesson codes for all upcoming lessons
       if (upcoming.length > 0) {
@@ -257,31 +330,26 @@ export default function LessonsPage() {
       <MobileDashboardNav isInstructor={isInstructor} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Lessons</h1>
-            <p className="text-gray-500 mt-1">Manage your upcoming and past driving lessons.</p>
+        {/* Tabs + Book New Lesson */}
+        <div className="flex items-center justify-between gap-4 mb-8">
+          <div className="flex gap-1 bg-white p-1 rounded-xl border border-gray-100 w-fit shadow-sm">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => handleTabClick(tab.id)}
+                className={`
+                  px-6 py-2.5 text-sm font-medium rounded-lg transition-all
+                  ${activeTab === tab.id
+                    ? "bg-[#F03D3D] text-white shadow-sm"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-700"
+                  }
+                `}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-          <Button className="w-full sm:w-auto">Book New Lesson</Button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1 mb-8 bg-white p-1 rounded-xl border border-gray-100 w-fit shadow-sm">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabClick(tab.id)}
-              className={`
-                px-6 py-2.5 text-sm font-medium rounded-lg transition-all
-                ${activeTab === tab.id
-                  ? "bg-[#F03D3D] text-white shadow-sm"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-700"
-                }
-              `}
-            >
-              {tab.label}
-            </button>
-          ))}
+          <Button className="hidden sm:block">Book New Lesson</Button>
         </div>
 
         {/* Content */}
@@ -440,29 +508,23 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
   minCancelHours
 }: UpcomingLessonCardProps) {
   const startDate = new Date(lesson.start_time_utc);
-  const dayName = startDate.toLocaleDateString("en-US", { weekday: "short" });
-  const dayNum = startDate.getDate();
   const fullDate = startDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 group">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
 
-        {/* Left: Time & Date */}
-        <div className="flex items-start gap-4 min-w-[200px]">
-          <div className="w-12 h-12 bg-red-50 rounded-xl flex flex-col items-center justify-center text-[#F03D3D] border border-red-100">
-            <span className="text-xs font-bold uppercase">{dayName}</span>
-            <span className="text-lg font-bold">{dayNum}</span>
+        {/* Left: icon + date + link */}
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center group-hover:bg-red-100 transition-colors shrink-0">
+            <Clock className="w-5 h-5 text-[#F03D3D]" />
           </div>
           <div>
-            <h3 className="font-bold text-gray-900">{fullDate}</h3>
-            <div className="flex items-center gap-1.5 text-sm text-gray-500 mt-1">
-              <Clock className="w-4 h-4" />
-              {formatTime(lesson.start_time_utc, lesson.duration_minutes)}
-            </div>
+            <h3 className="font-bold text-gray-900">{lesson.instructor_name || "Instructor"}</h3>
+            <p className="text-sm text-gray-500">{fullDate}</p>
             <Link
               href={`/instructors/${lesson.post_id}`}
-              className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline mt-1"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[#F03D3D] hover:text-red-700 hover:underline mt-1"
             >
               View Instructor
               <ExternalLink className="w-3 h-3" />
@@ -470,59 +532,34 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
           </div>
         </div>
 
-        {/* Middle: Mode, Duration & Lesson Code */}
-        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <p className="text-sm text-gray-500">Lesson Type</p>
-            <p className="font-medium text-gray-900 capitalize">{lesson.mode || "N/A"} Driving</p>
+        {/* Right: badges + actions */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Time & Duration */}
+          <div className="flex items-center gap-1.5 text-sm text-gray-500">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
+            {formatTime(lesson.start_time_utc, lesson.duration_minutes)} · {lesson.duration_minutes} min
           </div>
 
-          <div>
-            <p className="text-sm text-gray-500">Duration</p>
-            <p className="font-medium text-gray-900">{lesson.duration_minutes} minutes</p>
-          </div>
+          {/* Price */}
+          {lesson.price != null && (
+            <span className="text-sm font-bold text-emerald-600 group-hover:text-emerald-500 transition-colors">
+              ₾{lesson.price.toFixed(0)}
+            </span>
+          )}
 
-          {/* Lesson Verification Code */}
-          <div className="sm:text-center">
-            <p className="text-sm text-gray-500">Lesson Code</p>
-            {isLoadingCode ? (
-              <div className="flex items-center gap-1.5 sm:justify-center">
-                <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-                <span className="text-sm text-gray-400">Loading...</span>
-              </div>
-            ) : lessonCode ? (
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg">
-                <span className="font-mono text-lg font-bold text-blue-700 tracking-widest">
-                  {lessonCode}
-                </span>
-              </div>
-            ) : (
-              <span className="text-sm text-gray-400">—</span>
-            )}
-            <p className="text-xs text-gray-400 mt-1 hidden sm:block">Show this to your instructor</p>
-          </div>
-        </div>
-
-        {/* Right: Actions */}
-        <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-4 md:pt-0 mt-2 md:mt-0">
-          <div className="flex gap-2">
-            {canCancel ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onCancelClick(lesson)}
-              >
-                Cancel
-              </Button>
-            ) : (
-              <span className="text-xs text-gray-500 px-3 py-2">
-                Cannot cancel within {minCancelHours}h
-              </span>
-            )}
-            <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50">
-              <MoreVertical className="w-5 h-5" />
+          {/* Cancel */}
+          {canCancel ? (
+            <button
+              onClick={() => onCancelClick(lesson)}
+              className="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all shadow-sm active:scale-95"
+            >
+              Cancel
             </button>
-          </div>
+          ) : (
+            <span className="text-[11px] font-bold text-slate-400">
+              Locked {minCancelHours}h before
+            </span>
+          )}
         </div>
 
       </div>
@@ -535,24 +572,49 @@ interface PastLessonCardProps {
   lesson: BookingResponse;
 }
 
+const MOCK_INSTRUCTOR_NAMES = [
+  "Giorgi Beridze", "Nino Kvaratskhelia", "Levan Mchedlishvili",
+  "Tamara Jikia", "Irakli Tsiklauri", "Ana Gogitidze",
+  "Davit Kakhniashvili", "Salome Tsereteli",
+];
+
 const PastLessonCard = memo(function PastLessonCard({ lesson }: PastLessonCardProps) {
   const startDate = new Date(lesson.start_time_utc);
   const fullDate = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const fallbackName = MOCK_INSTRUCTOR_NAMES[
+    lesson.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % MOCK_INSTRUCTOR_NAMES.length
+  ];
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm opacity-75 hover:opacity-100 transition-opacity">
+    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm opacity-75 hover:opacity-100 transition-opacity group">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-            <CheckCircle2 className="w-5 h-5 text-gray-500" />
+          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center group-hover:bg-emerald-50 transition-colors">
+            <CheckCircle2 className="w-5 h-5 text-gray-500 group-hover:text-emerald-500 transition-colors" />
           </div>
           <div>
-            <h3 className="font-bold text-gray-900 capitalize">{lesson.mode || "Driving"} Lesson</h3>
+            <h3 className="font-bold text-gray-900">{lesson.instructor_name || fallbackName}</h3>
             <p className="text-sm text-gray-500">{fullDate} • {lesson.duration_minutes} min</p>
+            <Link
+              href={`/instructors/${lesson.post_id}`}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[#F03D3D] hover:text-red-700 hover:underline mt-1"
+            >
+              View Instructor
+              <ExternalLink className="w-3 h-3" />
+            </Link>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Time & Duration */}
+          <div className="flex items-center gap-1.5 text-sm text-gray-500">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
+            {formatTime(lesson.start_time_utc, lesson.duration_minutes)} · {lesson.duration_minutes} min
+          </div>
+
+          {lesson.price != null && (
+            <span className="text-sm font-bold text-emerald-600 group-hover:text-emerald-500 transition-colors">₾{lesson.price.toFixed(0)}</span>
+          )}
           <Button variant="subtle" size="sm">Rate Lesson</Button>
           <Button variant="outline" size="sm">Book Again</Button>
         </div>
@@ -568,34 +630,61 @@ interface CancelledLessonCardProps {
 
 const CancelledLessonCard = memo(function CancelledLessonCard({ cancellation }: CancelledLessonCardProps) {
   const startDate = new Date(cancellation.original_start_time_utc);
-  const fullDate = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  const cancelledDate = new Date(cancellation.cancelled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const fullDate = startDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
   const reasonLabel = CANCELLATION_REASON_LABELS[cancellation.reason] || cancellation.reason;
-  const priceDisplay = cancellation.original_price != null ? `$${cancellation.original_price.toFixed(2)}` : null;
+
+  const fallbackName = MOCK_INSTRUCTOR_NAMES[
+    cancellation.original_post_id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % MOCK_INSTRUCTOR_NAMES.length
+  ];
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm opacity-60">
+    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm opacity-70 hover:opacity-100 transition-opacity group">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+
+        {/* Left: icon + name + date + link */}
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center">
-            <XCircle className="w-5 h-5 text-red-500" />
+          <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center shrink-0">
+            <XCircle className="w-5 h-5 text-red-400 group-hover:text-red-500 transition-colors" />
           </div>
           <div>
-            <h3 className="font-bold text-gray-900 capitalize">{cancellation.original_mode || "Driving"} Lesson</h3>
-            <p className="text-sm text-gray-500">
-              Originally: {fullDate} • {cancellation.original_duration_minutes} min
-              {priceDisplay && <span> • {priceDisplay}</span>}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              Cancelled on {cancelledDate} • {reasonLabel}
-              {cancellation.description && `: ${cancellation.description}`}
-            </p>
+            <h3 className="font-bold text-gray-900">{fallbackName}</h3>
+            <p className="text-sm text-gray-500">{fullDate}</p>
+            <Link
+              href={`/instructors/${cancellation.original_post_id}`}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[#F03D3D] hover:text-red-700 hover:underline mt-1"
+            >
+              View Instructor
+              <ExternalLink className="w-3 h-3" />
+            </Link>
           </div>
         </div>
 
-        <div className="px-3 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700">
-          Cancelled
+        {/* Right: reason | time + price + badge */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Reason */}
+          <span className="text-xs font-semibold text-gray-400">{reasonLabel}</span>
+
+          <span className="text-gray-200 select-none">|</span>
+
+          {/* Time & Duration */}
+          <div className="flex items-center gap-1.5 text-sm text-gray-500">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
+            {formatTime(cancellation.original_start_time_utc, cancellation.original_duration_minutes)} · {cancellation.original_duration_minutes} min
+          </div>
+
+          {/* Price */}
+          {cancellation.original_price != null && (
+            <span className="text-sm font-bold text-emerald-600">
+              ₾{cancellation.original_price.toFixed(0)}
+            </span>
+          )}
+
+          {/* Cancelled badge */}
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-50 text-red-500">
+            Cancelled
+          </span>
         </div>
+
       </div>
     </div>
   );

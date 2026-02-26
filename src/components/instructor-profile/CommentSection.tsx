@@ -39,7 +39,7 @@ function formatTimeAgo(dateString: string): string {
   if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
   if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
-  
+
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
@@ -92,11 +92,11 @@ function SingleComment({
   const isTopLevel = !comment.parent_id;
 
   return (
-    <div className={`${depth > 0 ? "ml-4 sm:ml-8 border-l-2 border-gray-100 pl-3 sm:pl-4" : ""}`}>
+    <div className={`${depth > 0 ? "ml-4 sm:ml-8 border-l-2 border-slate-100 pl-3 sm:pl-4" : ""}`}>
       <div className="flex gap-3 py-4">
         {/* Avatar */}
         <div className="flex-shrink-0">
-          <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100">
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 border border-slate-200 shadow-sm">
             {comment.user.image_url ? (
               <img
                 src={comment.user.image_url}
@@ -104,7 +104,7 @@ function SingleComment({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
+              <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold">
                 {getUserDisplayName(comment.user).charAt(0).toUpperCase()}
               </div>
             )}
@@ -114,20 +114,19 @@ function SingleComment({
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-semibold text-gray-900 text-sm">
+            <span className="font-bold text-slate-900 text-sm">
               {getUserDisplayName(comment.user)}
             </span>
-            <span className="text-xs text-gray-400">{formatTimeAgo(comment.created_at)}</span>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-tight">{formatTimeAgo(comment.created_at)}</span>
             {comment.rating && !comment.parent_id && (
               <div className="flex items-center gap-0.5 ml-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star
                     key={star}
-                    className={`w-3.5 h-3.5 ${
-                      star <= comment.rating!
-                        ? 'fill-yellow-400 text-yellow-400'
-                        : 'fill-gray-200 text-gray-200'
-                    }`}
+                    className={`w-3 h-3 ${star <= comment.rating!
+                      ? 'fill-yellow-400 text-yellow-400'
+                      : 'fill-slate-200 text-slate-200'
+                      }`}
                   />
                 ))}
               </div>
@@ -139,7 +138,7 @@ function SingleComment({
               {/* Rating editor for top-level reviews */}
               {isTopLevel && (
                 <div className="mb-2">
-                  <p className="text-xs font-medium text-gray-600 mb-1">Rating:</p>
+                  <p className="text-xs font-bold text-slate-600 mb-1">Rating:</p>
                   <div className="flex items-center gap-1">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
@@ -151,11 +150,10 @@ function SingleComment({
                         className="transition-transform hover:scale-110"
                       >
                         <Star
-                          className={`w-5 h-5 ${
-                            star <= (editHoverRating || editRating)
-                              ? 'fill-yellow-400 text-yellow-400'
-                              : 'fill-gray-200 text-gray-200'
-                          }`}
+                          className={`w-5 h-5 ${star <= (editHoverRating || editRating)
+                            ? 'fill-yellow-400 text-yellow-400'
+                            : 'fill-slate-200 text-slate-200'
+                            }`}
                         />
                       </button>
                     ))}
@@ -165,7 +163,7 @@ function SingleComment({
               <textarea
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] resize-none"
+                className="w-full px-4 py-3 text-sm border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] resize-none bg-slate-50"
                 rows={3}
               />
               <div className="flex gap-2">
@@ -179,7 +177,7 @@ function SingleComment({
                 </button>
                 <button
                   onClick={onCancelEdit}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="flex items-center gap-1 px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
                 >
                   <X className="w-3 h-3" />
                   Cancel
@@ -187,7 +185,7 @@ function SingleComment({
               </div>
             </div>
           ) : (
-            <p className="text-gray-700 text-sm whitespace-pre-wrap break-words">
+            <p className="text-slate-700 text-sm whitespace-pre-wrap break-words leading-relaxed">
               {comment.comment_text}
             </p>
           )}
@@ -197,11 +195,10 @@ function SingleComment({
             <div className="flex items-center gap-4 mt-2">
               <button
                 onClick={() => onReact(comment.id, 'like')}
-                className={`flex items-center gap-1 text-xs transition-colors ${
-                  comment.userReaction === 'like'
-                    ? 'text-[#F03D3D]'
-                    : 'text-gray-500 hover:text-[#F03D3D]'
-                }`}
+                className={`flex items-center gap-1 text-xs transition-colors ${comment.userReaction === 'like'
+                  ? 'text-[#F03D3D]'
+                  : 'text-slate-500 hover:text-[#F03D3D]'
+                  }`}
               >
                 <Heart className={`w-3.5 h-3.5 ${comment.userReaction === 'like' ? 'fill-current' : ''}`} />
                 {(comment.reactions?.like || 0) > 0 && (
@@ -210,11 +207,10 @@ function SingleComment({
               </button>
               <button
                 onClick={() => onReact(comment.id, 'dislike')}
-                className={`flex items-center gap-1 text-xs transition-colors ${
-                  comment.userReaction === 'dislike'
-                    ? 'text-gray-700'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
+                className={`flex items-center gap-1 text-xs font-semibold transition-colors ${comment.userReaction === 'dislike'
+                  ? 'text-slate-900 border-slate-300'
+                  : 'text-slate-400 hover:text-slate-600'
+                  }`}
               >
                 <HeartCrack className={`w-3.5 h-3.5 ${comment.userReaction === 'dislike' ? 'fill-current' : ''}`} />
                 {(comment.reactions?.dislike || 0) > 0 && (
@@ -232,14 +228,14 @@ function SingleComment({
                 <>
                   <button
                     onClick={() => onEdit(comment.id, comment.comment_text, comment.rating)}
-                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-500 transition-colors"
+                    className="flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-blue-500 transition-colors"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                     Edit
                   </button>
                   <button
                     onClick={() => onDelete(comment.id)}
-                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500 transition-colors"
+                    className="flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-red-500 transition-colors"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     Delete
@@ -256,16 +252,16 @@ function SingleComment({
         <div>
           <button
             onClick={() => setShowReplies(!showReplies)}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 mb-2 ml-[3.25rem]"
+            className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-600 mb-2 ml-14 transition-colors"
           >
             {showReplies ? (
               <>
-                <ChevronUp className="w-3.5 h-3.5" />
+                <ChevronUp className="w-3 h-3" />
                 Hide {comment.replies.length} {comment.replies.length === 1 ? "reply" : "replies"}
               </>
             ) : (
               <>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <ChevronDown className="w-3 h-3" />
                 Show {comment.replies.length} {comment.replies.length === 1 ? "reply" : "replies"}
               </>
             )}
@@ -326,7 +322,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
   const fetchComments = useCallback(async (reset: boolean = true) => {
     try {
       const offset = reset ? 0 : commentsRef.current.length;
-      
+
       // Include auth token if user is signed in to get their reactions
       const headers: HeadersInit = {};
       if (isSignedIn) {
@@ -335,7 +331,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
           headers.Authorization = `Bearer ${token}`;
         }
       }
-      
+
       const response = await fetch(
         `${API_CONFIG.BASE_URL}/api/comments/post/${postId}?limit=20&offset=${offset}&sort_by=${sortBy}`,
         { headers }
@@ -520,7 +516,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
 
   const handleDelete = async (commentId: string) => {
     if (!isSignedIn) return;
-    
+
     if (!window.confirm("Are you sure you want to delete this comment?")) return;
 
     try {
@@ -565,7 +561,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
 
   const handleReact = async (commentId: string, reactionType: string) => {
     if (!isSignedIn) return;
-    
+
     // Prevent double-clicks
     if (reactingComments.has(commentId)) return;
     setReactingComments(prev => new Set(prev).add(commentId));
@@ -628,43 +624,59 @@ export default function CommentSection({ postId }: CommentSectionProps) {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-3xl border border-gray-100 p-4 sm:p-8 shadow-sm">
+      <div className="bg-white rounded-3xl border border-slate-100 p-8 shadow-sm">
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <Loader2 className="w-8 h-8 animate-spin text-[#F03D3D]" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-3xl border border-gray-100 p-4 sm:p-8 shadow-sm">
-      <div className="flex items-center gap-3 mb-6">
-        <Star className="w-6 h-6 text-[#F03D3D] fill-[#F03D3D]" />
-        <h2 className="text-2xl font-bold text-gray-900">
-          Student Reviews {comments.length > 0 && `(${comments.length})`}
-        </h2>
+    <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xl relative overflow-hidden group">
+      {/* Background Orbs */}
+      <div className="absolute top-[-10%] right-[-5%] w-[30%] h-[30%] bg-gradient-to-br from-[#F03D3D]/5 to-orange-500/5 rounded-full blur-3xl opacity-60 pointer-events-none group-hover:scale-110 transition-transform duration-700" />
+      <div className="absolute bottom-[-10%] left-[-5%] w-[30%] h-[30%] bg-gradient-to-tr from-blue-600/5 to-indigo-500/5 rounded-full blur-3xl opacity-60 pointer-events-none group-hover:scale-110 transition-transform duration-700" />
+
+      <div className="relative z-10 flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center border border-red-100 shadow-sm">
+            <Star className="w-6 h-6 text-[#F03D3D] fill-[#F03D3D]" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 leading-tight">
+              Student Reviews
+            </h2>
+            <p className="text-slate-500 text-sm font-medium">What people say about this instructor</p>
+          </div>
+        </div>
+        {totalComments > 0 && (
+          <div className="bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 text-xs font-bold text-slate-600 shadow-sm">
+            {totalComments} total
+          </div>
+        )}
       </div>
 
       {/* New Comment Form */}
       {isSignedIn ? (
-        <form onSubmit={handleSubmitComment} className="mb-8">
-          <div className="flex gap-3">
+        <form onSubmit={handleSubmitComment} className="mb-10 bg-slate-50/50 p-6 rounded-3xl border border-slate-100 shadow-inner">
+          <div className="flex gap-4">
             <div className="flex-shrink-0">
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100">
+              <div className="w-12 h-12 rounded-2xl overflow-hidden bg-white border border-slate-200 shadow-sm">
                 {user?.imageUrl ? (
                   <img src={user.imageUrl} alt="You" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
+                  <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold text-lg">
                     {user?.firstName?.charAt(0) || "?"}
                   </div>
                 )}
               </div>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               {/* Star Rating */}
-              <div className="mb-3">
-                <p className="text-sm font-medium text-gray-700 mb-2">Rate your experience:</p>
-                <div className="flex items-center gap-1">
+              <div className="mb-4">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Rate your experience</p>
+                <div className="flex items-center gap-2">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
@@ -672,161 +684,164 @@ export default function CommentSection({ postId }: CommentSectionProps) {
                       onClick={() => setRating(star)}
                       onMouseEnter={() => setHoverRating(star)}
                       onMouseLeave={() => setHoverRating(0)}
-                      className="transition-transform hover:scale-110"
+                      className="transition-transform hover:scale-125"
                     >
                       <Star
-                        className={`w-6 h-6 ${
-                          star <= (hoverRating || rating)
-                            ? 'fill-yellow-400 text-yellow-400'
-                            : 'fill-gray-200 text-gray-200'
-                        }`}
+                        className={`w-7 h-7 ${star <= (hoverRating || rating)
+                          ? 'fill-yellow-400 text-yellow-400 drop-shadow-sm'
+                          : 'fill-slate-200 text-slate-200'
+                          }`}
                       />
                     </button>
                   ))}
                   {rating > 0 && (
-                    <span className="ml-2 text-sm text-gray-600">({rating}/5)</span>
+                    <span className="ml-3 text-sm font-bold text-slate-700 bg-white px-2 py-1 rounded-lg border border-slate-200 shadow-sm">{rating}.0</span>
                   )}
                 </div>
               </div>
               <textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Write your review (optional)..."
-                className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] resize-none"
+                placeholder="Share your experience working with this instructor..."
+                className="w-full px-5 py-4 text-sm border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#F03D3D]/5 focus:border-[#F03D3D] resize-none bg-white shadow-sm transition-all"
                 rows={3}
               />
-              <div className="flex justify-between items-center mt-2">
-                {rating === 0 && (
-                  <p className="text-xs text-amber-600">Please select a rating to submit your review</p>
-                )}
-                <div className={rating === 0 ? '' : 'ml-auto'}>
-                  <button
-                    type="submit"
-                    disabled={rating === 0 || isSubmitting}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#F03D3D] rounded-lg hover:bg-[#d63333] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                    Post Review
-                  </button>
-                </div>
+              <div className="flex justify-between items-center mt-4">
+                {rating === 0 ? (
+                  <p className="text-[11px] font-bold text-amber-600 uppercase tracking-tight flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                    Please select a rating to continue
+                  </p>
+                ) : <div />}
+                <button
+                  type="submit"
+                  disabled={rating === 0 || isSubmitting}
+                  className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-[#F03D3D] rounded-xl hover:bg-[#d63333] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-500/20 active:scale-95"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Post Review
+                </button>
               </div>
             </div>
           </div>
         </form>
       ) : (
-        <div className="mb-8 p-4 bg-gray-50 rounded-xl text-center">
-          <p className="text-gray-600">Sign in to leave a review</p>
+        <div className="mb-10 p-6 bg-slate-50 rounded-3xl text-center border border-slate-100 border-dashed">
+          <p className="text-slate-500 font-medium">Sign in to leave a review and join the conversation</p>
         </div>
       )}
 
       {/* Comments List */}
       {comments.length === 0 && !isLoading ? (
-        <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-          <Star className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">No reviews yet. Be the first to share your experience!</p>
+        <div className="text-center py-16 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
+          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100">
+            <Star className="w-8 h-8 text-slate-200" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900 mb-1">No reviews yet</h3>
+          <p className="text-slate-500">Be the first to share your experience!</p>
         </div>
       ) : (
-        <>
+        <div className="relative z-10">
           {/* Sort Selector */}
           {totalComments > 0 && (
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm text-gray-600">
-                {totalComments} {totalComments === 1 ? 'review' : 'reviews'}
+            <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-50">
+              <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                Latest Feed
               </span>
-              <div className="flex items-center gap-2">
-                <ArrowUpDown className="w-4 h-4 text-gray-400" />
+              <div className="flex items-center gap-3">
+                <ArrowUpDown className="w-4 h-4 text-slate-400" />
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as "newest" | "oldest" | "likes")}
-                  className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] bg-white"
+                  className="text-xs font-bold text-slate-600 border border-slate-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-4 focus:ring-slate-100 focus:border-slate-300 bg-white shadow-sm cursor-pointer hover:bg-slate-50 transition-colors"
                 >
-                  <option value="newest">Newest</option>
-                  <option value="oldest">Oldest</option>
-                  <option value="likes">Most Liked</option>
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="likes">Most Helpful</option>
                 </select>
               </div>
             </div>
           )}
-          <div className="divide-y divide-gray-100">
-          {comments.map((comment) => (
-            <div key={comment.id}>
-              <SingleComment
-                comment={comment}
-                onReply={handleReply}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onReact={handleReact}
-                replyingTo={replyingTo}
-                editingId={editingId}
-                editText={editText}
-                setEditText={setEditText}
-                editRating={editRating}
-                setEditRating={setEditRating}
-                editHoverRating={editHoverRating}
-                setEditHoverRating={setEditHoverRating}
-                onCancelEdit={handleCancelEdit}
-                onSaveEdit={handleSaveEdit}
-              />
+          <div className="space-y-4">
+            {comments.map((comment) => (
+              <div key={comment.id}>
+                <SingleComment
+                  comment={comment}
+                  onReply={handleReply}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onReact={handleReact}
+                  replyingTo={replyingTo}
+                  editingId={editingId}
+                  editText={editText}
+                  setEditText={setEditText}
+                  editRating={editRating}
+                  setEditRating={setEditRating}
+                  editHoverRating={editHoverRating}
+                  setEditHoverRating={setEditHoverRating}
+                  onCancelEdit={handleCancelEdit}
+                  onSaveEdit={handleSaveEdit}
+                />
 
-              {/* Reply Form */}
-              {replyingTo === comment.id && isSignedIn && (
-                <div className="pb-4">
-                  <div className="flex gap-3 ml-4 sm:ml-8 border-l-2 border-gray-100 pl-3 sm:pl-4">
-                    <div className="flex-shrink-0">
-                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100">
-                        {user?.imageUrl ? (
-                          <img src={user.imageUrl} alt="You" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold text-sm">
-                            {user?.firstName?.charAt(0) || "?"}
-                          </div>
-                        )}
+                {/* Reply Form */}
+                {replyingTo === comment.id && isSignedIn && (
+                  <div className="pb-4">
+                    <div className="flex gap-4 ml-6 sm:ml-12 border-l-2 border-slate-100 pl-4 sm:pl-6">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 rounded-xl overflow-hidden bg-white border border-slate-200 shadow-sm">
+                          {user?.imageUrl ? (
+                            <img src={user.imageUrl} alt="You" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold text-xs">
+                              {user?.firstName?.charAt(0) || "?"}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex-1">
-                      <textarea
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        placeholder={`Reply to ${getUserDisplayName(comment.user)}...`}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] resize-none"
-                        rows={2}
-                        autoFocus
-                      />
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={() => handleSubmitReply(comment.id)}
-                          disabled={!replyText.trim() || isSubmitting}
-                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-[#F03D3D] rounded-lg hover:bg-[#d63333] transition-colors disabled:opacity-50"
-                        >
-                          {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                          Reply
-                        </button>
-                        <button
-                          onClick={() => setReplyingTo(null)}
-                          className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          Cancel
-                        </button>
+                      <div className="flex-1 min-w-0">
+                        <textarea
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder={`Reply to ${getUserDisplayName(comment.user)}...`}
+                          className="w-full px-4 py-3 text-sm border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-slate-100 focus:border-slate-300 resize-none bg-slate-50 transition-all"
+                          rows={2}
+                          autoFocus
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => handleSubmitReply(comment.id)}
+                            disabled={!replyText.trim() || isSubmitting}
+                            className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50 shadow-sm active:scale-95"
+                          >
+                            {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                            Reply
+                          </button>
+                          <button
+                            onClick={() => setReplyingTo(null)}
+                            className="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-          
+                )}
+              </div>
+            ))}
+          </div>
+
           {/* Load More Button */}
           {hasMore && (
-            <div className="mt-6 text-center">
+            <div className="mt-10 text-center">
               <button
                 onClick={loadMoreComments}
                 disabled={isLoadingMore}
-                className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-8 py-3 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all disabled:opacity-50 shadow-sm active:scale-95"
               >
                 {isLoadingMore ? (
                   <>
@@ -842,7 +857,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
               </button>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
