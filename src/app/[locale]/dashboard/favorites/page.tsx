@@ -50,7 +50,26 @@ export default function FavoritesPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch favorites");
+        if (response.status === 401) {
+          setError("Session expired. Please sign in again.");
+        } else if (response.status === 404) {
+          setError("User not found. Please contact support.");
+        } else {
+          // Try to extract error detail from response body
+          let detail = "";
+          try {
+            const errorBody = await response.json();
+            if (errorBody.detail) {
+              detail = typeof errorBody.detail === 'string' 
+                ? errorBody.detail 
+                : JSON.stringify(errorBody.detail);
+            }
+          } catch { /* ignore parse errors */ }
+          setError(detail || `Failed to load favorites (Error ${response.status})`);
+          console.error("Favorites API error:", response.status, detail);
+        }
+        setIsLoading(false);
+        return;
       }
 
       const data: FavoritesResponse = await response.json();

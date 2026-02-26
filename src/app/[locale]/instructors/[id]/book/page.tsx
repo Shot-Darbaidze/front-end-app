@@ -34,8 +34,8 @@ type SelectedSlot = {
   duration_minutes: number;
 };
 
-export default function BookingPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function BookingPage({ params }: { params: Promise<{ id: string; locale: string }> }) {
+  const { id, locale } = use(params);
   const router = useRouter();
   const { getToken, isSignedIn } = useAuth();
   
@@ -170,7 +170,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string }
       }
       
       // All bookings successful - redirect to lessons page
-      router.push("/dashboard/lessons");
+      router.push(`/${locale}/dashboard/lessons`);
     } catch (err) {
       setBookingError(err instanceof Error ? err.message : "Booking failed. Please try again.");
       setBooking(false);
@@ -560,10 +560,10 @@ export default function BookingPage({ params }: { params: Promise<{ id: string }
                 {booking ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Redirecting to Payment...
+                    Booking...
                   </>
                 ) : (
-                  "Proceed to Payment"
+                  "Confirm Booking"
                 )}
               </Button>
             </div>

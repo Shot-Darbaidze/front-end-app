@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
-import { Send, Reply, Trash2, Edit2, X, Check, Loader2, ChevronDown, ChevronUp, Star } from "lucide-react";
+import { Send, Reply, Trash2, Edit2, X, Check, Loader2, ChevronDown, ChevronUp, Star, Heart, HeartCrack, ArrowUpDown } from "lucide-react";
 import { API_CONFIG } from "@/config/constants";
 
 interface CommentUser {
@@ -21,6 +21,9 @@ interface Comment {
   parent_id: string | null;
   created_at: string;
   replies: Comment[];
+  reactions?: { [key: string]: number };
+  userReaction?: string | null;
+  isOwner?: boolean;
 }
 
 interface CommentSectionProps {
@@ -47,14 +50,18 @@ function getUserDisplayName(user: CommentUser): string {
 
 interface SingleCommentProps {
   comment: Comment;
-  currentUserId: string | null;
   onReply: (commentId: string) => void;
-  onEdit: (commentId: string, text: string) => void;
+  onEdit: (commentId: string, text: string, rating?: number) => void;
   onDelete: (commentId: string) => void;
+  onReact: (commentId: string, reactionType: string) => void;
   replyingTo: string | null;
   editingId: string | null;
   editText: string;
   setEditText: (text: string) => void;
+  editRating: number;
+  setEditRating: (rating: number) => void;
+  editHoverRating: number;
+  setEditHoverRating: (rating: number) => void;
   onCancelEdit: () => void;
   onSaveEdit: () => void;
   depth?: number;
@@ -62,22 +69,27 @@ interface SingleCommentProps {
 
 function SingleComment({
   comment,
-  currentUserId,
   onReply,
   onEdit,
   onDelete,
+  onReact,
   replyingTo,
   editingId,
   editText,
   setEditText,
+  editRating,
+  setEditRating,
+  editHoverRating,
+  setEditHoverRating,
   onCancelEdit,
   onSaveEdit,
   depth = 0,
 }: SingleCommentProps) {
-  const isOwner = currentUserId === comment.user.id;
+  const isOwner = comment.isOwner ?? false;
   const isEditing = editingId === comment.id;
   const [showReplies, setShowReplies] = useState(true);
   const hasReplies = comment.replies && comment.replies.length > 0;
+  const isTopLevel = !comment.parent_id;
 
   return (
     <div className={`${depth > 0 ? "ml-4 sm:ml-8 border-l-2 border-gray-100 pl-3 sm:pl-4" : ""}`}>
@@ -124,6 +136,32 @@ function SingleComment({
 
           {isEditing ? (
             <div className="space-y-2">
+              {/* Rating editor for top-level reviews */}
+              {isTopLevel && (
+                <div className="mb-2">
+                  <p className="text-xs font-medium text-gray-600 mb-1">Rating:</p>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setEditRating(star)}
+                        onMouseEnter={() => setEditHoverRating(star)}
+                        onMouseLeave={() => setEditHoverRating(0)}
+                        className="transition-transform hover:scale-110"
+                      >
+                        <Star
+                          className={`w-5 h-5 ${
+                            star <= (editHoverRating || editRating)
+                              ? 'fill-yellow-400 text-yellow-400'
+                              : 'fill-gray-200 text-gray-200'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <textarea
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
@@ -133,7 +171,8 @@ function SingleComment({
               <div className="flex gap-2">
                 <button
                   onClick={onSaveEdit}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-[#F03D3D] rounded-lg hover:bg-[#d63333] transition-colors"
+                  disabled={isTopLevel && editRating === 0}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-[#F03D3D] rounded-lg hover:bg-[#d63333] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Check className="w-3 h-3" />
                   Save
@@ -157,6 +196,32 @@ function SingleComment({
           {!isEditing && (
             <div className="flex items-center gap-4 mt-2">
               <button
+                onClick={() => onReact(comment.id, 'like')}
+                className={`flex items-center gap-1 text-xs transition-colors ${
+                  comment.userReaction === 'like'
+                    ? 'text-[#F03D3D]'
+                    : 'text-gray-500 hover:text-[#F03D3D]'
+                }`}
+              >
+                <Heart className={`w-3.5 h-3.5 ${comment.userReaction === 'like' ? 'fill-current' : ''}`} />
+                {(comment.reactions?.like || 0) > 0 && (
+                  <span>{comment.reactions?.like}</span>
+                )}
+              </button>
+              <button
+                onClick={() => onReact(comment.id, 'dislike')}
+                className={`flex items-center gap-1 text-xs transition-colors ${
+                  comment.userReaction === 'dislike'
+                    ? 'text-gray-700'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <HeartCrack className={`w-3.5 h-3.5 ${comment.userReaction === 'dislike' ? 'fill-current' : ''}`} />
+                {(comment.reactions?.dislike || 0) > 0 && (
+                  <span>{comment.reactions?.dislike}</span>
+                )}
+              </button>
+              <button
                 onClick={() => onReply(comment.id)}
                 className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#F03D3D] transition-colors"
               >
@@ -166,7 +231,7 @@ function SingleComment({
               {isOwner && (
                 <>
                   <button
-                    onClick={() => onEdit(comment.id, comment.comment_text)}
+                    onClick={() => onEdit(comment.id, comment.comment_text, comment.rating)}
                     className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-500 transition-colors"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
@@ -211,14 +276,18 @@ function SingleComment({
                 <SingleComment
                   key={reply.id}
                   comment={reply}
-                  currentUserId={currentUserId}
                   onReply={onReply}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  onReact={onReact}
                   replyingTo={replyingTo}
                   editingId={editingId}
                   editText={editText}
                   setEditText={setEditText}
+                  editRating={editRating}
+                  setEditRating={setEditRating}
+                  editHoverRating={editHoverRating}
+                  setEditHoverRating={setEditHoverRating}
                   onCancelEdit={onCancelEdit}
                   onSaveEdit={onSaveEdit}
                   depth={depth + 1}
@@ -233,7 +302,7 @@ function SingleComment({
 }
 
 export default function CommentSection({ postId }: CommentSectionProps) {
-  const { getToken, isSignedIn } = useClerkAuth();
+  const { getToken, isSignedIn, isLoaded: isAuthLoaded } = useClerkAuth();
   const { user } = useUser();
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -243,31 +312,72 @@ export default function CommentSection({ postId }: CommentSectionProps) {
   const [replyText, setReplyText] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [editRating, setEditRating] = useState(0);
+  const [editHoverRating, setEditHoverRating] = useState(0);
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
+  const [reactingComments, setReactingComments] = useState<Set<string>>(new Set());
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "likes">("newest");
+  const [totalComments, setTotalComments] = useState(0);
+  const commentsRef = useRef<Comment[]>([]);
 
-  const fetchComments = useCallback(async () => {
+  const fetchComments = useCallback(async (reset: boolean = true) => {
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/comments/post/${postId}`);
+      const offset = reset ? 0 : commentsRef.current.length;
+      
+      // Include auth token if user is signed in to get their reactions
+      const headers: HeadersInit = {};
+      if (isSignedIn) {
+        const token = await getToken();
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+      }
+      
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/comments/post/${postId}?limit=20&offset=${offset}&sort_by=${sortBy}`,
+        { headers }
+      );
       if (response.ok) {
         const data = await response.json();
-        setComments(data.comments);
+        if (reset) {
+          setComments(data.comments);
+          commentsRef.current = data.comments;
+        } else {
+          const newComments = [...commentsRef.current, ...data.comments];
+          setComments(newComments);
+          commentsRef.current = newComments;
+        }
+        setHasMore(data.has_more);
+        setTotalComments(data.total);
       }
     } catch (error) {
       console.error("Failed to fetch comments:", error);
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
-  }, [postId]);
+  }, [postId, sortBy, isSignedIn, getToken]);
+
+  const loadMoreComments = async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    await fetchComments(false);
+  };
 
   useEffect(() => {
-    fetchComments();
-  }, [fetchComments]);
+    // Wait for Clerk auth to be loaded before fetching to include user reactions
+    if (!isAuthLoaded) return;
+    setIsLoading(true);
+    fetchComments(true);
+  }, [sortBy, postId, isAuthLoaded, isSignedIn]);
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim() || !isSignedIn) return;
+    // Rating is required for reviews
+    if (rating === 0 || !isSignedIn) return;
 
     setIsSubmitting(true);
     try {
@@ -282,18 +392,22 @@ export default function CommentSection({ postId }: CommentSectionProps) {
         },
         body: JSON.stringify({
           post_id: postId,
-          comment_text: newComment.trim(),
-          rating: rating > 0 ? rating : undefined,
+          comment_text: newComment.trim() || undefined,
+          rating: rating,
         }),
       });
 
       if (response.ok) {
         const newCommentData = await response.json();
-        setComments((prev) => [{ ...newCommentData, replies: [] }, ...prev]);
+        const newComment = { ...newCommentData, replies: [] };
+        setComments((prev) => [newComment, ...prev]);
+        commentsRef.current = [newComment, ...commentsRef.current];
+        setTotalComments((prev) => prev + 1);
         setNewComment("");
         setRating(0);
-        // Store current user's DB ID
-        setCurrentUserId(newCommentData.user.id);
+      } else {
+        const errorData = await response.json();
+        console.error("Failed to post comment:", errorData.detail);
       }
     } catch (error) {
       console.error("Failed to post comment:", error);
@@ -329,7 +443,6 @@ export default function CommentSection({ postId }: CommentSectionProps) {
         setComments((prev) => addReplyToComment(prev, parentId, { ...newReply, replies: [] }));
         setReplyText("");
         setReplyingTo(null);
-        setCurrentUserId(newReply.user.id);
       }
     } catch (error) {
       console.error("Failed to post reply:", error);
@@ -350,18 +463,22 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     });
   };
 
-  const handleEdit = (commentId: string, text: string) => {
+  const handleEdit = (commentId: string, text: string, commentRating?: number) => {
     setEditingId(commentId);
     setEditText(text);
+    setEditRating(commentRating || 0);
+    setEditHoverRating(0);
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditText("");
+    setEditRating(0);
+    setEditHoverRating(0);
   };
 
   const handleSaveEdit = async () => {
-    if (!editText.trim() || !editingId || !isSignedIn) return;
+    if (!editingId || !isSignedIn) return;
 
     try {
       const token = await getToken();
@@ -374,12 +491,14 @@ export default function CommentSection({ postId }: CommentSectionProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          comment_text: editText.trim(),
+          comment_text: editText.trim() || undefined,
+          rating: editRating > 0 ? editRating : undefined,
         }),
       });
 
       if (response.ok) {
-        setComments((prev) => updateCommentText(prev, editingId, editText.trim()));
+        const updatedComment = await response.json();
+        setComments((prev) => updateCommentData(prev, editingId, updatedComment.comment_text, updatedComment.rating));
         handleCancelEdit();
       }
     } catch (error) {
@@ -387,13 +506,13 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     }
   };
 
-  const updateCommentText = (comments: Comment[], commentId: string, newText: string): Comment[] => {
+  const updateCommentData = (comments: Comment[], commentId: string, newText: string, newRating?: number): Comment[] => {
     return comments.map((comment) => {
       if (comment.id === commentId) {
-        return { ...comment, comment_text: newText };
+        return { ...comment, comment_text: newText, rating: newRating };
       }
       if (comment.replies.length > 0) {
-        return { ...comment, replies: updateCommentText(comment.replies, commentId, newText) };
+        return { ...comment, replies: updateCommentData(comment.replies, commentId, newText, newRating) };
       }
       return comment;
     });
@@ -416,15 +535,22 @@ export default function CommentSection({ postId }: CommentSectionProps) {
       });
 
       if (response.ok) {
-        setComments((prev) => removeComment(prev, commentId));
+        // Check if it's a top-level comment (exists in commentsRef)
+        const isTopLevel = commentsRef.current.some((c) => c.id === commentId);
+        const newComments = removeComment(comments, commentId);
+        setComments(newComments);
+        if (isTopLevel) {
+          commentsRef.current = commentsRef.current.filter((c) => c.id !== commentId);
+          setTotalComments((prev) => Math.max(0, prev - 1));
+        }
       }
     } catch (error) {
       console.error("Failed to delete comment:", error);
     }
   };
 
-  const removeComment = (comments: Comment[], commentId: string): Comment[] => {
-    return comments
+  const removeComment = (commentList: Comment[], commentId: string): Comment[] => {
+    return commentList
       .filter((comment) => comment.id !== commentId)
       .map((comment) => ({
         ...comment,
@@ -435,6 +561,69 @@ export default function CommentSection({ postId }: CommentSectionProps) {
   const handleReply = (commentId: string) => {
     setReplyingTo(replyingTo === commentId ? null : commentId);
     setReplyText("");
+  };
+
+  const handleReact = async (commentId: string, reactionType: string) => {
+    if (!isSignedIn) return;
+    
+    // Prevent double-clicks
+    if (reactingComments.has(commentId)) return;
+    setReactingComments(prev => new Set(prev).add(commentId));
+
+    try {
+      const token = await getToken();
+      if (!token) {
+        setReactingComments(prev => {
+          const next = new Set(prev);
+          next.delete(commentId);
+          return next;
+        });
+        return;
+      }
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/comments/${commentId}/react`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reaction_type: reactionType }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update the comment's reactions in the local state
+        setComments((prev) => updateCommentReactions(prev, commentId, data));
+      }
+    } catch (error) {
+      console.error("Failed to react to comment:", error);
+    } finally {
+      setReactingComments(prev => {
+        const next = new Set(prev);
+        next.delete(commentId);
+        return next;
+      });
+    }
+  };
+
+  const updateCommentReactions = (
+    comments: Comment[],
+    commentId: string,
+    reactionData: { action: string; reaction_type: string; reactions: Record<string, number> }
+  ): Comment[] => {
+    return comments.map((comment) => {
+      if (comment.id === commentId) {
+        return {
+          ...comment,
+          reactions: reactionData.reactions,
+          userReaction: reactionData.action === "added" ? reactionData.reaction_type : null,
+        };
+      }
+      return {
+        ...comment,
+        replies: updateCommentReactions(comment.replies, commentId, reactionData),
+      };
+    });
   };
 
   if (isLoading) {
@@ -502,23 +691,28 @@ export default function CommentSection({ postId }: CommentSectionProps) {
               <textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Write your review..."
+                placeholder="Write your review (optional)..."
                 className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] resize-none"
                 rows={3}
               />
-              <div className="flex justify-end mt-2">
-                <button
-                  type="submit"
-                  disabled={!newComment.trim() || isSubmitting}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#F03D3D] rounded-lg hover:bg-[#d63333] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                  Post Review
-                </button>
+              <div className="flex justify-between items-center mt-2">
+                {rating === 0 && (
+                  <p className="text-xs text-amber-600">Please select a rating to submit your review</p>
+                )}
+                <div className={rating === 0 ? '' : 'ml-auto'}>
+                  <button
+                    type="submit"
+                    disabled={rating === 0 || isSubmitting}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#F03D3D] rounded-lg hover:bg-[#d63333] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                    Post Review
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -530,25 +724,50 @@ export default function CommentSection({ postId }: CommentSectionProps) {
       )}
 
       {/* Comments List */}
-      {comments.length === 0 ? (
+      {comments.length === 0 && !isLoading ? (
         <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
           <Star className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500">No reviews yet. Be the first to share your experience!</p>
         </div>
       ) : (
-        <div className="divide-y divide-gray-100">
+        <>
+          {/* Sort Selector */}
+          {totalComments > 0 && (
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm text-gray-600">
+                {totalComments} {totalComments === 1 ? 'review' : 'reviews'}
+              </span>
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className="w-4 h-4 text-gray-400" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as "newest" | "oldest" | "likes")}
+                  className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] bg-white"
+                >
+                  <option value="newest">Newest</option>
+                  <option value="oldest">Oldest</option>
+                  <option value="likes">Most Liked</option>
+                </select>
+              </div>
+            </div>
+          )}
+          <div className="divide-y divide-gray-100">
           {comments.map((comment) => (
             <div key={comment.id}>
               <SingleComment
                 comment={comment}
-                currentUserId={currentUserId}
                 onReply={handleReply}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onReact={handleReact}
                 replyingTo={replyingTo}
                 editingId={editingId}
                 editText={editText}
                 setEditText={setEditText}
+                editRating={editRating}
+                setEditRating={setEditRating}
+                editHoverRating={editHoverRating}
+                setEditHoverRating={setEditHoverRating}
                 onCancelEdit={handleCancelEdit}
                 onSaveEdit={handleSaveEdit}
               />
@@ -600,6 +819,30 @@ export default function CommentSection({ postId }: CommentSectionProps) {
             </div>
           ))}
         </div>
+          
+          {/* Load More Button */}
+          {hasMore && (
+            <div className="mt-6 text-center">
+              <button
+                onClick={loadMoreComments}
+                disabled={isLoadingMore}
+                className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4" />
+                    Load More Reviews
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

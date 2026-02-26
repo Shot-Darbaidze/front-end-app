@@ -84,10 +84,25 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
             JSON.stringify({ ids: Array.from(favoriteIds), timestamp: Date.now() })
           );
         } catch { /* storage full — ignore */ }
+      } else if (response.status !== 401) {
+        // Only log non-auth errors (401 is expected when token is invalid/expired)
+        // Try to extract error detail from response body
+        let detail = `HTTP ${response.status}`;
+        try {
+          const errorBody = await response.json();
+          if (errorBody.detail) {
+            detail = typeof errorBody.detail === 'string' 
+              ? errorBody.detail 
+              : JSON.stringify(errorBody.detail);
+          }
+        } catch { /* ignore parse errors */ }
+        logger.error('Failed to fetch favorites', new Error(detail));
       }
     } catch (error) {
-      // Timeout or network error — keep cached/empty state
-      logger.error('Failed to fetch favorites', { error });
+      // Only log actual errors, not aborts or network timeouts
+      if (error instanceof Error && error.name !== 'AbortError') {
+        logger.error('Failed to fetch favorites', error);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +159,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         }
         return isFavorite(postId);
       } catch (error) {
-        logger.error('Failed to toggle favorite', { error, postId });
+        logger.error('Failed to toggle favorite', error instanceof Error ? error : undefined, { postId });
         return isFavorite(postId);
       }
     },

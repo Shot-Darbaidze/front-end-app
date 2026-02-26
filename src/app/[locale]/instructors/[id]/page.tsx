@@ -24,6 +24,7 @@ type InstructorPost = {
   manual_city_price?: number | null;
   language_skills?: string | null;
   rating?: number | null;
+  review_count?: number | null;
   transmission?: string | null;
   applicant_first_name?: string | null;
   applicant_last_name?: string | null;
@@ -98,7 +99,7 @@ export default async function InstructorProfilePage({ params }: { params: Promis
             <InstructorProfileHeader
               name={name}
               rating={Number(post.rating ?? 0)}
-              reviewCount={0}
+              reviewCount={post.review_count ?? 0}
               specialty={post.title || "Driving Instructor"}
               location={location}
               languages={languages.length ? languages : ["Not specified"]}

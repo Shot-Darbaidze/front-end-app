@@ -3,6 +3,7 @@ import { logger } from "@/utils/secureLogger";
 
 const BASE_URL = "https://api-bookings.sa.gov.ge/api/v1/DrivingLicensePracticalExams2";
 const DATES_URL = `${BASE_URL}/DrivingLicenseExamsDates2`;
+const EXAM_LOG_STORAGE_KEY = "exam-monitor-log";
 
 export const CITY_CENTERS = {
   2: "ქუთაისი",
@@ -23,6 +24,16 @@ export interface ExamSlot {
   centerId?: number;
 }
 
+export interface ExamLogEntry {
+  timestamp: string;
+  centerId: number;
+  centerName: string;
+  categoryCode: number;
+  type: "new_slots" | "check" | "start" | "stop";
+  slots?: ExamSlot[];
+  message?: string;
+}
+
 export interface UseExamMonitorReturn {
   isMonitoring: boolean;
   availableSlots: ExamSlot[];
@@ -32,7 +43,48 @@ export interface UseExamMonitorReturn {
   clearNotification: () => void;
   isLoading: boolean;
   error: string | null;
+  // Log functions
+  exportLogsAsJSON: () => void;
+  exportLogsAsText: () => void;
+  clearLogs: () => void;
+  getLogCount: () => number;
 }
+
+// Helper to get logs from localStorage
+const getStoredLogs = (): ExamLogEntry[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem(EXAM_LOG_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+// Helper to append log entry
+const appendLog = (entry: ExamLogEntry): void => {
+  if (typeof window === "undefined") return;
+  try {
+    const logs = getStoredLogs();
+    logs.push(entry);
+    localStorage.setItem(EXAM_LOG_STORAGE_KEY, JSON.stringify(logs));
+  } catch {
+    // Storage full or other error - ignore
+  }
+};
+
+// Helper to download file
+const downloadFile = (content: string, filename: string, mimeType: string): void => {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
 
 export const useExamMonitor = (
   initialCenterId?: number | null,
@@ -47,6 +99,7 @@ export const useExamMonitor = (
   const previousSlotsRef = useRef<Set<string>>(new Set());
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentCenterRef = useRef<number | null>(initialCenterId ?? null);
+  const currentCategoryRef = useRef<number>(categoryCode);
 
   const fetchExamSlots = useCallback(
     async (centerId: number) => {
@@ -104,6 +157,17 @@ export const useExamMonitor = (
             count: newDates.length,
           });
 
+          // Append to persistent log
+          appendLog({
+            timestamp: new Date().toISOString(),
+            centerId,
+            centerName: CITY_CENTERS[centerId as keyof typeof CITY_CENTERS] || `Center ${centerId}`,
+            categoryCode: currentCategoryRef.current,
+            type: "new_slots",
+            slots: newSlots,
+            message: `Found ${newSlots.length} new slot(s): ${newDates.join(", ")}`,
+          });
+
           // Play sound if available
           if (typeof window !== "undefined" && "AudioContext" in window) {
             const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -131,7 +195,7 @@ export const useExamMonitor = (
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
         setError(message);
-        logger.error('Error fetching exam slots', { error: err, message });
+        logger.error('Error fetching exam slots', err instanceof Error ? err : new Error(message));
       } finally {
         setIsLoading(false);
       }
@@ -142,6 +206,7 @@ export const useExamMonitor = (
   const startMonitoring = useCallback(
     (centerId: number, catCode: number = categoryCode) => {
       currentCenterRef.current = centerId;
+      currentCategoryRef.current = catCode;
       setIsMonitoring(true);
       previousSlotsRef.current.clear();
       setNewSlotsNotification(null);
@@ -149,6 +214,16 @@ export const useExamMonitor = (
       logger.debug('Started monitoring exam slots', {
         center: CITY_CENTERS[centerId as keyof typeof CITY_CENTERS] || centerId,
         categoryCode: catCode,
+      });
+
+      // Log start event
+      appendLog({
+        timestamp: new Date().toISOString(),
+        centerId,
+        centerName: CITY_CENTERS[centerId as keyof typeof CITY_CENTERS] || `Center ${centerId}`,
+        categoryCode: catCode,
+        type: "start",
+        message: "Started monitoring",
       });
 
       // Initial fetch
@@ -167,6 +242,20 @@ export const useExamMonitor = (
   );
 
   const stopMonitoring = useCallback(() => {
+    const centerId = currentCenterRef.current;
+    
+    // Log stop event
+    if (centerId) {
+      appendLog({
+        timestamp: new Date().toISOString(),
+        centerId,
+        centerName: CITY_CENTERS[centerId as keyof typeof CITY_CENTERS] || `Center ${centerId}`,
+        categoryCode: currentCategoryRef.current,
+        type: "stop",
+        message: "Stopped monitoring",
+      });
+    }
+
     setIsMonitoring(false);
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -178,6 +267,44 @@ export const useExamMonitor = (
 
   const clearNotification = useCallback(() => {
     setNewSlotsNotification(null);
+  }, []);
+
+  // Export logs as JSON file
+  const exportLogsAsJSON = useCallback(() => {
+    const logs = getStoredLogs();
+    const filename = `exam-monitor-log-${new Date().toISOString().split("T")[0]}.json`;
+    downloadFile(JSON.stringify(logs, null, 2), filename, "application/json");
+  }, []);
+
+  // Export logs as text file
+  const exportLogsAsText = useCallback(() => {
+    const logs = getStoredLogs();
+    const textContent = logs
+      .map((entry) => {
+        const line = `[${entry.timestamp}] [${entry.type.toUpperCase()}] ${entry.centerName} (Cat: ${entry.categoryCode})`;
+        if (entry.message) {
+          return `${line} - ${entry.message}`;
+        }
+        if (entry.slots && entry.slots.length > 0) {
+          return `${line} - Slots: ${entry.slots.map((s) => s.bookingDate).join(", ")}`;
+        }
+        return line;
+      })
+      .join("\n");
+    const filename = `exam-monitor-log-${new Date().toISOString().split("T")[0]}.txt`;
+    downloadFile(textContent, filename, "text/plain");
+  }, []);
+
+  // Clear all logs
+  const clearLogs = useCallback(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(EXAM_LOG_STORAGE_KEY);
+    }
+  }, []);
+
+  // Get log count
+  const getLogCount = useCallback(() => {
+    return getStoredLogs().length;
   }, []);
 
   // Cleanup on unmount
@@ -198,5 +325,9 @@ export const useExamMonitor = (
     clearNotification,
     isLoading,
     error,
+    exportLogsAsJSON,
+    exportLogsAsText,
+    clearLogs,
+    getLogCount,
   };
 };

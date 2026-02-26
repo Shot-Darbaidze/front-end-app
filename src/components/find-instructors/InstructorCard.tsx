@@ -1,11 +1,7 @@
-import { Star, Car, MapPin, Heart } from "lucide-react";
+import { Star, Car, MapPin } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { useIsFavorite } from "@/contexts/FavoritesContext";
-import { useAuth as useClerkAuth } from "@clerk/nextjs";
-import { useState, useCallback, memo } from "react";
-import { useRouter } from "next/navigation";
-import { trackFavoriteToggle } from "@/utils/analytics";
+import { useCallback, memo } from "react";
 import { PRICING } from "@/config/constants";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 
@@ -47,26 +43,7 @@ const InstructorCard = ({
   verified = false,
   onCardClick,
 }: InstructorCardProps) => {
-  const { isSignedIn } = useClerkAuth();
-  const { isFavorited, toggle } = useIsFavorite(id);
-  const [isToggling, setIsToggling] = useState(false);
-  const router = useRouter();
   const localeHref = useLocaleHref();
-
-  const handleToggleFavorite = useCallback(async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!isSignedIn) {
-      router.push('/sign-in');
-      return;
-    }
-    
-    setIsToggling(true);
-    await toggle();
-    trackFavoriteToggle(id, !isFavorited);
-    setIsToggling(false);
-  }, [isSignedIn, router, toggle, id, isFavorited]);
 
   const handleCardClick = useCallback(() => {
     if (onCardClick) {
@@ -78,22 +55,6 @@ const InstructorCard = ({
 
   return (
     <article className="bg-white rounded-2xl p-5 border border-gray-100 hover:border-[#F03D3D]/30 hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300 group flex flex-col h-full relative cursor-pointer">
-      {/* Favorite Button */}
-      <button
-        onClick={handleToggleFavorite}
-        disabled={isToggling}
-        className={`absolute top-4 right-4 p-2 rounded-full transition-all z-20 ${
-          isFavorited 
-            ? 'bg-red-50 text-[#F03D3D]' 
-            : 'bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-[#F03D3D]'
-        } ${isToggling ? 'opacity-50' : ''}`}
-        aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
-      >
-        <Heart 
-          className={`w-5 h-5 transition-all ${isFavorited ? 'fill-[#F03D3D]' : ''}`} 
-        />
-      </button>
-
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex gap-4">
