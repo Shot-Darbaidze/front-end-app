@@ -182,22 +182,22 @@ export default function LessonsPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tabs + Book New Lesson */}
-        <div className="flex items-center justify-between gap-4 mb-8">
-          <div className="flex gap-1 bg-white p-1 rounded-xl border border-gray-100 w-fit shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 sm:mb-8">
+          <div className="flex gap-1 bg-white p-1 rounded-xl border border-gray-100 w-full sm:w-fit shadow-sm">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-all ${activeTab === tab.id
-                    ? "bg-[#F03D3D] text-white shadow-sm"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-700"
+                className={`flex-1 sm:flex-none sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap ${activeTab === tab.id
+                  ? "bg-[#F03D3D] text-white shadow-sm"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-700"
                   }`}
               >
                 {tab.label}
               </button>
             ))}
           </div>
-          <Button className="hidden sm:block">Book New Lesson</Button>
+          <Button className="w-full sm:w-auto">Book New Lesson</Button>
         </div>
 
         {/* Content */}
