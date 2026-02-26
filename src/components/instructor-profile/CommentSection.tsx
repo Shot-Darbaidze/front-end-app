@@ -559,6 +559,50 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     setReplyText("");
   };
 
+  const applyOptimisticReaction = (
+    commentList: Comment[],
+    commentId: string,
+    reactionType: string
+  ): Comment[] => {
+    return commentList.map((comment) => {
+      if (comment.id === commentId) {
+        const currentReaction = comment.userReaction ?? null;
+        const currentReactions = { ...(comment.reactions ?? {}) };
+
+        if (currentReaction === reactionType) {
+          currentReactions[reactionType] = Math.max((currentReactions[reactionType] ?? 1) - 1, 0);
+          if (currentReactions[reactionType] === 0) {
+            delete currentReactions[reactionType];
+          }
+          return {
+            ...comment,
+            reactions: currentReactions,
+            userReaction: null,
+          };
+        }
+
+        if (currentReaction) {
+          currentReactions[currentReaction] = Math.max((currentReactions[currentReaction] ?? 1) - 1, 0);
+          if (currentReactions[currentReaction] === 0) {
+            delete currentReactions[currentReaction];
+          }
+        }
+
+        currentReactions[reactionType] = (currentReactions[reactionType] ?? 0) + 1;
+        return {
+          ...comment,
+          reactions: currentReactions,
+          userReaction: reactionType,
+        };
+      }
+
+      return {
+        ...comment,
+        replies: applyOptimisticReaction(comment.replies, commentId, reactionType),
+      };
+    });
+  };
+
   const handleReact = async (commentId: string, reactionType: string) => {
     if (!isSignedIn) return;
 
@@ -566,9 +610,16 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     if (reactingComments.has(commentId)) return;
     setReactingComments(prev => new Set(prev).add(commentId));
 
+    const previousComments = commentsRef.current.length > 0 ? commentsRef.current : comments;
+    const optimisticComments = applyOptimisticReaction(previousComments, commentId, reactionType);
+    setComments(optimisticComments);
+    commentsRef.current = optimisticComments;
+
     try {
       const token = await getToken();
       if (!token) {
+        setComments(previousComments);
+        commentsRef.current = previousComments;
         setReactingComments(prev => {
           const next = new Set(prev);
           next.delete(commentId);
@@ -589,10 +640,17 @@ export default function CommentSection({ postId }: CommentSectionProps) {
       if (response.ok) {
         const data = await response.json();
         // Update the comment's reactions in the local state
-        setComments((prev) => updateCommentReactions(prev, commentId, data));
+        const updatedComments = updateCommentReactions(commentsRef.current, commentId, data);
+        setComments(updatedComments);
+        commentsRef.current = updatedComments;
+      } else {
+        setComments(previousComments);
+        commentsRef.current = previousComments;
       }
     } catch (error) {
       console.error("Failed to react to comment:", error);
+      setComments(previousComments);
+      commentsRef.current = previousComments;
     } finally {
       setReactingComments(prev => {
         const next = new Set(prev);
@@ -612,7 +670,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
         return {
           ...comment,
           reactions: reactionData.reactions,
-          userReaction: reactionData.action === "added" ? reactionData.reaction_type : null,
+          userReaction: reactionData.action === "removed" ? null : reactionData.reaction_type,
         };
       }
       return {
