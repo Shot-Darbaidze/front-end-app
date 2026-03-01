@@ -40,11 +40,15 @@ const CancelledLessonCard = memo(function CancelledLessonCard({ cancellation }: 
 
                 {/* Right */}
                 <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 flex-wrap pl-13 sm:pl-0">
-                    <div className="flex items-center gap-1.5 text-sm text-gray-500">
-                        <Clock className="w-3.5 h-3.5 shrink-0" />
-                        <span className="text-xs sm:text-sm">
-                            {formatTime(cancellation.original_start_time_utc, cancellation.original_duration_minutes)} · {cancellation.original_duration_minutes} min
-                        </span>
+                    <div className="flex items-center gap-2 text-xs sm:text-sm">
+                        <span className="font-semibold text-gray-700">{reasonLabel}</span>
+                        <div className="w-px h-4 bg-gray-300"></div>
+                        <div className="flex items-center gap-1.5 text-gray-500">
+                            <Clock className="w-3.5 h-3.5 shrink-0" />
+                            <span>
+                                {formatTime(cancellation.original_start_time_utc, cancellation.original_duration_minutes)} · {cancellation.original_duration_minutes} min
+                            </span>
+                        </div>
                     </div>
                     <div className="flex items-center gap-2">
                         {cancellation.original_price != null && (
@@ -52,7 +56,6 @@ const CancelledLessonCard = memo(function CancelledLessonCard({ cancellation }: 
                                 ₾{cancellation.original_price.toFixed(0)}
                             </span>
                         )}
-                        <span className="text-xs font-semibold text-gray-400">{reasonLabel}</span>
                         <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-500">
                             Cancelled
                         </span>

@@ -23,6 +23,7 @@ interface UseNotificationsReturn {
   notifications: Notification[];
   unreadCount: number;
   markAsRead: (id: string) => void;
+  markAsUnread: (id: string) => void;
   markAllAsRead: () => void;
   removeNotification: (id: string) => void;
   clearAllNotifications: () => void;
@@ -143,6 +144,12 @@ export const useNotifications = (userType: "student" | "instructor" | undefined)
     );
   }, []);
 
+  const markAsUnread = useCallback((id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: false } : n))
+    );
+  }, []);
+
   const markAllAsRead = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
   }, []);
@@ -172,6 +179,7 @@ export const useNotifications = (userType: "student" | "instructor" | undefined)
     notifications,
     unreadCount,
     markAsRead,
+    markAsUnread,
     markAllAsRead,
     removeNotification,
     clearAllNotifications,
