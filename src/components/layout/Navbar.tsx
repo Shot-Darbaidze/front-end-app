@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Languages, Bell, Heart } from "lucide-react";
+import { LayoutDashboard, Languages, Bell, Heart, Home, Search, Briefcase, Car, ChevronRight, LogOut } from "lucide-react";
 import {
   SignInButton,
   SignUpButton,
@@ -21,15 +21,23 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { removeLocaleFromPathname } from "@/lib/i18n";
 
 const Navbar = () => {
+  const MOBILE_MENU_ANIMATION_MS = 300;
   const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
   const { language, setLanguage } = useLanguage();
   const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileMenuVisible, setIsMobileMenuVisible] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isBurgerOnLightBg, setIsBurgerOnLightBg] = useState(false);
+  const [isMobileCloseIconExpanded, setIsMobileCloseIconExpanded] = useState(false);
+  const [isMobileDrawerAnimatedOpen, setIsMobileDrawerAnimatedOpen] = useState(false);
+  const navRef = useRef<HTMLElement | null>(null);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mobileMenuCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
 
   // Helper to prefix links with current locale
@@ -68,16 +76,54 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const clearMobileMenuCloseTimeout = () => {
+    if (mobileMenuCloseTimeoutRef.current) {
+      clearTimeout(mobileMenuCloseTimeoutRef.current);
+      mobileMenuCloseTimeoutRef.current = null;
+    }
+  };
+
+  const openMobileMenu = () => {
+    clearMobileMenuCloseTimeout();
+    setIsMobileMenuVisible(true);
+    setIsMobileMenuOpen(true);
+  };
+
+  const closeMobileMenu = () => {
+    clearMobileMenuCloseTimeout();
+    setIsMobileCloseIconExpanded(false);
+    setIsMobileDrawerAnimatedOpen(false);
+    setIsMobileMenuOpen(false);
+
+    mobileMenuCloseTimeoutRef.current = setTimeout(() => {
+      setIsMobileMenuVisible(false);
+      mobileMenuCloseTimeoutRef.current = null;
+    }, MOBILE_MENU_ANIMATION_MS);
+  };
+
+  const toggleMobileMenu = () => {
+    if (isMobileMenuOpen) {
+      closeMobileMenu();
+      return;
+    }
+
+    openMobileMenu();
+  };
+
   // Close mobile menu on route change
   useEffect(() => {
+    clearMobileMenuCloseTimeout();
     setIsMobileMenuOpen(false);
+    setIsMobileMenuVisible(false);
+    setIsMobileCloseIconExpanded(false);
+    setIsMobileDrawerAnimatedOpen(false);
     setIsUserMenuOpen(false);
     setIsNotificationsOpen(false);
   }, [pathname]);
 
-  // Lock body scroll when mobile menu is open
+  // Lock body scroll while mobile menu is visible (including close animation)
   useEffect(() => {
-    if (isMobileMenuOpen) {
+    if (isMobileMenuVisible) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -85,9 +131,109 @@ const Navbar = () => {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isMobileMenuOpen]);
+  }, [isMobileMenuVisible]);
+
+  useEffect(() => {
+    if (!isMobileMenuVisible) {
+      return;
+    }
+
+    const animationFrameId = requestAnimationFrame(() => {
+      setIsMobileCloseIconExpanded(true);
+      setIsMobileDrawerAnimatedOpen(true);
+    });
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [isMobileMenuVisible]);
+
+  useEffect(() => {
+    return () => {
+      clearMobileMenuCloseTimeout();
+    };
+  }, []);
 
   const isDashboard = pathname?.includes('/dashboard');
+
+  const parseBackgroundColor = (color: string) => {
+    const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/i);
+    if (!match) {
+      return null;
+    }
+
+    return {
+      red: Number(match[1]),
+      green: Number(match[2]),
+      blue: Number(match[3]),
+      alpha: match[4] ? Number(match[4]) : 1,
+    };
+  };
+
+  const getRelativeLuminance = (red: number, green: number, blue: number) => {
+    const channels = [red, green, blue].map((channel) => {
+      const normalized = channel / 255;
+      return normalized <= 0.03928
+        ? normalized / 12.92
+        : ((normalized + 0.055) / 1.055) ** 2.4;
+    });
+
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  };
+
+  const detectBurgerBackground = () => {
+    if (!mobileMenuButtonRef.current) {
+      return;
+    }
+
+    const buttonRect = mobileMenuButtonRef.current.getBoundingClientRect();
+    const pointX = buttonRect.left + buttonRect.width / 2;
+    const pointY = buttonRect.top + buttonRect.height / 2;
+    const elements = document.elementsFromPoint(pointX, pointY) as HTMLElement[];
+
+    const backgroundElement = elements.find((element) => {
+      if (mobileMenuButtonRef.current?.contains(element)) {
+        return false;
+      }
+
+      if (navRef.current?.contains(element)) {
+        return false;
+      }
+
+      const parsedColor = parseBackgroundColor(window.getComputedStyle(element).backgroundColor);
+      return parsedColor !== null && parsedColor.alpha > 0.05;
+    });
+
+    if (!backgroundElement) {
+      setIsBurgerOnLightBg(true);
+      return;
+    }
+
+    const parsedColor = parseBackgroundColor(window.getComputedStyle(backgroundElement).backgroundColor);
+
+    if (!parsedColor) {
+      setIsBurgerOnLightBg(true);
+      return;
+    }
+
+    const luminance = getRelativeLuminance(parsedColor.red, parsedColor.green, parsedColor.blue);
+    setIsBurgerOnLightBg(luminance > 0.5);
+  };
+
+  useEffect(() => {
+    const updateBurgerContrast = () => {
+      requestAnimationFrame(detectBurgerBackground);
+    };
+
+    updateBurgerContrast();
+    window.addEventListener("scroll", updateBurgerContrast, { passive: true });
+    window.addEventListener("resize", updateBurgerContrast);
+
+    return () => {
+      window.removeEventListener("scroll", updateBurgerContrast);
+      window.removeEventListener("resize", updateBurgerContrast);
+    };
+  }, [pathname, isScrolled, isMobileMenuOpen]);
 
   // Hide navbar on signup pages
   if (pathname?.endsWith('/for-instructors/signup')) {
@@ -101,11 +247,26 @@ const Navbar = () => {
     ...(userType === "student" ? [{ href: "/city-exam", label: language === "ka" ? "ქალაქის გამოცდა" : "City Exam" }] : []),
   ];
 
+  const mobileNavItems = navLinks.map((link) => {
+    const icon =
+      link.href === "/"
+        ? <Home className="w-5 h-5" />
+        : link.href === "/find-instructors"
+          ? <Search className="w-5 h-5" />
+          : link.href === "/for-instructors"
+            ? <Briefcase className="w-5 h-5" />
+            : <Car className="w-5 h-5" />;
+
+    return { ...link, icon };
+  });
+
+
   return (
     <>
       <nav
+        ref={navRef}
         className={`${isDashboard ? "absolute" : "fixed"} top-0 left-0 right-0 z-50 ${!isDashboard ? "transition-all duration-300" : ""} ${
-          (!isDashboard && isScrolled) || isMobileMenuOpen
+          !isDashboard && isScrolled
             ? "bg-white/90 backdrop-blur-md py-3 shadow-sm"
             : "bg-transparent py-5"
         }`}
@@ -243,85 +404,190 @@ const Navbar = () => {
 
           {/* Mobile Menu Button */}
           <button
-            className={`md:hidden p-2 transition-colors ${
-              isScrolled || isMobileMenuOpen ? "text-gray-900" : "text-white"
+            ref={mobileMenuButtonRef}
+            className={`group md:hidden p-2 transition-colors ${
+              isScrolled || isMobileMenuOpen ? "text-gray-900" : isBurgerOnLightBg ? "text-black" : "text-white"
             }`}
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            onClick={toggleMobileMenu}
+            aria-expanded={isMobileMenuOpen}
+            aria-label={isMobileMenuOpen ? (language === "ka" ? "მენიუს დახურვა" : "Close menu") : (language === "ka" ? "მენიუს გახსნა" : "Open menu")}
           >
-            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            <svg
+              className="pointer-events-none w-6 h-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M4 12L20 12"
+                className="origin-center -translate-y-[7px] transition-all duration-300 [transition-timing-function:cubic-bezier(.5,.85,.25,1.1)] group-aria-expanded:translate-x-0 group-aria-expanded:translate-y-0 group-aria-expanded:rotate-[315deg]"
+              />
+              <path
+                d="M4 12H20"
+                className="origin-center transition-all duration-300 [transition-timing-function:cubic-bezier(.5,.85,.25,1.8)] group-aria-expanded:rotate-45"
+              />
+              <path
+                d="M4 12H20"
+                className="origin-center translate-y-[7px] transition-all duration-300 [transition-timing-function:cubic-bezier(.5,.85,.25,1.1)] group-aria-expanded:translate-y-0 group-aria-expanded:rotate-[135deg]"
+              />
+            </svg>
           </button>
         </div>
       </nav>
 
       {/* Mobile Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-white pt-24 px-6 md:hidden animate-in slide-in-from-top-10 duration-300">
-          <div className="flex flex-col gap-6 text-center">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={localeHref(link.href)}
-                className="text-xl font-bold text-gray-900 hover:text-[#F03D3D]"
-              >
-                {link.label}
-              </Link>
-            ))}
+      {isMobileMenuVisible && (
+        <div className="fixed inset-0 z-[60] md:hidden">
+          <div
+            className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
+              isMobileDrawerAnimatedOpen ? "opacity-100" : "opacity-0"
+            }`}
+            onClick={closeMobileMenu}
+          />
+          <button
+            onClick={closeMobileMenu}
+            className="group absolute top-5 right-6 p-2 text-gray-900 transition-colors z-10"
+            aria-expanded={isMobileCloseIconExpanded}
+            aria-label={language === "ka" ? "მენიუს დახურვა" : "Close menu"}
+          >
+            <svg
+              className="pointer-events-none w-6 h-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M4 12L20 12"
+                className="origin-center -translate-y-[7px] transition-all duration-300 [transition-timing-function:cubic-bezier(.5,.85,.25,1.1)] group-aria-expanded:translate-x-0 group-aria-expanded:translate-y-0 group-aria-expanded:rotate-[315deg]"
+              />
+              <path
+                d="M4 12H20"
+                className="origin-center transition-all duration-300 [transition-timing-function:cubic-bezier(.5,.85,.25,1.8)] group-aria-expanded:rotate-45"
+              />
+              <path
+                d="M4 12H20"
+                className="origin-center translate-y-[7px] transition-all duration-300 [transition-timing-function:cubic-bezier(.5,.85,.25,1.1)] group-aria-expanded:translate-y-0 group-aria-expanded:rotate-[135deg]"
+              />
+            </svg>
+          </button>
+          <div
+            className={`absolute inset-y-0 right-0 w-[84%] max-w-[340px] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-out will-change-transform ${
+              isMobileDrawerAnimatedOpen ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            <div className="px-4 pt-4 pb-4 border-b border-gray-100">
+              <div>
+                <p className="text-xl font-bold text-gray-900 leading-tight">
+                  {language === "ka" ? "მენიუ" : "Menu"}
+                </p>
+                <h2 className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  {language === "ka" ? "ნავიგაცია" : "Navigation"}
+                </h2>
+              </div>
+            </div>
 
-            <div className="h-px bg-gray-100 my-2" />
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+              <div className="space-y-2">
+                {mobileNavItems.map((link) => {
+                  const isActive = pathname === localeHref(link.href);
 
-            <button onClick={handleLanguageToggle} className="flex items-center justify-center gap-2 text-lg font-medium text-gray-600 hover:text-[#F03D3D] mx-auto">
-               <Languages className="w-5 h-5" />
-               <span>{language === "ka" ? "English" : "ქართული"}</span>
-            </button>
+                  return (
+                    <Link
+                      key={`list-${link.href}`}
+                      href={localeHref(link.href)}
+                      className={`w-full rounded-xl px-2.5 py-3 flex items-center gap-2.5 transition-colors ${
+                        isActive
+                          ? "bg-red-50 text-[#F03D3D]"
+                          : "text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D]"
+                      }`}
+                    >
+                      <span className="text-current">{link.icon}</span>
+                      <span className="flex-1 text-sm font-medium">{link.label}</span>
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </Link>
+                  );
+                })}
+              </div>
 
-            <div className="h-px bg-gray-100 my-2" />
+              <div className="rounded-xl border border-gray-200 p-3">
+                <button
+                  onClick={handleLanguageToggle}
+                  className="w-full flex items-center justify-between text-gray-700 hover:text-[#F03D3D] transition-colors"
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <Languages className="w-5 h-5" />
+                    <span>{language === "ka" ? "ენის შეცვლა" : "Change language"}</span>
+                  </span>
+                  <span className="text-xs font-semibold text-gray-400">{language === "ka" ? "EN" : "KA"}</span>
+                </button>
+              </div>
 
-            {mounted && (
-              <>
+              {mounted && (
                 <SignedIn>
-                  <>
+                  <div className="rounded-xl border border-gray-200 p-3 space-y-1">
                     <Link
                       href={localeHref("/dashboard")}
-                      className="flex items-center justify-center gap-2 text-lg font-medium text-gray-600 hover:text-[#F03D3D]"
+                      className="w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D] transition-colors"
+                    >
+                      <LayoutDashboard className="w-5 h-5" />
+                      <span>{language === "ka" ? "დაფა" : "Dashboard"}</span>
+                    </Link>
+                    <Link
+                      href={localeHref("/dashboard")}
+                      className="w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D] transition-colors"
                     >
                       <Bell className="w-5 h-5" />
                       <span>{language === "ka" ? "შეტყობინებები" : "Notifications"}</span>
                       {unreadCount > 0 && (
-                        <span className="px-2 py-0.5 bg-[#F03D3D] text-white text-xs font-bold rounded-full">
+                        <span className="ml-auto px-2 py-0.5 bg-[#F03D3D] text-white text-xs font-bold rounded-full">
                           {unreadCount}
                         </span>
                       )}
                     </Link>
                     <Link
                       href={localeHref("/dashboard/favorites")}
-                      className="flex items-center justify-center gap-2 text-lg font-medium text-gray-600 hover:text-[#F03D3D]"
+                      className="w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D] transition-colors"
                     >
                       <Heart className="w-5 h-5" />
                       <span>{language === "ka" ? "ფავორიტები" : "Favorites"}</span>
                     </Link>
-                    <Link href={localeHref("/dashboard")} className="text-lg font-medium text-gray-600">
-                      {language === "ka" ? "დაფა" : "Dashboard"}
-                    </Link>
-                    <button onClick={() => signOut({ redirectUrl: localeHref("/") })} className="text-lg font-bold text-red-600">
-                      {language === "ka" ? "გამოსვლა" : "Log Out"}
+                    <button
+                      onClick={() => signOut({ redirectUrl: localeHref("/") })}
+                      className="w-full rounded-lg px-2 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      <span>{language === "ka" ? "გამოსვლა" : "Log Out"}</span>
                     </button>
-                  </>
-                </SignedIn>
-                <SignedOut>
-                  <div className="flex flex-col gap-4 mt-4">
-                    <SignInButton mode="modal">
-                      <button className="w-full py-3 rounded-xl border border-gray-200 font-bold text-gray-900 cursor-pointer">
-                        {language === "ka" ? "შესვლა" : "Log In"}
-                      </button>
-                    </SignInButton>
-                    <SignUpButton mode="modal">
-                      <button className="w-full py-3 rounded-xl bg-[#F03D3D] text-white font-bold shadow-lg shadow-red-500/20 cursor-pointer">
-                        {language === "ka" ? "დაწყება" : "Get Started"}
-                      </button>
-                    </SignUpButton>
                   </div>
-                </SignedOut>
-              </>
+                </SignedIn>
+              )}
+            </div>
+
+            {mounted && (
+              <SignedOut>
+                <div className="border-t border-gray-100 p-5 space-y-3">
+                  <SignInButton mode="modal">
+                    <button className="w-full py-3 rounded-xl border border-gray-200 font-semibold text-gray-900 cursor-pointer">
+                      {language === "ka" ? "შესვლა" : "Log In"}
+                    </button>
+                  </SignInButton>
+                  <SignUpButton mode="modal">
+                    <button className="w-full py-3 rounded-xl bg-[#F03D3D] text-white font-semibold shadow-lg shadow-red-500/20 cursor-pointer">
+                      {language === "ka" ? "დაწყება" : "Get Started"}
+                    </button>
+                  </SignUpButton>
+                </div>
+              </SignedOut>
             )}
           </div>
         </div>
