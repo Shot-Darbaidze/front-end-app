@@ -8,6 +8,7 @@ export interface BookingResponse {
     mode: "city" | "yard" | null;
     price?: number | null;
     instructor_name?: string | null;
+    instructor_image?: string | null;
 }
 
 export type CancellationReason =
@@ -34,6 +35,8 @@ export interface CancellationResponse {
     original_price: number | null;
     original_post_id: string;
     cancelled_at: string;
+    instructor_name?: string | null;
+    instructor_image?: string | null;
 }
 
 export type TabId = "upcoming" | "past" | "cancelled";
@@ -56,12 +59,6 @@ export const CANCELLATION_REASON_LABELS: Record<CancellationReason, string> = {
     instructor_request: "Instructor Request",
     other: "Other",
 };
-
-export const MOCK_INSTRUCTOR_NAMES = [
-    "Giorgi Beridze", "Nino Kvaratskhelia", "Levan Mchedlishvili",
-    "Tamara Jikia", "Irakli Tsiklauri", "Ana Gogitidze",
-    "Davit Kakhniashvili", "Salome Tsereteli",
-];
 
 export function formatDate(dateString: string): string {
     const date = new Date(dateString);

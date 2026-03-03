@@ -84,12 +84,18 @@ const translationsEn = {
     nextLesson: {
       title: "Next Lesson",
       noLesson: "No upcoming lessons",
+      notAvailable: "Not available",
       bookNow: "Book a lesson now",
       duration: "Duration",
+      location: "Location",
+      transmission: "Transmission",
       meetingPoint: "Meeting Point",
       instructor: "Instructor",
       student: "Student",
       viewDetails: "View Details",
+      viewLesson: "View Lesson",
+      hour: "Hour",
+      hours: "Hours",
       tomorrow: "Tomorrow",
     },
     quickActions: {
@@ -111,6 +117,7 @@ const translationsEn = {
     activity: {
       title: "Recent Activity",
       lessonCompleted: "Lesson completed with",
+      lessonCompletedSimple: "Lesson completed",
       bookingConfirmed: "Booking confirmed",
       lessonCancelled: "Lesson cancelled",
       reviewLeft: "Review left for",
@@ -312,12 +319,18 @@ const translationsKa = {
     nextLesson: {
       title: "მომდევნო გაკვეთილი",
       noLesson: "მომავალი გაკვეთილები არ არის",
+      notAvailable: "არ არის ხელმისაწვდომი",
       bookNow: "დაჯავშნე გაკვეთილი",
       duration: "ხანგრძლივობა",
+      location: "ლოკაცია",
+      transmission: "ტრანსმისია",
       meetingPoint: "შეხვედრის ადგილი",
       instructor: "ინსტრუქტორი",
       student: "მოსწავლე",
       viewDetails: "დეტალების ნახვა",
+      viewLesson: "გაკვეთილის ნახვა",
+      hour: "საათი",
+      hours: "საათი",
       tomorrow: "ხვალ",
     },
     quickActions: {
@@ -339,6 +352,7 @@ const translationsKa = {
     activity: {
       title: "ბოლო აქტივობა",
       lessonCompleted: "გაკვეთილი დასრულდა",
+      lessonCompletedSimple: "გაკვეთილი დასრულდა",
       bookingConfirmed: "ჯავშანი დადასტურდა",
       lessonCancelled: "გაკვეთილი გაუქმდა",
       reviewLeft: "შეფასება დატოვეთ",

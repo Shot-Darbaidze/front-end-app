@@ -3,6 +3,7 @@
 import { memo } from "react";
 import { Clock, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { BookingResponse, formatTime } from "./types";
 
 interface UpcomingLessonCardProps {
@@ -20,6 +21,7 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
     canCancel,
     minCancelHours,
 }: UpcomingLessonCardProps) {
+    const localeHref = useLocaleHref();
     const startDate = new Date(lesson.start_time_utc);
     const fullDate = startDate.toLocaleDateString("en-US", {
         weekday: "long", month: "short", day: "numeric",
@@ -29,16 +31,24 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
         <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 group">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 
-                {/* Left: icon + info */}
+                {/* Left: image + info */}
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center group-hover:bg-red-100 transition-colors shrink-0">
-                        <Clock className="w-5 h-5 text-[#F03D3D]" />
-                    </div>
+                    {lesson.instructor_image ? (
+                        <img 
+                            src={lesson.instructor_image} 
+                            alt={lesson.instructor_name || "Instructor"}
+                            className="w-10 h-10 rounded-full object-cover shrink-0"
+                        />
+                    ) : (
+                        <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center group-hover:bg-red-100 transition-colors shrink-0">
+                            <Clock className="w-5 h-5 text-[#F03D3D]" />
+                        </div>
+                    )}
                     <div>
                         <h3 className="font-bold text-gray-900 text-sm sm:text-base">{lesson.instructor_name || "Instructor"}</h3>
                         <p className="text-sm text-gray-500">{fullDate}</p>
                         <Link
-                            href={`/instructors/${lesson.post_id}`}
+                            href={localeHref(`/instructors/${lesson.post_id}`)}
                             className="inline-flex items-center gap-1 text-xs font-semibold text-[#F03D3D] hover:text-red-700 hover:underline mt-0.5"
                         >
                             View Instructor <ExternalLink className="w-3 h-3" />

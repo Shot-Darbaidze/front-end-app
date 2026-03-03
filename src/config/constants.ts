@@ -67,10 +67,10 @@ export const API_ENDPOINTS = {
   USER: '/api/user',
   
   // Instructor endpoints
-  INSTRUCTORS: '/api/instructors',
-  INSTRUCTOR_DETAIL: (id: string) => `/api/instructors/${id}`,
+  INSTRUCTORS: '/api/posts',
+  INSTRUCTOR_DETAIL: (id: string) => `/api/posts/${id}`,
   INSTRUCTOR_SEARCH: '/api/posts/search',
-  INSTRUCTOR_PROFILE: '/api/instructors/profile',
+  INSTRUCTOR_PROFILE: '/api/posts/profile',
   
   // Lesson endpoints
   LESSONS: '/api/lessons',

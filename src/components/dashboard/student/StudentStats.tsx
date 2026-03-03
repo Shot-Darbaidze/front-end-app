@@ -4,13 +4,28 @@ import React from "react";
 import { CheckCircle2, Clock, Calendar, TrendingUp } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-export const StudentStats = () => {
+interface StudentStatsProps {
+  totalCompleted: number;
+  totalHours: number;
+  upcomingCount: number;
+  isLoading?: boolean;
+}
+
+export const StudentStats = ({
+  totalCompleted,
+  totalHours,
+  upcomingCount,
+  isLoading = false,
+}: StudentStatsProps) => {
   const { t } = useLanguage();
+
+  // Estimate progress: assume 30 lessons needed for license
+  const progressPercent = Math.min(100, Math.round((totalCompleted / 30) * 100));
 
   const stats = [
     {
       label: t("dashboard.stats.totalLessons"),
-      value: "12",
+      value: isLoading ? "—" : String(totalCompleted),
       subtext: t("dashboard.stats.completed"),
       icon: CheckCircle2,
       iconBg: "bg-emerald-50",
@@ -19,7 +34,7 @@ export const StudentStats = () => {
     },
     {
       label: t("dashboard.stats.hoursDriven"),
-      value: "18h",
+      value: isLoading ? "—" : `${totalHours}h`,
       subtext: t("dashboard.stats.totalTime"),
       icon: Clock,
       iconBg: "bg-blue-50",
@@ -28,7 +43,7 @@ export const StudentStats = () => {
     },
     {
       label: t("dashboard.stats.upcoming"),
-      value: "3",
+      value: isLoading ? "—" : String(upcomingCount),
       subtext: t("dashboard.stats.scheduled"),
       icon: Calendar,
       iconBg: "bg-red-50",
@@ -37,7 +52,7 @@ export const StudentStats = () => {
     },
     {
       label: t("dashboard.stats.progress"),
-      value: "45%",
+      value: isLoading ? "—" : `${progressPercent}%`,
       subtext: t("dashboard.stats.toLicense"),
       icon: TrendingUp,
       iconBg: "bg-orange-50",

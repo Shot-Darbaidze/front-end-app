@@ -15,51 +15,6 @@ import { PastLessons } from "@/components/dashboard/lessons/PastLessons";
 import { CancelledLessons } from "@/components/dashboard/lessons/CancelledLessons";
 import { CancelModal } from "@/components/dashboard/lessons/CancelModal";
 
-// ─── MOCK UPCOMING LESSONS (remove before production) ────────────────────────
-const MOCK_UPCOMING: BookingResponse[] = [
-  {
-    id: "mock-1", user_id: null, post_id: "abc",
-    start_time_utc: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
-    duration_minutes: 60, status: "booked", mode: "city", price: 45,
-    instructor_name: "Giorgi Beridze",
-  },
-  {
-    id: "mock-2", user_id: null, post_id: "def",
-    start_time_utc: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-    duration_minutes: 90, status: "booked", mode: "yard", price: 60,
-    instructor_name: "Nino Kvaratskhelia",
-  },
-];
-
-// ─── MOCK CANCELLED LESSONS (remove before production) ───────────────────────
-const MOCK_CANCELLED: CancellationResponse[] = [
-  {
-    id: "cancel-1", booking_id: "bk-1", cancelled_by_user_id: null,
-    reason: "schedule_conflict", description: null,
-    original_start_time_utc: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    original_duration_minutes: 60, original_mode: "city", original_price: 45,
-    original_post_id: "abc",
-    cancelled_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "cancel-2", booking_id: "bk-2", cancelled_by_user_id: null,
-    reason: "illness", description: "Had a fever that day",
-    original_start_time_utc: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
-    original_duration_minutes: 90, original_mode: "yard", original_price: 60,
-    original_post_id: "def",
-    cancelled_at: new Date(Date.now() - 13 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "cancel-3", booking_id: "bk-3", cancelled_by_user_id: null,
-    reason: "instructor_request", description: null,
-    original_start_time_utc: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-    original_duration_minutes: 60, original_mode: "city", original_price: null,
-    original_post_id: "ghi",
-    cancelled_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-];
-// ─────────────────────────────────────────────────────────────────────────────
-
 export default function LessonsPage() {
   const { user: clerkUser } = useUser();
   const { getToken } = useClerkAuth();
@@ -69,9 +24,7 @@ export default function LessonsPage() {
   const [upcomingLessons, setUpcomingLessons] = useState<BookingResponse[]>([]);
   const [pastLessons, setPastLessons] = useState<BookingResponse[]>([]);
   const [cancelledLessons, setCancelledLessons] = useState<CancellationResponse[]>([]);
-  const [lessonCodes, setLessonCodes] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingCodes, setIsLoadingCodes] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Cancel modal state
@@ -84,51 +37,55 @@ export default function LessonsPage() {
 
   const minCancelHours = parseInt(process.env.NEXT_PUBLIC_MIN_CANCEL_HOURS || "24", 10);
 
-  const fetchLessons = useCallback(async () => {
+  const fetchLessons = useCallback(async (tab?: TabId) => {
+    const currentTab = tab ?? activeTab;
     try {
       setIsLoading(true);
       setError(null);
       const token = await getToken();
       if (!token) { setError("Not authenticated"); return; }
 
-      const [bookingsRes, cancellationsRes] = await Promise.all([
-        fetch(`${API_CONFIG.BASE_URL}/api/bookings/mine`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_CONFIG.BASE_URL}/api/bookings/cancellations/mine`, { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
+      if (currentTab === "cancelled") {
+        // Only fetch cancellations for the cancelled tab
+        const cancellationsRes = await fetch(
+          `${API_CONFIG.BASE_URL}/api/bookings/cancellations/mine`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const allCancellations: CancellationResponse[] = cancellationsRes.ok ? await cancellationsRes.json() : [];
+        setCancelledLessons(allCancellations);
+      } else {
+        // Fetch bookings with status filter for upcoming/past tabs
+        const statusParam = currentTab === "upcoming" ? "?status=booked" : "";
+        const bookingsRes = await fetch(
+          `${API_CONFIG.BASE_URL}/api/bookings/mine${statusParam}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
 
-      if (!bookingsRes.ok) throw new Error("Failed to fetch lessons");
+        if (!bookingsRes.ok) throw new Error("Failed to fetch lessons");
 
-      const allBookings: BookingResponse[] = await bookingsRes.json();
-      const allCancellations: CancellationResponse[] = cancellationsRes.ok ? await cancellationsRes.json() : [];
-      const now = new Date();
+        const allBookings: BookingResponse[] = await bookingsRes.json();
+        const now = new Date();
 
-      const upcoming = allBookings.filter((b) => b.status === "booked" && new Date(b.start_time_utc) > now);
-      const past = allBookings.filter((b) => b.status === "completed" || (b.status === "booked" && new Date(b.start_time_utc) <= now));
-
-      setUpcomingLessons([...MOCK_UPCOMING, ...upcoming]); // TODO: remove MOCK_UPCOMING
-      setPastLessons(past);
-      setCancelledLessons([...MOCK_CANCELLED, ...allCancellations]); // TODO: remove MOCK_CANCELLED
-
-      if (upcoming.length > 0) {
-        setIsLoadingCodes(true);
-        const codes: Record<string, string> = {};
-        await Promise.all(upcoming.map(async (lesson) => {
-          try {
-            const res = await fetch(`${API_CONFIG.BASE_URL}/api/bookings/${lesson.id}/code`, { headers: { Authorization: `Bearer ${token}` } });
-            if (res.ok) { const data = await res.json(); codes[lesson.id] = data.lesson_code; }
-          } catch { /* silent */ }
-        }));
-        setLessonCodes(codes);
-        setIsLoadingCodes(false);
+        if (currentTab === "upcoming") {
+          const upcoming = allBookings.filter((b) => new Date(b.start_time_utc) > now);
+          setUpcomingLessons(upcoming);
+        } else {
+          // "past" tab: completed bookings + booked ones in the past
+          const past = allBookings.filter(
+            (b) => b.status === "completed" || (b.status === "booked" && new Date(b.start_time_utc) <= now)
+          );
+          setPastLessons(past);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load lessons");
     } finally {
       setIsLoading(false);
     }
-  }, [getToken]);
+  }, [getToken, activeTab]);
 
-  useEffect(() => { fetchLessons(); }, [fetchLessons]);
+  // Fetch data when tab changes
+  useEffect(() => { fetchLessons(activeTab); }, [activeTab, fetchLessons]);
 
   const canCancelLesson = useCallback((lesson: BookingResponse): boolean => {
     const hours = (new Date(lesson.start_time_utc).getTime() - Date.now()) / (1000 * 60 * 60);
@@ -168,7 +125,7 @@ export default function LessonsPage() {
 
       setCancelModalOpen(false);
       setLessonToCancel(null);
-      await fetchLessons();
+      await fetchLessons("upcoming");
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : "Failed to cancel lesson");
     } finally {
@@ -213,7 +170,7 @@ export default function LessonsPage() {
               </div>
               <h3 className="text-lg font-medium text-gray-900">Error loading lessons</h3>
               <p className="text-gray-500 mt-1">{error}</p>
-              <Button variant="outline" className="mt-4" onClick={fetchLessons}>Try Again</Button>
+              <Button variant="outline" className="mt-4" onClick={() => fetchLessons()}>Try Again</Button>
             </div>
           ) : (
             <>
@@ -222,8 +179,8 @@ export default function LessonsPage() {
                   lessons={upcomingLessons}
                   onCancelClick={handleCancelClick}
                   canCancelLesson={canCancelLesson}
-                  lessonCodes={lessonCodes}
-                  isLoadingCodes={isLoadingCodes}
+                  lessonCodes={{}}
+                  isLoadingCodes={false}
                   minCancelHours={minCancelHours}
                 />
               )}

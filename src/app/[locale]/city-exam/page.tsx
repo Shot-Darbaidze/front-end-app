@@ -195,8 +195,8 @@ const CityExamPage = () => {
           </h3>
           <ul className="text-blue-800 space-y-1 text-sm">
             <li>• Select your preferred city</li>
-            <li>• Click "Start Monitoring" to begin checking for available slots</li>
-            <li>• You'll receive a notification when new exam dates open</li>
+            <li>• Click &quot;Start Monitoring&quot; to begin checking for available slots</li>
+            <li>• You&apos;ll receive a notification when new exam dates open</li>
             <li>• Check the console (F12) for detailed monitoring logs</li>
           </ul>
         </div>

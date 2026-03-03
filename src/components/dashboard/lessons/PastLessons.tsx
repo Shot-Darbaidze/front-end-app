@@ -4,18 +4,17 @@ import { memo } from "react";
 import { CheckCircle2, Clock, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
-import { BookingResponse, MOCK_INSTRUCTOR_NAMES, formatTime } from "./types";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
+import { BookingResponse, formatTime } from "./types";
 
 interface PastLessonCardProps {
     lesson: BookingResponse;
 }
 
 const PastLessonCard = memo(function PastLessonCard({ lesson }: PastLessonCardProps) {
+    const localeHref = useLocaleHref();
     const startDate = new Date(lesson.start_time_utc);
     const fullDate = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const fallbackName = MOCK_INSTRUCTOR_NAMES[
-        lesson.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % MOCK_INSTRUCTOR_NAMES.length
-    ];
 
     return (
         <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm opacity-75 hover:opacity-100 transition-opacity group">
@@ -23,14 +22,22 @@ const PastLessonCard = memo(function PastLessonCard({ lesson }: PastLessonCardPr
 
                 {/* Left */}
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center group-hover:bg-emerald-50 transition-colors shrink-0">
-                        <CheckCircle2 className="w-5 h-5 text-gray-500 group-hover:text-emerald-500 transition-colors" />
-                    </div>
+                    {lesson.instructor_image ? (
+                        <img 
+                            src={lesson.instructor_image} 
+                            alt={lesson.instructor_name || "Instructor"}
+                            className="w-10 h-10 rounded-full object-cover shrink-0"
+                        />
+                    ) : (
+                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center group-hover:bg-emerald-50 transition-colors shrink-0">
+                            <CheckCircle2 className="w-5 h-5 text-gray-500 group-hover:text-emerald-500 transition-colors" />
+                        </div>
+                    )}
                     <div>
-                        <h3 className="font-bold text-gray-900 text-sm sm:text-base">{lesson.instructor_name || fallbackName}</h3>
+                        <h3 className="font-bold text-gray-900 text-sm sm:text-base">{lesson.instructor_name || "Instructor"}</h3>
                         <p className="text-sm text-gray-500">{fullDate} · {lesson.duration_minutes} min</p>
                         <Link
-                            href={`/instructors/${lesson.post_id}`}
+                            href={localeHref(`/instructors/${lesson.post_id}`)}
                             className="inline-flex items-center gap-1 text-xs font-semibold text-[#F03D3D] hover:text-red-700 hover:underline mt-0.5"
                         >
                             View Instructor <ExternalLink className="w-3 h-3" />

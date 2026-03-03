@@ -5,9 +5,7 @@ import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import { API_CONFIG } from "@/config/constants";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-
 // Shared
-
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 
 // Student components
@@ -17,12 +15,94 @@ import { RecentActivity } from "@/components/dashboard/student/RecentActivity";
 import { DrivingTips } from "@/components/dashboard/student/DrivingTips";
 
 import { InstructorNextLessonCard } from "@/components/dashboard/instructor/InstructorNextLessonCard";
-import { InstructorUpcomingLessonCard } from "@/components/dashboard/instructor/InstructorUpcomingLessonCard";
+import type { InstructorNextLessonData } from "@/components/dashboard/instructor/InstructorNextLessonCard";
+import { InstructorUpcomingLessonCard, InstructorUpcomingLessonSkeleton } from "@/components/dashboard/instructor/InstructorUpcomingLessonCard";
 import { InstructorActivity } from "@/components/dashboard/instructor/InstructorActivity";
+import type { InstructorActivityItemData } from "@/components/dashboard/instructor/InstructorActivity";
+import type { StudentNextLessonData } from "@/components/dashboard/student/NextLessonCard";
+import type { RecentActivityItem } from "@/components/dashboard/student/RecentActivity";
 
 const APPROVAL_CACHE_KEY = "instructor-approval-v2";
 const APPROVAL_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const DASHBOARD_CACHE_KEY = "dashboard-summary-v1";
+const DASHBOARD_CACHE_TTL = 2 * 60 * 1000; // 2 minutes stale-while-revalidate
 const API_TIMEOUT_MS = 10_000; // 10 seconds
+
+// ---- Types matching the combined /api/dashboard/summary response ----
+
+type DashboardBooking = {
+  id: string;
+  post_id: string;
+  start_time_utc: string;
+  duration_minutes: number;
+  status: string;
+  mode: string | null;
+  price: number | null;
+  instructor_name: string | null;
+  instructor_image: string | null;
+  instructor_location: string | null;
+  instructor_transmission: string | null;
+};
+
+type DashboardCancellation = {
+  id: string;
+  original_post_id: string;
+  cancelled_at: string;
+  instructor_name: string | null;
+};
+
+type DashboardComment = {
+  id: string;
+  post_id: string;
+  comment_text: string;
+  rating: number | null;
+  created_at: string;
+  instructor_name: string | null;
+};
+
+type DashboardStats = {
+  total_completed: number;
+  total_hours: number;
+  upcoming_count: number;
+};
+
+type InstructorSlotStudent = {
+  id: string;
+  start_time_utc: string;
+  duration_minutes: number;
+  status: string;
+  mode: string | null;
+  price: number | null;
+  student_first_name: string | null;
+  student_last_name: string | null;
+  student_image_url: string | null;
+};
+
+type InstructorActivityItemAPI = {
+  id: string;
+  type: string;
+  occurred_at: string;
+  student_name: string | null;
+  price: number | null;
+};
+
+type InstructorDashboardData = {
+  upcoming_slots: InstructorSlotStudent[];
+  recent_activity: InstructorActivityItemAPI[];
+  stats_total_completed: number;
+  stats_total_hours: number;
+  stats_upcoming_count: number;
+  stats_total_students: number;
+};
+
+type DashboardSummary = {
+  is_approved: boolean;
+  bookings: DashboardBooking[];
+  cancellations: DashboardCancellation[];
+  comments: DashboardComment[];
+  stats: DashboardStats;
+  instructor_data?: InstructorDashboardData | null;
+};
 
 /** Read cached approval from localStorage with TTL check */
 function getCachedApproval(): boolean | null {
@@ -53,6 +133,35 @@ function setCachedApproval(is_approved: boolean) {
   } catch { /* storage full — ignore */ }
 }
 
+/** Read cached dashboard summary from sessionStorage (short TTL) */
+function getCachedDashboard(): DashboardSummary | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(DASHBOARD_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { data: DashboardSummary; timestamp: number };
+    if (!parsed.timestamp || Date.now() - parsed.timestamp > DASHBOARD_CACHE_TTL) {
+      sessionStorage.removeItem(DASHBOARD_CACHE_KEY);
+      return null;
+    }
+    return parsed.data;
+  } catch {
+    sessionStorage.removeItem(DASHBOARD_CACHE_KEY);
+    return null;
+  }
+}
+
+/** Cache dashboard summary in sessionStorage */
+function setCachedDashboard(data: DashboardSummary) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(
+      DASHBOARD_CACHE_KEY,
+      JSON.stringify({ data, timestamp: Date.now() })
+    );
+  } catch { /* storage full — ignore */ }
+}
+
 /** Fetch with a timeout (AbortController) */
 function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
@@ -60,54 +169,200 @@ function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number):
   return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
+/** Process raw dashboard data into derived UI state */
+function processDashboardData(data: DashboardSummary) {
+  const { bookings, cancellations, comments } = data;
+  const now = Date.now();
+
+  // --- Next lesson ---
+  const upcoming = bookings
+    .filter((b) => b.status === "booked" && new Date(b.start_time_utc).getTime() > now)
+    .sort((a, b) => new Date(a.start_time_utc).getTime() - new Date(b.start_time_utc).getTime());
+
+  const next = upcoming[0];
+  const nextLesson: StudentNextLessonData | null = next
+    ? {
+        id: next.id,
+        postId: next.post_id,
+        startTimeUtc: next.start_time_utc,
+        durationMinutes: next.duration_minutes,
+        mode: next.mode as "city" | "yard" | null,
+        location: next.instructor_location || null,
+        transmission: next.instructor_transmission || null,
+        instructorName: next.instructor_name || "Instructor",
+      }
+    : null;
+
+  // --- Recent Activity (mixed feed) ---
+  const pastLessons = bookings
+    .filter((b) => b.status === "completed" || (b.status === "booked" && new Date(b.start_time_utc).getTime() <= now))
+    .sort((a, b) => new Date(b.start_time_utc).getTime() - new Date(a.start_time_utc).getTime());
+
+  const completedActivity: RecentActivityItem[] =
+    pastLessons.length > 0
+      ? [
+          {
+            id: `completed-${pastLessons[0].id}`,
+            type: "completed",
+            instructorName: pastLessons[0].instructor_name || "Instructor",
+            occurredAt: pastLessons[0].start_time_utc,
+          },
+        ]
+      : [];
+
+  const cancelledActivity: RecentActivityItem[] = cancellations.map((c) => ({
+    id: `cancelled-${c.id}`,
+    type: "cancelled",
+    instructorName: c.instructor_name || undefined,
+    occurredAt: c.cancelled_at,
+  }));
+
+  const reviewActivity: RecentActivityItem[] = comments.map((c) => ({
+    id: `reviewed-${c.id}`,
+    type: "reviewed",
+    instructorName: c.instructor_name || undefined,
+    occurredAt: c.created_at,
+  }));
+
+  const recentActivity = [...completedActivity, ...cancelledActivity, ...reviewActivity]
+    .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
+    .slice(0, 6);
+
+  return { nextLesson, recentActivity };
+}
+
 export default function DashboardPage() {
   const { getToken } = useClerkAuth();
   const { user: clerkUser } = useUser();
   const { t } = useLanguage();
 
-  // Initialize from cache so we render immediately
-  const cachedApproval = useRef(getCachedApproval());
-  const [isApproved, setIsApproved] = useState(cachedApproval.current === true);
+  // Always start with loading/empty state to match SSR (avoids hydration mismatch).
+  // Cache is applied in useEffect after mount.
+  const cachedApproval = useRef<boolean | null>(null);
+  const cachedDashboard = useRef<DashboardSummary | null>(null);
+
+  const [isApproved, setIsApproved] = useState(false);
+  const [nextLesson, setNextLesson] = useState<StudentNextLessonData | null>(null);
+  const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
+  const [studentStats, setStudentStats] = useState<DashboardStats>(
+    { total_completed: 0, total_hours: 0, upcoming_count: 0 }
+  );
+  // Instructor-specific state
+  const [instructorNextLesson, setInstructorNextLesson] = useState<InstructorNextLessonData | null>(null);
+  const [instructorUpcoming, setInstructorUpcoming] = useState<InstructorNextLessonData[]>([]);
+  const [instructorActivities, setInstructorActivities] = useState<InstructorActivityItemData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const firstName = clerkUser?.firstName || "";
 
   useEffect(() => {
     let isMounted = true;
 
-    const checkApproval = async () => {
-      // If we already have a valid cache, skip the network call
-      if (cachedApproval.current !== null) return;
+    // Read caches on client only (after mount) to avoid hydration mismatch
+    cachedApproval.current = getCachedApproval();
+    cachedDashboard.current = getCachedDashboard();
+
+    // Apply cached approval immediately so instructor view shows without flash
+    if (cachedApproval.current !== null) {
+      setIsApproved(cachedApproval.current);
+    }
+
+    const loadDashboard = async () => {
+      // If we have a fresh cache, apply it immediately (stale-while-revalidate)
+      if (cachedDashboard.current) {
+        const data = cachedDashboard.current;
+        const { nextLesson: nl, recentActivity: ra } = processDashboardData(data);
+        if (isMounted) {
+          setIsApproved(data.is_approved);
+          setCachedApproval(data.is_approved);
+          setNextLesson(nl);
+          setRecentActivity(ra);
+          setStudentStats(data.stats);
+          applyInstructorData(data);
+          setIsLoading(false);
+        }
+        // Still revalidate in background (stale-while-revalidate)
+      }
 
       try {
         const token = await getToken();
         if (!token) {
-          if (isMounted) setIsApproved(false);
+          if (isMounted) setIsLoading(false);
           return;
         }
 
+        // SINGLE request replaces the previous 4 separate requests
         const response = await fetchWithTimeout(
-          `${API_CONFIG.BASE_URL}/api/posts/mine`,
+          `${API_CONFIG.BASE_URL}/api/dashboard/summary?cancellation_limit=10&comment_limit=10`,
           { headers: { Authorization: `Bearer ${token}` } },
           API_TIMEOUT_MS
         );
 
         if (!response.ok) {
-          if (isMounted) setIsApproved(false);
+          if (isMounted) setIsLoading(false);
           return;
         }
 
-        const result: { is_approved?: boolean | null } = await response.json();
-        const approved = Boolean(result?.is_approved);
-        setCachedApproval(approved);
-        if (isMounted) setIsApproved(approved);
+        const data = (await response.json()) as DashboardSummary;
+        const { nextLesson: nl, recentActivity: ra } = processDashboardData(data);
+
+        if (isMounted) {
+          setIsApproved(data.is_approved);
+          setCachedApproval(data.is_approved);
+          setNextLesson(nl);
+          setRecentActivity(ra);
+          setStudentStats(data.stats);
+          applyInstructorData(data);
+          setIsLoading(false);
+        }
+
+        // Cache for stale-while-revalidate on next navigation
+        setCachedDashboard(data);
       } catch {
-        // Timeout or network error — keep the default (student) view
-        if (isMounted) setIsApproved(false);
+        if (isMounted) {
+          setIsLoading(false);
+          if (!cachedDashboard.current) {
+            setNextLesson(null);
+            setRecentActivity([]);
+          }
+        }
       }
     };
 
-    checkApproval();
-    return () => { isMounted = false; };
+    /** Map API instructor data into component-friendly state */
+    function applyInstructorData(data: DashboardSummary) {
+      const iData = data.instructor_data;
+      if (!iData) return;
+
+      const slots: InstructorNextLessonData[] = iData.upcoming_slots.map((s) => ({
+        id: s.id,
+        startTimeUtc: s.start_time_utc,
+        durationMinutes: s.duration_minutes,
+        mode: s.mode,
+        price: s.price,
+        studentFirstName: s.student_first_name,
+        studentLastName: s.student_last_name,
+        studentImageUrl: s.student_image_url,
+      }));
+
+      setInstructorNextLesson(slots[0] ?? null);
+      setInstructorUpcoming(slots.slice(1)); // all remaining after the hero card
+
+      setInstructorActivities(
+        iData.recent_activity.map((a) => ({
+          id: a.id,
+          type: a.type,
+          occurredAt: a.occurred_at,
+          studentName: a.student_name,
+          price: a.price,
+        }))
+      );
+    }
+
+    loadDashboard();
+    return () => {
+      isMounted = false;
+    };
   }, [getToken]);
 
   if (isApproved) {
@@ -117,30 +372,34 @@ export default function DashboardPage() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
           <main className="flex-1 min-w-0 space-y-8">
-
-
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 xl:gap-8">
               {/* Left Column (Wider) */}
               <div className="xl:col-span-2 space-y-6 xl:space-y-8 flex flex-col">
                 {/* Next Lesson Card - takes prominent width */}
-                <InstructorNextLessonCard />
+                <InstructorNextLessonCard lesson={instructorNextLesson} isLoading={isLoading} />
 
                 {/* Upcoming lessons list */}
                 <div className="flex-1 space-y-4">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-xl font-bold text-slate-900 px-1">Upcoming Lessons</h3>
                   </div>
-                  <InstructorUpcomingLessonCard />
-                  <InstructorUpcomingLessonCard />
-                  <InstructorUpcomingLessonCard />
+                  {isLoading ? (
+                    <>{[1, 2, 3].map((i) => <InstructorUpcomingLessonSkeleton key={i} />)}</>
+                  ) : instructorUpcoming.length > 0 ? (
+                    instructorUpcoming.map((slot) => (
+                      <InstructorUpcomingLessonCard key={slot.id} lesson={slot} />
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-400 px-1">No upcoming lessons scheduled</p>
+                  )}
                 </div>
               </div>
 
               {/* Right Column (Narrower) */}
               <div className="xl:col-span-1 min-h-[500px]">
-                {/* New Premium Activity Component */}
-                <InstructorActivity />
+                {/* Activity Timeline */}
+                <InstructorActivity activities={instructorActivities} isLoading={isLoading} />
               </div>
             </div>
           </main>
@@ -157,18 +416,23 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         <main className="flex-1 min-w-0 space-y-6">
 
-          <StudentStats />
+          <StudentStats
+            totalCompleted={studentStats.total_completed}
+            totalHours={studentStats.total_hours}
+            upcomingCount={studentStats.upcoming_count}
+            isLoading={isLoading}
+          />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-              <NextLessonCard />
+              <NextLessonCard lesson={nextLesson} isLoading={isLoading} />
             </div>
             <div className="lg:col-span-1">
               <DrivingTips />
             </div>
           </div>
 
-          <RecentActivity />
+          <RecentActivity activities={recentActivity} isLoading={isLoading} />
         </main>
       </div>
     </div>

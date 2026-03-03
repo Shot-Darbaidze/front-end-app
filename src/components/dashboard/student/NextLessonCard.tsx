@@ -6,9 +6,58 @@ import Link from "next/link";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-export const NextLessonCard = () => {
+export type StudentNextLessonData = {
+  id: string;
+  postId: string;
+  startTimeUtc: string;
+  durationMinutes: number;
+  mode: "city" | "yard" | null;
+  location: string | null;
+  transmission: string | null;
+  instructorName: string;
+};
+
+interface NextLessonCardProps {
+  lesson: StudentNextLessonData | null;
+  isLoading?: boolean;
+}
+
+const formatLessonHeading = (dateIso: string, language: "en" | "ka") => {
+  const date = new Date(dateIso);
+  return new Intl.DateTimeFormat(language === "ka" ? "ka-GE" : "en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+};
+
+export const NextLessonCard = ({ lesson, isLoading = false }: NextLessonCardProps) => {
   const localeHref = useLocaleHref();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+
+  const initials = lesson?.instructorName
+    ? lesson.instructorName
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() ?? "")
+        .join("")
+    : "--";
+
+  const durationHours = lesson ? Math.max(1, Math.round(lesson.durationMinutes / 60)) : null;
+  const durationLabel = durationHours
+    ? `${durationHours} ${durationHours === 1 ? t("dashboard.nextLesson.hour") : t("dashboard.nextLesson.hours")}`
+    : t("dashboard.nextLesson.notAvailable");
+
+  const transmissionLabel = lesson?.transmission
+    ? lesson.transmission.charAt(0).toUpperCase() + lesson.transmission.slice(1)
+    : t("dashboard.nextLesson.notAvailable");
+
+  const locationLabel = lesson?.location || t("dashboard.nextLesson.notAvailable");
+
+  const lessonHeading = lesson ? formatLessonHeading(lesson.startTimeUtc, language) : t("dashboard.nextLesson.noLesson");
 
   return (
     <div className="relative bg-white rounded-3xl p-6 text-slate-900 overflow-hidden shadow-xl border border-slate-200 group">
@@ -28,7 +77,7 @@ export const NextLessonCard = () => {
                 {t("dashboard.nextLesson.title")}
               </span>
               <h3 className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">
-                {t("dashboard.nextLesson.tomorrow")}, 10:00
+                {isLoading ? "..." : lessonHeading}
               </h3>
             </div>
           </div>
@@ -48,8 +97,8 @@ export const NextLessonCard = () => {
               <Clock className="w-4 h-4 text-blue-600" />
             </div>
             <div>
-              <p className="text-[11px] text-slate-500 uppercase tracking-wider">Duration</p>
-              <span className="text-sm font-semibold text-slate-900">2 Hours</span>
+              <p className="text-[11px] text-slate-500 uppercase tracking-wider">{t("dashboard.nextLesson.duration")}</p>
+              <span className="text-sm font-semibold text-slate-900">{durationLabel}</span>
             </div>
           </div>
 
@@ -58,8 +107,8 @@ export const NextLessonCard = () => {
               <MapPin className="w-4 h-4 text-emerald-600" />
             </div>
             <div>
-              <p className="text-[11px] text-slate-500 uppercase tracking-wider">Location</p>
-              <span className="text-sm font-semibold text-slate-900">Tbilisi Central</span>
+              <p className="text-[11px] text-slate-500 uppercase tracking-wider">{t("dashboard.nextLesson.location")}</p>
+              <span className="text-sm font-semibold text-slate-900">{locationLabel}</span>
             </div>
           </div>
 
@@ -68,8 +117,8 @@ export const NextLessonCard = () => {
               <Car className="w-4 h-4 text-purple-600" />
             </div>
             <div>
-              <p className="text-[11px] text-slate-500 uppercase tracking-wider">Transmission</p>
-              <span className="text-sm font-semibold text-slate-900">Manual</span>
+              <p className="text-[11px] text-slate-500 uppercase tracking-wider">{t("dashboard.nextLesson.transmission")}</p>
+              <span className="text-sm font-semibold text-slate-900">{transmissionLabel}</span>
             </div>
           </div>
         </div>
@@ -79,20 +128,20 @@ export const NextLessonCard = () => {
           <div className="flex items-center gap-4">
             <div className="relative">
               <div className="w-12 h-12 bg-gradient-to-br from-[#F03D3D] to-orange-500 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-lg shadow-red-500/20 border-2 border-white">
-                GB
+                {initials || "--"}
               </div>
             </div>
             <div>
               <p className="text-[11px] text-slate-500 uppercase tracking-widest mb-0.5">{t("dashboard.nextLesson.instructor")}</p>
-              <p className="text-base font-bold text-slate-900">Giorgi Beridze</p>
+              <p className="text-base font-bold text-slate-900">{lesson?.instructorName || t("dashboard.nextLesson.notAvailable")}</p>
             </div>
           </div>
 
           <Link
-            href={localeHref("/dashboard/lessons")}
+            href={lesson ? localeHref("/dashboard/lessons") : localeHref("/find-instructors")}
             className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#F03D3D] hover:bg-red-600 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-red-600/20 hover:shadow-red-600/40 hover:-translate-y-0.5"
           >
-            View Lesson
+            {lesson ? t("dashboard.nextLesson.viewLesson") : t("dashboard.nextLesson.bookNow")}
           </Link>
         </div>
       </div>
