@@ -233,7 +233,7 @@ const Navbar = () => {
       window.removeEventListener("scroll", updateBurgerContrast);
       window.removeEventListener("resize", updateBurgerContrast);
     };
-  }, [pathname, isScrolled, isMobileMenuOpen]);
+  }, [pathname, isScrolled, isMobileMenuVisible]);
 
   // Hide navbar on signup pages
   if (pathname?.endsWith('/for-instructors/signup')) {
@@ -451,7 +451,7 @@ const Navbar = () => {
           />
           <button
             onClick={closeMobileMenu}
-            className="group absolute top-5 right-6 p-2 text-gray-900 transition-colors z-10"
+            className="group absolute top-4 right-6 p-2 text-gray-900 transition-colors z-10"
             aria-expanded={isMobileCloseIconExpanded}
             aria-label={language === "ka" ? "მენიუს დახურვა" : "Close menu"}
           >
@@ -543,7 +543,7 @@ const Navbar = () => {
                       <span>{language === "ka" ? "დაფა" : "Dashboard"}</span>
                     </Link>
                     <Link
-                      href={localeHref("/dashboard")}
+                      href={localeHref("/dashboard/notifications")}
                       className="w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D] transition-colors"
                     >
                       <Bell className="w-5 h-5" />
