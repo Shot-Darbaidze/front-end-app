@@ -451,7 +451,9 @@ const Navbar = () => {
           />
           <button
             onClick={closeMobileMenu}
-            className="group absolute top-4 right-6 p-2 text-gray-900 transition-colors z-10"
+            className={`group absolute right-6 p-2 text-gray-900 transition-colors z-10 ${
+              isScrolled ? "top-3" : "top-5"
+            }`}
             aria-expanded={isMobileCloseIconExpanded}
             aria-label={language === "ka" ? "მენიუს დახურვა" : "Close menu"}
           >

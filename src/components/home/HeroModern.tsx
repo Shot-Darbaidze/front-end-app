@@ -47,7 +47,7 @@ const HeroModern = () => {
               <span>{t("home.hero.badge")}</span>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold leading-tight tracking-tight">
+                    <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold leading-tight tracking-tight">
               {t("home.hero.title")} <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F03D3D] to-orange-500">
                 {t("home.hero.titleHighlight")}
@@ -59,7 +59,7 @@ const HeroModern = () => {
             </p>
 
             {/* Search Box */}
-            <div className="bg-white p-2 rounded-2xl shadow-xl max-w-[95%] sm:max-w-xl mx-auto lg:mx-0 flex flex-col sm:flex-row gap-2">
+            <div className="bg-white p-2 rounded-2xl shadow-xl w-full sm:max-w-xl mx-auto lg:mx-0 flex flex-col sm:flex-row gap-2">
               <div className="flex-1 relative">
                 <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
@@ -73,12 +73,12 @@ const HeroModern = () => {
                       handleFindInstructors();
                     }
                   }}
-                  className="w-full h-12 pl-12 pr-4 rounded-xl bg-gray-50 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20"
+                  className="w-full h-12 pl-12 pr-4 rounded-xl bg-gray-50 text-gray-900 text-left placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20"
                 />
               </div>
               <Button
-                size="lg"
-                className="rounded-xl shadow-lg shadow-red-500/20"
+                        size="lg"
+                        className="rounded-xl shadow-lg shadow-red-500/20"
                 onClick={handleFindInstructors}
               >
                 {t("home.hero.findInstructors")}

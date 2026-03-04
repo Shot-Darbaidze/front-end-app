@@ -293,7 +293,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-3xl border border-slate-100 p-8 shadow-sm">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-xl shadow-gray-200/50 p-6">
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-[#F03D3D]" />
         </div>
@@ -302,24 +302,19 @@ export default function CommentSection({ postId }: CommentSectionProps) {
   }
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xl relative overflow-hidden group">
-      {/* Background orbs */}
-      <div className="absolute top-[-10%] right-[-5%] w-[30%] h-[30%] bg-gradient-to-br from-[#F03D3D]/5 to-orange-500/5 rounded-full blur-3xl opacity-60 pointer-events-none group-hover:scale-110 transition-transform duration-700" />
-      <div className="absolute bottom-[-10%] left-[-5%] w-[30%] h-[30%] bg-gradient-to-tr from-blue-600/5 to-indigo-500/5 rounded-full blur-3xl opacity-60 pointer-events-none group-hover:scale-110 transition-transform duration-700" />
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-xl shadow-gray-200/50 p-6">
 
       {/* Header */}
-      <div className="relative z-10 flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-7">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center border border-red-100 shadow-sm">
-            <Star className="w-6 h-6 text-[#F03D3D] fill-[#F03D3D]" />
-          </div>
+          <Star className="w-10 h-10 text-yellow-400 fill-yellow-400 ml-1" />
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 leading-tight">Student Reviews</h2>
-            <p className="text-slate-500 text-sm font-medium">What people say about this instructor</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">Student Reviews</h2>
+            <p className="text-slate-500 text-sm">What learners say about this instructor</p>
           </div>
         </div>
         {totalComments > 0 && (
-          <div className="bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 text-xs font-bold text-slate-600 shadow-sm">
+          <div className="bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-semibold text-slate-600">
             {totalComments} total
           </div>
         )}
@@ -335,29 +330,29 @@ export default function CommentSection({ postId }: CommentSectionProps) {
           onCommentChange={setNewComment} onSubmit={handleSubmitComment}
         />
       ) : (
-        <div className="mb-10 p-6 bg-slate-50 rounded-3xl text-center border border-slate-100 border-dashed">
-          <p className="text-slate-500 font-medium">Sign in to leave a review and join the conversation</p>
+        <div className="mb-8 p-5 bg-slate-50 rounded-2xl text-center border border-dashed border-slate-200">
+          <p className="text-slate-600 font-medium">Sign in to leave a review and join the conversation</p>
         </div>
       )}
 
       {/* Comments list */}
       {comments.length === 0 ? (
-        <div className="text-center py-16 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
-          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100">
+        <div className="text-center py-14 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+          <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 border border-slate-200">
             <Star className="w-8 h-8 text-slate-200" />
           </div>
           <h3 className="text-lg font-bold text-slate-900 mb-1">No reviews yet</h3>
           <p className="text-slate-500">Be the first to share your experience!</p>
         </div>
       ) : (
-        <div className="relative z-10">
+        <div>
           {totalComments > 0 && (
-            <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-50">
-              <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Latest Feed</span>
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+              <span className="text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-wider">Latest Reviews</span>
               <div className="flex items-center gap-3">
                 <ArrowUpDown className="w-4 h-4 text-slate-400" />
                 <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "newest" | "oldest" | "likes")}
-                  className="text-xs font-bold text-slate-600 border border-slate-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-4 focus:ring-slate-100 bg-white shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
+                  className="text-xs font-semibold text-slate-700 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-200 bg-white cursor-pointer hover:bg-slate-50 transition-colors">
                   <option value="newest">Newest First</option>
                   <option value="oldest">Oldest First</option>
                   <option value="likes">Most Helpful</option>
@@ -366,7 +361,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {comments.map((comment) => (
               <div key={comment.id}>
                 <SingleComment
@@ -418,9 +413,9 @@ export default function CommentSection({ postId }: CommentSectionProps) {
           </div>
 
           {hasMore && (
-            <div className="mt-10 text-center">
+            <div className="mt-8 text-center">
               <button onClick={loadMoreComments} disabled={isLoadingMore}
-                className="inline-flex items-center gap-2 px-8 py-3 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all disabled:opacity-50 shadow-sm active:scale-95">
+                className="inline-flex items-center gap-2 px-7 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all disabled:opacity-50">
                 {isLoadingMore ? <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</> : <><ChevronDown className="w-4 h-4" /> Load More Reviews</>}
               </button>
             </div>
