@@ -2,9 +2,8 @@ import InstructorProfileHeader from "@/components/instructor-profile/InstructorP
 import BookingSidebar from "@/components/instructor-profile/BookingSidebar";
 import LocationCard from "@/components/instructor-profile/LocationCard";
 import CommentSection from "@/components/instructor-profile/CommentSection";
+import BackToInstructorsButton from "@/components/instructor-profile/BackToInstructorsButton";
 import FavoriteButton from "@/components/ui/FavoriteButton";
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import {
   buildInstructorName,
   extractCityName,
@@ -39,9 +38,9 @@ type InstructorAsset = {
   original_filename?: string | null;
 };
 
-export default async function InstructorProfilePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function InstructorProfilePage({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-  const { id } = await params;
+  const { locale, id } = await params;
 
   const [postResponse, assetsResponse] = await Promise.all([
     fetch(`${baseUrl}/api/posts/${id}`, { cache: "no-store" }),
@@ -55,13 +54,10 @@ export default async function InstructorProfilePage({ params }: { params: Promis
           <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm text-center">
             <h1 className="text-2xl font-bold text-gray-900">Instructor not found</h1>
             <p className="text-gray-500 mt-2">This instructor profile could not be loaded.</p>
-            <Link
-              href="/find-instructors"
+            <BackToInstructorsButton
+              fallbackHref={`/${locale}/find-instructors`}
               className="inline-flex items-center text-sm text-[#F03D3D] hover:text-[#d62f2f] transition-colors font-medium mt-6"
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Back to Instructors
-            </Link>
+            />
           </div>
         </div>
       </div>
@@ -83,13 +79,10 @@ export default async function InstructorProfilePage({ params }: { params: Promis
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Breadcrumb / Back */}
         <div className="mb-4 flex items-center justify-between">
-          <Link 
-            href="/find-instructors" 
+          <BackToInstructorsButton
+            fallbackHref={`/${locale}/find-instructors`}
             className="inline-flex items-center text-sm text-gray-500 hover:text-[#F03D3D] transition-colors font-medium"
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Back to Instructors
-          </Link>
+          />
           <FavoriteButton postId={id} variant="button" size="md" />
         </div>
 

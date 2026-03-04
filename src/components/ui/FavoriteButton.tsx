@@ -67,7 +67,7 @@ export default function FavoriteButton({
         <Heart
           className={`${iconSizes[size]} transition-all ${isFavorited ? "fill-[#F03D3D]" : ""}`}
         />
-        <span>{isFavorited ? "Saved" : "Save"}</span>
+        <span>{isFavorited ? "Favourited" : "Favourite"}</span>
       </button>
     );
   }

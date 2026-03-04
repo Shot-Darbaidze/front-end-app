@@ -313,11 +313,6 @@ export default function CommentSection({ postId }: CommentSectionProps) {
             <p className="text-slate-500 text-sm">What learners say about this instructor</p>
           </div>
         </div>
-        {totalComments > 0 && (
-          <div className="bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-semibold text-slate-600">
-            {totalComments} total
-          </div>
-        )}
       </div>
 
       {/* Review form or sign-in prompt */}

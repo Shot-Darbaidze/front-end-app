@@ -46,8 +46,14 @@ const InstructorCard = ({
   onCardClick,
 }: InstructorCardProps) => {
   const localeHref = useLocaleHref();
+  const profileHref = localeHref(`/instructors/${id}`);
 
   const handleCardClick = useCallback(() => {
+    if (typeof window !== "undefined") {
+      const returnUrl = `${window.location.pathname}${window.location.search}#y=${Math.round(window.scrollY)}`;
+      window.sessionStorage.setItem("lastFindInstructorsReturnUrl", returnUrl);
+    }
+
     if (onCardClick) {
       onCardClick(id, position);
     }
@@ -138,7 +144,7 @@ const InstructorCard = ({
           )}
         </div>
         <Link
-          href={localeHref(`/instructors/${id}`)}
+          href={profileHref}
           className="w-[40%] after:content-[''] after:absolute after:inset-0 after:z-[1] after:rounded-2xl"
           onClick={handleCardClick}
         >

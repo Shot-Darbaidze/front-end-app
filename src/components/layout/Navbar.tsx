@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Languages, Bell, Heart, Home, Search, Briefcase, Car, ChevronRight, LogOut } from "lucide-react";
+import { LayoutDashboard, Languages, Bell, Heart, Home, Search, Briefcase, Car, ChevronRight, LogOut, Settings } from "lucide-react";
 import {
   SignInButton,
   SignUpButton,
@@ -562,6 +562,13 @@ const Navbar = () => {
                     >
                       <Heart className="w-5 h-5" />
                       <span>{language === "ka" ? "ფავორიტები" : "Favorites"}</span>
+                    </Link>
+                    <Link
+                      href={localeHref("/dashboard/settings")}
+                      className="w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D] transition-colors"
+                    >
+                      <Settings className="w-5 h-5" />
+                      <span>{language === "ka" ? "პარამეტრები" : "Settings"}</span>
                     </Link>
                     <button
                       onClick={() => signOut({ redirectUrl: localeHref("/") })}

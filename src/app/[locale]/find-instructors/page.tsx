@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import SearchHeader from "@/components/find-instructors/SearchHeader";
 import HorizontalFilterBar from "@/components/find-instructors/HorizontalFilterBar";
 import InstructorList from "@/components/find-instructors/InstructorList";
@@ -30,6 +31,31 @@ function FindInstructorsContent() {
     handleFilterUpdate,
     goToPage,
   } = useFindInstructors();
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.startsWith("#y=")) return;
+
+    const targetY = Number(hash.slice(3));
+    if (!Number.isFinite(targetY) || targetY < 0) return;
+
+    let attempts = 0;
+    const maxAttempts = 12;
+
+    const tryRestoreScroll = () => {
+      window.scrollTo({ top: targetY, behavior: "auto" });
+
+      attempts += 1;
+      if (attempts >= maxAttempts || window.scrollY >= targetY || document.body.scrollHeight > targetY + window.innerHeight) {
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+        return;
+      }
+
+      window.setTimeout(tryRestoreScroll, 75);
+    };
+
+    window.setTimeout(tryRestoreScroll, 0);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50/50">
