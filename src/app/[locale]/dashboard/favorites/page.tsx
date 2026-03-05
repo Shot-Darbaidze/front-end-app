@@ -7,6 +7,34 @@ import { Heart, Trash2, Star, ShieldCheck, ArrowLeft, Loader2 } from "lucide-rea
 import { API_CONFIG } from '@/config/constants';
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 
+// ── SessionStorage cache for enriched favorites (survives locale switches) ──
+const FAV_PAGE_CACHE_KEY = "favorites-page-v1";
+const FAV_PAGE_CACHE_TTL = 3 * 60 * 1000; // 3 minutes
+
+function getCachedFavorites(): FavoriteItem[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(FAV_PAGE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { data: FavoriteItem[]; timestamp: number };
+    if (!parsed.timestamp || Date.now() - parsed.timestamp > FAV_PAGE_CACHE_TTL) {
+      sessionStorage.removeItem(FAV_PAGE_CACHE_KEY);
+      return null;
+    }
+    return parsed.data;
+  } catch {
+    sessionStorage.removeItem(FAV_PAGE_CACHE_KEY);
+    return null;
+  }
+}
+
+function setCachedFavorites(data: FavoriteItem[]) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(FAV_PAGE_CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+  } catch { /* storage full — ignore */ }
+}
+
 interface FavoriteItem {
   id: string;
   post_id: string;
@@ -35,6 +63,14 @@ export default function FavoritesPage() {
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
 
   const fetchFavorites = useCallback(async () => {
+    // Check sessionStorage cache first
+    const cached = getCachedFavorites();
+    if (cached) {
+      setFavorites(cached);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const token = await getToken();
       if (!token) {
@@ -74,6 +110,7 @@ export default function FavoritesPage() {
 
       const data: FavoritesResponse = await response.json();
       setFavorites(data.favorites);
+      setCachedFavorites(data.favorites);
       setError(null);
     } catch (err) {
       setError("Failed to load favorites. Please try again.");
@@ -107,7 +144,11 @@ export default function FavoritesPage() {
       });
 
       if (response.ok) {
-        setFavorites((prev) => prev.filter((fav) => fav.post_id !== postId));
+        setFavorites((prev) => {
+          const next = prev.filter((fav) => fav.post_id !== postId);
+          setCachedFavorites(next);
+          return next;
+        });
       }
     } catch (err) {
       console.error("Error removing favorite:", err);

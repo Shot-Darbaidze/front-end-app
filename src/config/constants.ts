@@ -145,6 +145,25 @@ export const LIMITS = {
 } as const;
 
 // ============================================================================
+// UPLOAD LIMITS (configurable via .env)
+// ============================================================================
+
+const parseIntEnv = (val: string | undefined, fallback: number): number => {
+  const parsed = val ? parseInt(val, 10) : NaN;
+  return Number.isNaN(parsed) ? fallback : parsed;
+};
+
+const _maxFileSizeMB = parseIntEnv(process.env.NEXT_PUBLIC_MAX_FILE_SIZE_MB, 5);
+
+export const UPLOAD_LIMITS = {
+  MAX_VEHICLE_PHOTOS: parseIntEnv(process.env.NEXT_PUBLIC_MAX_VEHICLE_PHOTOS, 5),
+  MAX_LICENSE_FILES: parseIntEnv(process.env.NEXT_PUBLIC_MAX_LICENSE_FILES, 2),
+  MAX_CERTIFICATE_FILES: parseIntEnv(process.env.NEXT_PUBLIC_MAX_CERTIFICATE_FILES, 1),
+  MAX_FILE_SIZE_MB: _maxFileSizeMB,
+  MAX_FILE_SIZE_BYTES: _maxFileSizeMB * 1024 * 1024,
+};
+
+// ============================================================================
 // REGEX PATTERNS
 // ============================================================================
 

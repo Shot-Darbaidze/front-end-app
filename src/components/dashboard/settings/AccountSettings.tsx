@@ -1,13 +1,15 @@
 "use client";
 
 import { UserProfile } from "@clerk/nextjs";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function AccountSettings() {
+    const { t } = useLanguage();
     return (
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-            <h3 className="font-bold text-lg text-gray-900 mb-6">Account Management</h3>
+            <h3 className="font-bold text-lg text-gray-900 mb-6">{t("settings.account.title")}</h3>
             <p className="text-sm text-gray-500 mb-6">
-                Manage your account settings, security, and connected accounts through Clerk.
+                {t("settings.account.desc")}
             </p>
             <UserProfile
                 routing="hash"

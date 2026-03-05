@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, use, useEffect } from "react";
+import React, { useState, use, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle, FileText, Info, Loader2, AlertCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle, Info, Loader2, AlertCircle, Timer } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { useAuth } from "@clerk/nextjs";
 import { buildInstructorName, pickFirstValidPrice } from "@/utils/instructor";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Types for backend data
 interface AvailableSlot {
@@ -34,16 +35,20 @@ type SelectedSlot = {
   duration_minutes: number;
 };
 
+// ── Module-level cache so data survives language-switch remounts ────
+const bookingCache = new Map<string, { instructor: InstructorPost; slots: AvailableSlot[]; ts: number }>();
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
+
 export default function BookingPage({ params }: { params: Promise<{ id: string; locale: string }> }) {
   const { id, locale } = use(params);
   const router = useRouter();
   const { getToken, isSignedIn } = useAuth();
+  const { t, language } = useLanguage();
   
   const [step, setStep] = useState(1);
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [viewingDate, setViewingDate] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [notes, setNotes] = useState("");
   
   // API data state
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
@@ -53,25 +58,48 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
   const [booking, setBooking] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
 
+  // Reservation (temporary hold) state
+  const [reserving, setReserving] = useState(false);
+  const [reservedUntilUtc, setReservedUntilUtc] = useState<string | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [reservationExpired, setReservationExpired] = useState(false);
+  const reservedSlotIdsRef = useRef<string[]>([]);
+
   // Derived instructor info
   const instructorName = instructor 
     ? buildInstructorName(instructor.applicant_first_name, instructor.applicant_last_name)
-    : "Loading...";
+    : "...";
   
   const price = instructor
     ? pickFirstValidPrice([instructor.automatic_city_price, instructor.manual_city_price]) ?? 0
     : 0;
 
-  // Fetch data on mount
+  // Fetch data on mount — with module-level cache to survive locale switches
+  const initialMonthSet = useRef(false);
   useEffect(() => {
     const fetchData = async () => {
+      // Check cache first
+      const cached = bookingCache.get(id);
+      if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+        setInstructor(cached.instructor);
+        const now = new Date();
+        const futureSlots = cached.slots.filter(slot => new Date(slot.start_time_utc) > now);
+        setAvailableSlots(futureSlots);
+        if (!initialMonthSet.current && futureSlots.length > 0) {
+          const earliest = futureSlots.reduce((a, b) => new Date(a.start_time_utc) < new Date(b.start_time_utc) ? a : b);
+          setCurrentMonth(new Date(new Date(earliest.start_time_utc).getFullYear(), new Date(earliest.start_time_utc).getMonth()));
+          initialMonthSet.current = true;
+        }
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
         
-        // Fetch instructor post and available slots in parallel
         const [postRes, slotsRes] = await Promise.all([
           fetch(`${baseUrl}/api/posts/${id}`, { cache: "no-store" }),
           fetch(`${baseUrl}/api/bookings/by-post/${id}?status=available&limit=500`, { cache: "no-store" }),
@@ -84,20 +112,22 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
         const postData = await postRes.json() as InstructorPost;
         setInstructor(postData);
 
+        let allSlots: AvailableSlot[] = [];
         if (slotsRes.ok) {
-          const slotsData = await slotsRes.json() as AvailableSlot[];
-          setAvailableSlots(slotsData);
+          allSlots = await slotsRes.json() as AvailableSlot[];
+        }
+
+        // Persist raw data in cache
+        bookingCache.set(id, { instructor: postData, slots: allSlots, ts: Date.now() });
+
+        const now = new Date();
+        const futureSlots = allSlots.filter(slot => new Date(slot.start_time_utc) > now);
+        setAvailableSlots(futureSlots);
           
-          // Set current month to earliest slot or today
-          if (slotsData.length > 0) {
-            const earliestSlot = slotsData.reduce((earliest, slot) => 
-              new Date(slot.start_time_utc) < new Date(earliest.start_time_utc) ? slot : earliest
-            );
-            const earliestDate = new Date(earliestSlot.start_time_utc);
-            setCurrentMonth(new Date(earliestDate.getFullYear(), earliestDate.getMonth()));
-          }
-        } else {
-          setAvailableSlots([]);
+        if (!initialMonthSet.current && futureSlots.length > 0) {
+          const earliest = futureSlots.reduce((a, b) => new Date(a.start_time_utc) < new Date(b.start_time_utc) ? a : b);
+          setCurrentMonth(new Date(new Date(earliest.start_time_utc).getFullYear(), new Date(earliest.start_time_utc).getMonth()));
+          initialMonthSet.current = true;
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load data");
@@ -108,6 +138,155 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
 
     fetchData();
   }, [id]);
+
+  // ── Resume active reservation if user accidentally left ───────────
+  const resumeChecked = useRef(false);
+  useEffect(() => {
+    if (!isSignedIn || resumeChecked.current) return;
+    // Only attempt resume once per mount, and only while on Step 1
+    if (step !== 1) return;
+    resumeChecked.current = true;
+
+    const checkExistingReservation = async () => {
+      try {
+        const token = await getToken();
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const res = await fetch(
+          `${baseUrl}/api/bookings/slots/reserved/mine?post_id=${id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          }
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.reserved || data.reserved.length === 0 || data.ttl_seconds <= 0) return;
+
+        // Restore reservation state — jump straight to Step 2
+        const restoredSlots: SelectedSlot[] = data.reserved.map((r: AvailableSlot) => {
+          const dt = new Date(r.start_time_utc);
+          return {
+            id: r.id,
+            date: dt.toLocaleDateString("en-CA"), // YYYY-MM-DD
+            time: dt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+            duration_minutes: r.duration_minutes,
+          };
+        });
+        setSelectedSlots(restoredSlots);
+        reservedSlotIdsRef.current = data.reserved.map((r: { id: string }) => r.id);
+        setReservedUntilUtc(data.reserved_until_utc);
+        setSecondsLeft(data.ttl_seconds);
+        setReservationExpired(false);
+        setStep(2);
+      } catch {
+        // Non-critical — user just starts fresh
+      }
+    };
+
+    checkExistingReservation();
+  }, [isSignedIn, id, getToken, step]);
+
+  // ── Countdown timer for reservation hold ──────────────────────────
+  useEffect(() => {
+    if (!reservedUntilUtc) return;
+    const tick = () => {
+      const diff = Math.max(0, Math.floor((new Date(reservedUntilUtc).getTime() - Date.now()) / 1000));
+      setSecondsLeft(diff);
+      if (diff <= 0) {
+        setReservationExpired(true);
+        setReservedUntilUtc(null);
+        reservedSlotIdsRef.current = [];
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [reservedUntilUtc]);
+
+  // ── Release reservation (called explicitly by Back / Cancel buttons) ──
+  const releaseReservation = useCallback(async () => {
+    const ids = reservedSlotIdsRef.current;
+    if (ids.length === 0) return;
+    try {
+      const token = await getToken();
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      fetch(`${baseUrl}/api/bookings/slots/release`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ slot_ids: ids }),
+        keepalive: true,
+      });
+    } catch {
+      // best effort
+    }
+    reservedSlotIdsRef.current = [];
+    setReservedUntilUtc(null);
+    setSecondsLeft(0);
+  }, [getToken]);
+
+  // No auto-release on unmount — allows reservations to survive page
+  // refresh / accidental navigation.  Server lazy cleanup expires them
+  // after 10 minutes if never confirmed.
+
+  // ── Reserve slots when moving to Step 2 ───────────────────────────
+  const handleContinueToConfirm = async () => {
+    if (!isSignedIn) {
+      router.push(`/sign-in?redirect=/instructors/${id}/book`);
+      return;
+    }
+
+    setReserving(true);
+    setBookingError(null);
+    setReservationExpired(false);
+
+    try {
+      const token = await getToken();
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${baseUrl}/api/bookings/slots/reserve`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ slot_ids: selectedSlots.map(s => s.id) }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ detail: "Reservation failed" }));
+        throw new Error(data.detail || "Failed to reserve slots");
+      }
+
+      const data = await res.json();
+
+      if (data.failed_slot_ids && data.failed_slot_ids.length > 0) {
+        // Remove failed slots from selection
+        const failedSet = new Set(data.failed_slot_ids as string[]);
+        setSelectedSlots(prev => prev.filter(s => !failedSet.has(s.id)));
+        if (data.reserved.length === 0) {
+          throw new Error(t("booking.slotsAlreadyTaken"));
+        }
+      }
+
+      reservedSlotIdsRef.current = data.reserved.map((r: { id: string }) => r.id);
+      setReservedUntilUtc(data.reserved_until_utc);
+      setSecondsLeft(data.ttl_seconds);
+      setStep(2);
+    } catch (err) {
+      setBookingError(err instanceof Error ? err.message : "Reservation failed");
+    } finally {
+      setReserving(false);
+    }
+  };
+
+  // ── Handle reservation expiry ─────────────────────────────────────
+  const handleReservationExpired = () => {
+    setReservationExpired(false);
+    setBookingError(null);
+    setStep(1);
+  };
 
   // Group slots by date (local time)
   const slotsByDate = availableSlots.reduce((acc, slot) => {
@@ -142,6 +321,12 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
       return;
     }
 
+    // Check if reservation has expired
+    if (secondsLeft <= 0 && !reservedUntilUtc) {
+      setReservationExpired(true);
+      return;
+    }
+
     setBooking(true);
     setBookingError(null);
 
@@ -149,25 +334,32 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
       const token = await getToken();
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       
-      // Book each slot individually with city mode
-      const bookingPromises = selectedSlots.map(slot =>
-        fetch(`${baseUrl}/api/bookings/slots/${slot.id}/book?mode=city`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        })
-      );
+      // Confirm all reserved slots in one request
+      const res = await fetch(`${baseUrl}/api/bookings/slots/confirm`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          slot_ids: selectedSlots.map(s => s.id),
+          mode: "city",
+        }),
+      });
       
-      const results = await Promise.all(bookingPromises);
-      
-      // Check if any failed
-      const failedResults = results.filter(r => !r.ok);
-      if (failedResults.length > 0) {
-        const errorData = await failedResults[0].json().catch(() => ({ detail: "Booking failed" }));
-        throw new Error(errorData.detail || "Some bookings failed");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ detail: "Booking failed" }));
+        throw new Error(errorData.detail || "Booking failed");
       }
+
+      const data = await res.json();
+      if (data.failed_slot_ids && data.failed_slot_ids.length > 0) {
+        throw new Error(t("booking.someSlotsFailed"));
+      }
+
+      // Clear reservation tracking (slots are now booked)
+      reservedSlotIdsRef.current = [];
+      setReservedUntilUtc(null);
       
       // All bookings successful - redirect to lessons page
       router.push(`/${locale}/dashboard/lessons`);
@@ -191,7 +383,10 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
   };
 
   const { days, startDay } = getDaysInMonth(currentMonth);
-  const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const weekDays = [
+    t("booking.weekMon"), t("booking.weekTue"), t("booking.weekWed"),
+    t("booking.weekThu"), t("booking.weekFri"), t("booking.weekSat"), t("booking.weekSun"),
+  ];
 
   const nextMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
@@ -244,7 +439,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
       <div className="min-h-screen bg-gray-50/50 pt-24 pb-12 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-[#F03D3D]" />
-          <p className="text-gray-500">Loading booking details...</p>
+          <p className="text-gray-500">{t("booking.loadingDetails")}</p>
         </div>
       </div>
     );
@@ -257,14 +452,14 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm text-center">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Something went wrong</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">{t("booking.somethingWentWrong")}</h1>
             <p className="text-gray-500 mb-6">{error}</p>
             <Link
               href={`/instructors/${id}`}
               className="inline-flex items-center text-sm text-[#F03D3D] hover:text-[#d62f2f] transition-colors font-medium"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
-              Back to Profile
+              {t("booking.backToProfile")}
             </Link>
           </div>
         </div>
@@ -282,11 +477,11 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
             className="inline-flex items-center text-sm text-[#F03D3D] hover:text-[#d62f2f] transition-colors font-medium mb-4"
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
-            Back to Profile
+            {t("booking.backToProfile")}
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Book a Lesson</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{t("booking.bookALesson")}</h1>
           <p className="text-gray-500 mt-2">
-            with {instructorName} <span className="text-gray-400">(₾{price}/lesson)</span>
+            {t("booking.with")} {instructorName} <span className="text-gray-400">(₾{price}{t("booking.perLesson")})</span>
           </p>
         </div>
 
@@ -294,17 +489,17 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
         <div className="flex items-center justify-center gap-4 mb-8">
           <div className={`flex items-center gap-2 ${step >= 1 ? "text-[#F03D3D]" : "text-gray-400"}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${step >= 1 ? "bg-[#F03D3D] text-white" : "bg-gray-200 text-gray-500"}`}>1</div>
-            <span className="font-medium hidden sm:inline">Time</span>
+            <span className="font-medium hidden sm:inline">{t("booking.stepTime")}</span>
           </div>
           <div className="w-12 h-px bg-gray-200" />
           <div className={`flex items-center gap-2 ${step >= 2 ? "text-[#F03D3D]" : "text-gray-400"}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${step >= 2 ? "bg-[#F03D3D] text-white" : "bg-gray-200 text-gray-500"}`}>2</div>
-            <span className="font-medium hidden sm:inline">Confirm</span>
+            <span className="font-medium hidden sm:inline">{t("booking.stepConfirm")}</span>
           </div>
           <div className="w-12 h-px bg-gray-200" />
           <div className={`flex items-center gap-2 ${step >= 3 ? "text-[#F03D3D]" : "text-gray-400"}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${step >= 3 ? "bg-[#F03D3D] text-white" : "bg-gray-200 text-gray-500"}`}>3</div>
-            <span className="font-medium hidden sm:inline">Done</span>
+            <span className="font-medium hidden sm:inline">{t("booking.stepDone")}</span>
           </div>
         </div>
 
@@ -312,17 +507,17 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
         {step === 1 && availableSlots.length === 0 && (
           <div className="max-w-3xl mx-auto bg-white rounded-3xl border border-gray-100 p-8 shadow-sm text-center">
             <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Available Slots</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("booking.noAvailableSlots")}</h2>
             <p className="text-gray-500 mb-6">
-              This instructor hasn't set up any available time slots yet. <br />
-              Please check back later or try another instructor.
+              {t("booking.noSlotsDescription")} <br />
+              {t("booking.checkBackLater")}
             </p>
             <Link
               href={`/instructors/${id}`}
               className="inline-flex items-center text-sm text-[#F03D3D] hover:text-[#d62f2f] transition-colors font-medium"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
-              Back to Profile
+              {t("booking.backToProfile")}
             </Link>
           </div>
         )}
@@ -333,7 +528,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
             <div className="lg:col-span-4 bg-white rounded-3xl border border-gray-100 p-6 shadow-sm flex flex-col">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold text-gray-900">
-                  {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  {currentMonth.toLocaleDateString(language === 'ka' ? 'ka-GE' : 'en-US', { month: 'long', year: 'numeric' })}
                 </h2>
                 <div className="flex gap-2">
                   <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-full text-gray-600">
@@ -390,15 +585,15 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
               <div className="mt-6 flex items-center gap-4 text-xs text-gray-500 justify-center">
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded-full bg-red-50 border border-red-100" />
-                  <span>Available</span>
+                  <span>{t("booking.legendAvailable")}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded-full bg-gray-900" />
-                  <span>Viewing</span>
+                  <span>{t("booking.legendViewing")}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#F03D3D]" />
-                  <span>Selected</span>
+                  <span>{t("booking.legendSelected")}</span>
                 </div>
               </div>
             </div>
@@ -407,18 +602,18 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
             <div className="lg:col-span-8 bg-white rounded-3xl border border-gray-100 p-6 shadow-sm min-h-[400px] flex flex-col">
               <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-[#F03D3D]" />
-                Available Times
+                {t("booking.availableTimes")}
               </h2>
 
               {!viewingDate ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-400 p-8">
                   <CalendarIcon className="w-12 h-12 mb-4 opacity-20" />
-                  <p>Select a date from the calendar to see available time slots</p>
+                  <p>{t("booking.selectDatePrompt")}</p>
                 </div>
               ) : (
                 <>
                   <p className="text-sm text-gray-500 mb-4">
-                    Available slots for <span className="font-bold text-gray-900">{new Date(viewingDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+                    {t("booking.availableSlotsFor")} <span className="font-bold text-gray-900">{new Date(viewingDate).toLocaleDateString(language === 'ka' ? 'ka-GE' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
                   </p>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mb-8">
@@ -442,16 +637,29 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
                   </div>
 
                   <div className="mt-auto pt-6 border-t border-gray-100">
+                    {bookingError && step === 1 && (
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-600">{bookingError}</p>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center mb-4">
-                      <span className="text-gray-500 text-sm">{selectedSlots.length} slots selected ({totalDuration} min)</span>
+                      <span className="text-gray-500 text-sm">{selectedSlots.length} {t("booking.slotsSelected")} ({totalDuration} {t("booking.min")})</span>
                       <span className="font-bold text-gray-900">₾{selectedSlots.length * price}</span>
                     </div>
                     <Button 
-                      disabled={selectedSlots.length === 0}
-                      onClick={() => setStep(2)}
+                      disabled={selectedSlots.length === 0 || reserving}
+                      onClick={handleContinueToConfirm}
                       className="w-full"
                     >
-                      Continue to Confirm
+                      {reserving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          {t("booking.reserving")}
+                        </>
+                      ) : (
+                        t("booking.continueToConfirm")
+                      )}
                     </Button>
                   </div>
                 </>
@@ -462,17 +670,65 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
 
         {/* Step 2: Confirm */}
         {step === 2 && (
-          <div className="max-w-3xl mx-auto bg-white rounded-3xl border border-gray-100 p-8 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* ── Reservation Expired Overlay ──────────────────────── */}
+            {reservationExpired && (
+              <div className="bg-white rounded-3xl border border-red-200 p-8 shadow-sm text-center mb-6">
+                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                <h2 className="text-xl font-bold text-gray-900 mb-2">{t("booking.reservationExpiredTitle")}</h2>
+                <p className="text-gray-500 mb-6">{t("booking.reservationExpiredDesc")}</p>
+                <Button onClick={handleReservationExpired} className="px-8">
+                  {t("booking.selectNewSlots")}
+                </Button>
+              </div>
+            )}
+
+            {!reservationExpired && (
+            <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm">
+            {/* ── Countdown Timer Banner ──────────────────────────── */}
+            {secondsLeft > 0 && (
+              <div className={`flex items-center justify-between rounded-2xl p-4 mb-6 border transition-colors ${
+                secondsLeft <= 60 
+                  ? "bg-red-50 border-red-200" 
+                  : secondsLeft <= 180 
+                    ? "bg-amber-50 border-amber-200"
+                    : "bg-blue-50 border-blue-200"
+              }`}>
+                <div className="flex items-center gap-3">
+                  <Timer className={`w-5 h-5 ${
+                    secondsLeft <= 60 ? "text-red-500 animate-pulse" : secondsLeft <= 180 ? "text-amber-500" : "text-blue-500"
+                  }`} />
+                  <div>
+                    <p className={`font-medium text-sm ${
+                      secondsLeft <= 60 ? "text-red-800" : secondsLeft <= 180 ? "text-amber-800" : "text-blue-800"
+                    }`}>
+                      {t("booking.slotsReservedFor")}
+                    </p>
+                    <p className={`text-xs ${
+                      secondsLeft <= 60 ? "text-red-600" : secondsLeft <= 180 ? "text-amber-600" : "text-blue-600"
+                    }`}>
+                      {t("booking.completeBeforeExpiry")}
+                    </p>
+                  </div>
+                </div>
+                <div className={`text-2xl font-mono font-bold tabular-nums ${
+                  secondsLeft <= 60 ? "text-red-600" : secondsLeft <= 180 ? "text-amber-600" : "text-blue-600"
+                }`}>
+                  {String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:{String(secondsLeft % 60).padStart(2, '0')}
+                </div>
+              </div>
+            )}
+
             <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-[#F03D3D]" />
-              Confirm Booking
+              {t("booking.confirmBooking")}
             </h2>
 
             {bookingError && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium text-red-800">Booking failed</p>
+                  <p className="font-medium text-red-800">{t("booking.bookingFailed")}</p>
                   <p className="text-sm text-red-600 mt-1">{bookingError}</p>
                 </div>
               </div>
@@ -482,11 +738,11 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="font-bold text-gray-900 text-lg">{instructorName}</h3>
-                  <p className="text-gray-500">{selectedSlots.length} Driving Lesson{selectedSlots.length > 1 ? 's' : ''}</p>
+                  <p className="text-gray-500">{selectedSlots.length} {selectedSlots.length > 1 ? t("booking.drivingLessons") : t("booking.drivingLesson")}</p>
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-gray-900 text-lg">₾{price * selectedSlots.length}</p>
-                  <p className="text-gray-500">{totalDuration} min total</p>
+                  <p className="text-gray-500">{totalDuration} {t("booking.min")} {t("booking.total")}</p>
                 </div>
               </div>
               
@@ -505,7 +761,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
                   <div key={date} className="bg-white rounded-xl border border-gray-200 p-4">
                     <div className="flex items-center justify-center gap-2 mb-3 text-gray-900 font-medium border-b border-gray-100 pb-2">
                       <CalendarIcon className="w-4 h-4 text-[#F03D3D]" />
-                      {new Date(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                      {new Date(date).toLocaleDateString(language === 'ka' ? 'ka-GE' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {slots.sort((a, b) => a.time.localeCompare(b.time)).map((slot) => (
@@ -520,53 +776,43 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
               </div>
             </div>
 
-            {/* Additional Details Form */}
-            <div className="space-y-6 mb-8">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Notes for Instructor (Optional)
-                </label>
-                <div className="relative">
-                  <FileText className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
-                  <textarea 
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Any special requests or things the instructor should know?"
-                    rows={3}
-                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-[#F03D3D] focus:ring-1 focus:ring-[#F03D3D] outline-none transition-all resize-none"
-                  />
-                </div>
-              </div>
-
+            {/* Additional Details */}
+            <div className="mb-8">
               <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl text-gray-600 text-sm">
                 <Info className="w-5 h-5 shrink-0 mt-0.5 text-gray-400" />
-                <p>Free cancellation up to 24 hours before the lesson start time. Late cancellations may be charged 50% of the lesson fee.</p>
+                <p>{t("booking.cancellationPolicy")}</p>
               </div>
             </div>
 
             <div className="flex justify-between items-center pt-6 border-t border-gray-100">
               <button 
-                onClick={() => setStep(1)}
+                onClick={async () => {
+                  await releaseReservation();
+                  setBookingError(null);
+                  setStep(1);
+                }}
                 disabled={booking}
                 className="text-gray-500 font-medium hover:text-gray-900 transition-colors disabled:opacity-50"
               >
-                Back
+                {t("booking.back")}
               </button>
               <Button 
                 onClick={handleConfirm}
-                disabled={booking}
+                disabled={booking || secondsLeft <= 0}
                 className="px-8"
               >
                 {booking ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Booking...
+                    {t("booking.bookingInProgress")}
                   </>
                 ) : (
-                  "Confirm Booking"
+                  t("booking.confirm")
                 )}
               </Button>
             </div>
+            </div>
+            )}
           </div>
         )}
 
@@ -576,12 +822,12 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
             <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="w-10 h-10" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Booking Confirmed!</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("booking.bookingConfirmedTitle")}</h2>
             <p className="text-gray-500 mb-8">
-              Your {selectedSlots.length} driving lesson{selectedSlots.length > 1 ? 's' : ''} with {instructorName} have been scheduled. <br />
-              You'll receive a confirmation email shortly.
+              {selectedSlots.length} {selectedSlots.length > 1 ? t("booking.drivingLessons") : t("booking.drivingLesson")} {t("booking.with")} {instructorName} {t("booking.bookingConfirmedDesc")} <br />
+              {t("booking.confirmationEmail")}
             </p>
-            <p className="text-sm text-gray-400">Redirecting to dashboard...</p>
+            <p className="text-sm text-gray-400">{t("booking.redirecting")}</p>
           </div>
         )}
       </div>

@@ -7,14 +7,17 @@ export interface FilterOptions {
   city: string;
 }
 
-const initialFilters: FilterOptions = {
+const getInitialFilters = (): FilterOptions => ({
   budget: [PRICING.MIN_PRICE_FILTER, PRICING.MAX_PRICE_FILTER],
   transmissionType: '',
   city: '',
-};
+});
 
-export const useInstructorFilters = () => {
-  const [filters, setFilters] = useState<FilterOptions>(initialFilters);
+export const useInstructorFilters = (initialValues?: Partial<FilterOptions>) => {
+  const [filters, setFilters] = useState<FilterOptions>(() => ({
+    ...getInitialFilters(),
+    ...initialValues,
+  }));
 
   const updateFilter = useCallback(<K extends keyof FilterOptions>(
     key: K,
@@ -24,13 +27,14 @@ export const useInstructorFilters = () => {
   }, []);
 
   const resetFilters = useCallback(() => {
-    setFilters(initialFilters);
+    setFilters(getInitialFilters());
   }, []);
 
   const hasActiveFilters = useMemo(() => {
+    const defaultFilters = getInitialFilters();
     return (
-      filters.budget[0] !== initialFilters.budget[0] ||
-      filters.budget[1] !== initialFilters.budget[1] ||
+      filters.budget[0] !== defaultFilters.budget[0] ||
+      filters.budget[1] !== defaultFilters.budget[1] ||
       filters.transmissionType !== '' ||
       filters.city !== ''
     );

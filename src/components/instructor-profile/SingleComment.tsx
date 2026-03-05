@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Reply, Trash2, Edit2, X, Check, ChevronDown, ChevronUp, Star, Heart, HeartCrack } from "lucide-react";
 import { Comment, formatTimeAgo, getUserDisplayName } from "./CommentTypes";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface SingleCommentProps {
     comment: Comment;
@@ -34,6 +35,7 @@ export function SingleComment({
     const [showReplies, setShowReplies] = useState(true);
     const hasReplies = comment.replies && comment.replies.length > 0;
     const isTopLevel = !comment.parent_id;
+    const { t } = useLanguage();
 
     return (
         <div className={`${depth > 0 ? "ml-4 sm:ml-8 border-l-2 border-slate-100 pl-3 sm:pl-4" : ""}`}>
@@ -69,7 +71,7 @@ export function SingleComment({
                         <div className="space-y-2">
                             {isTopLevel && (
                                 <div className="mb-2">
-                                    <p className="text-xs font-bold text-slate-600 mb-1">Rating:</p>
+                                    <p className="text-xs font-bold text-slate-600 mb-1">{t("reviews.rating")}</p>
                                     <div className="flex items-center gap-1">
                                         {[1, 2, 3, 4, 5].map((star) => (
                                             <button key={star} type="button" onClick={() => setEditRating(star)}
@@ -84,12 +86,12 @@ export function SingleComment({
                             <textarea value={editText} onChange={(e) => setEditText(e.target.value)}
                                 className="w-full px-4 py-3 text-sm border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] resize-none bg-slate-50" rows={3} />
                             <div className="flex gap-2">
-                                <button onClick={onSaveEdit} disabled={isTopLevel && editRating === 0}
+                                <button onClick={onSaveEdit} disabled={isTopLevel && (editRating === 0 || !editText.trim())}
                                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-[#F03D3D] rounded-lg hover:bg-[#d63333] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <Check className="w-3 h-3" /> Save
+                                    <Check className="w-3 h-3" /> {t("reviews.save")}
                                 </button>
                                 <button onClick={onCancelEdit} className="flex items-center gap-1 px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">
-                                    <X className="w-3 h-3" /> Cancel
+                                    <X className="w-3 h-3" /> {t("reviews.cancel")}
                                 </button>
                             </div>
                         </div>
@@ -111,17 +113,17 @@ export function SingleComment({
                                 {(comment.reactions?.dislike || 0) > 0 && <span>{comment.reactions?.dislike}</span>}
                             </button>
                             <button onClick={() => onReply(comment.id)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#F03D3D] transition-colors">
-                                <Reply className="w-3.5 h-3.5" /> Reply
+                                <Reply className="w-3.5 h-3.5" /> {t("reviews.reply")}
                             </button>
                             {isOwner && (
                                 <>
                                     <button onClick={() => onEdit(comment.id, comment.comment_text, comment.rating)}
                                         className="flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-blue-500 transition-colors">
-                                        <Edit2 className="w-3.5 h-3.5" /> Edit
+                                        <Edit2 className="w-3.5 h-3.5" /> {t("reviews.edit")}
                                     </button>
                                     <button onClick={() => onDelete(comment.id)}
                                         className="flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-red-500 transition-colors">
-                                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                                        <Trash2 className="w-3.5 h-3.5" /> {t("reviews.delete")}
                                     </button>
                                 </>
                             )}
@@ -136,9 +138,9 @@ export function SingleComment({
                     <button onClick={() => setShowReplies(!showReplies)}
                         className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-600 mb-2 ml-14 transition-colors">
                         {showReplies ? (
-                            <><ChevronUp className="w-3 h-3" /> Hide {comment.replies.length} {comment.replies.length === 1 ? "reply" : "replies"}</>
+                            <><ChevronUp className="w-3 h-3" /> {t("reviews.hide")} {comment.replies.length} {comment.replies.length === 1 ? t("reviews.replySingular") : t("reviews.replyPlural")}</>
                         ) : (
-                            <><ChevronDown className="w-3 h-3" /> Show {comment.replies.length} {comment.replies.length === 1 ? "reply" : "replies"}</>
+                            <><ChevronDown className="w-3 h-3" /> {t("reviews.show")} {comment.replies.length} {comment.replies.length === 1 ? t("reviews.replySingular") : t("reviews.replyPlural")}</>
                         )}
                     </button>
                     {showReplies && (

@@ -1,24 +1,28 @@
 "use client";
 
+import { useLanguage } from "@/contexts/LanguageContext";
+
 export function NotificationSettings({ isInstructor }: { isInstructor: boolean }) {
+    const { t } = useLanguage();
+
     const studentNotifications = [
-        { title: "Lesson Reminders", desc: "Get notified 24h before your lesson starts" },
-        { title: "New Messages", desc: "Receive emails when you get a new message" },
-        { title: "Marketing Updates", desc: "Receive news about features and promotions" },
+        { title: t("settings.notifications.lessonReminders"), desc: t("settings.notifications.lessonRemindersDesc") },
+        { title: t("settings.notifications.newMessages"), desc: t("settings.notifications.newMessagesDesc") },
+        { title: t("settings.notifications.marketingUpdates"), desc: t("settings.notifications.marketingUpdatesDesc") },
     ];
 
     const instructorNotifications = [
-        { title: "New Bookings", desc: "Get notified when a student books a lesson" },
-        { title: "Cancellations", desc: "Get notified when a lesson is cancelled" },
-        { title: "New Messages", desc: "Receive emails when you get a new message" },
-        { title: "Marketing Updates", desc: "Receive news about features and promotions" },
+        { title: t("settings.notifications.newBookings"), desc: t("settings.notifications.newBookingsDesc") },
+        { title: t("settings.notifications.cancellations"), desc: t("settings.notifications.cancellationsDesc") },
+        { title: t("settings.notifications.newMessages"), desc: t("settings.notifications.newMessagesDesc") },
+        { title: t("settings.notifications.marketingUpdates"), desc: t("settings.notifications.marketingUpdatesDesc") },
     ];
 
     const notifications = isInstructor ? instructorNotifications : studentNotifications;
 
     return (
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-            <h3 className="font-bold text-lg text-gray-900 mb-6">Notifications</h3>
+            <h3 className="font-bold text-lg text-gray-900 mb-6">{t("settings.notifications.title")}</h3>
             <div className="space-y-6">
                 {notifications.map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between py-4 border-b border-gray-50 last:border-0">

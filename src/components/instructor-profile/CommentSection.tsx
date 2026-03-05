@@ -7,6 +7,7 @@ import { API_CONFIG } from "@/config/constants";
 import { Comment } from "./CommentTypes";
 import { SingleComment } from "./SingleComment";
 import { NewReviewForm } from "./NewReviewForm";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface CommentSectionProps {
   postId: string;
@@ -15,6 +16,7 @@ interface CommentSectionProps {
 export default function CommentSection({ postId }: CommentSectionProps) {
   const { getToken, isSignedIn, isLoaded: isAuthLoaded } = useClerkAuth();
   const { user } = useUser();
+  const { t } = useLanguage();
 
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,7 +108,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (rating === 0 || !isSignedIn) return;
+    if (rating === 0 || !newComment.trim() || !isSignedIn) return;
     setIsSubmitting(true);
     try {
       const token = await getToken();
@@ -114,7 +116,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
       const res = await fetch(`${API_CONFIG.BASE_URL}/api/comments`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ post_id: postId, comment_text: newComment.trim() || undefined, rating }),
+        body: JSON.stringify({ post_id: postId, comment_text: newComment.trim(), rating }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -172,7 +174,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
   };
 
   const handleDelete = async (commentId: string) => {
-    if (!isSignedIn || !window.confirm("Are you sure you want to delete this comment?")) return;
+    if (!isSignedIn || !window.confirm(t("reviews.confirmDelete"))) return;
     try {
       const token = await getToken();
       if (!token) return;
@@ -309,8 +311,8 @@ export default function CommentSection({ postId }: CommentSectionProps) {
         <div className="flex items-center gap-4">
           <Star className="w-10 h-10 text-yellow-400 fill-yellow-400 ml-1" />
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">Student Reviews</h2>
-            <p className="text-slate-500 text-sm">What learners say about this instructor</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">{t("reviews.title")}</h2>
+            <p className="text-slate-500 text-sm">{t("reviews.subtitle")}</p>
           </div>
         </div>
       </div>
@@ -326,7 +328,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
         />
       ) : (
         <div className="mb-8 p-5 bg-slate-50 rounded-2xl text-center border border-dashed border-slate-200">
-          <p className="text-slate-600 font-medium">Sign in to leave a review and join the conversation</p>
+          <p className="text-slate-600 font-medium">{t("reviews.signInPrompt")}</p>
         </div>
       )}
 
@@ -336,21 +338,21 @@ export default function CommentSection({ postId }: CommentSectionProps) {
           <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center mx-auto mb-4 border border-slate-200">
             <Star className="w-8 h-8 text-slate-200" />
           </div>
-          <h3 className="text-lg font-bold text-slate-900 mb-1">No reviews yet</h3>
-          <p className="text-slate-500">Be the first to share your experience!</p>
+          <h3 className="text-lg font-bold text-slate-900 mb-1">{t("reviews.noReviews")}</h3>
+          <p className="text-slate-500">{t("reviews.beFirst")}</p>
         </div>
       ) : (
         <div>
           {totalComments > 0 && (
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
-              <span className="text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-wider">Latest Reviews</span>
+              <span className="text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-wider">{t("reviews.latestReviews")}</span>
               <div className="flex items-center gap-3">
                 <ArrowUpDown className="w-4 h-4 text-slate-400" />
                 <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "newest" | "oldest" | "likes")}
                   className="text-xs font-semibold text-slate-700 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-200 bg-white cursor-pointer hover:bg-slate-50 transition-colors">
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="likes">Most Helpful</option>
+                  <option value="newest">{t("reviews.newest")}</option>
+                  <option value="oldest">{t("reviews.oldest")}</option>
+                  <option value="likes">{t("reviews.mostHelpful")}</option>
                 </select>
               </div>
             </div>
@@ -386,17 +388,17 @@ export default function CommentSection({ postId }: CommentSectionProps) {
                       </div>
                       <div className="flex-1 min-w-0">
                         <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)}
-                          placeholder={`Reply...`}
+                          placeholder={t("reviews.replyPlaceholder")}
                           className="w-full px-4 py-3 text-sm border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-slate-100 focus:border-slate-300 resize-none bg-slate-50 transition-all"
                           rows={2} autoFocus />
                         <div className="flex gap-2 mt-2">
                           <button onClick={() => handleSubmitReply(comment.id)} disabled={!replyText.trim() || isSubmitting}
                             className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all disabled:opacity-50 shadow-sm active:scale-95">
-                            {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Reply
+                            {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} {t("reviews.reply")}
                           </button>
                           <button onClick={() => setReplyingTo(null)}
                             className="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-sm active:scale-95">
-                            Cancel
+                            {t("reviews.cancel")}
                           </button>
                         </div>
                       </div>
@@ -411,7 +413,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
             <div className="mt-8 text-center">
               <button onClick={loadMoreComments} disabled={isLoadingMore}
                 className="inline-flex items-center gap-2 px-7 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all disabled:opacity-50">
-                {isLoadingMore ? <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</> : <><ChevronDown className="w-4 h-4" /> Load More Reviews</>}
+                {isLoadingMore ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("reviews.loading")}</> : <><ChevronDown className="w-4 h-4" /> {t("reviews.loadMore")}</>}
               </button>
             </div>
           )}

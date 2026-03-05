@@ -2,6 +2,7 @@
 
 import { User, Calendar, MapPin, Mail, Phone } from "lucide-react";
 import { StepProps, InstructorSignupFormData } from "@/types/instructor-signup";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const GEORGIAN_CITIES = [
   "Tbilisi",
@@ -17,6 +18,7 @@ const GEORGIAN_CITIES = [
 ];
 
 const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSignupFormData>) => {
+  const { t } = useLanguage();
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateData({ [e.target.name]: e.target.value });
   };
@@ -62,7 +64,7 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-900">First Name <span className="text-red-500">*</span></label>
+          <label className="text-sm font-bold text-gray-900">{t("signup.firstName")} <span className="text-red-500">*</span></label>
           <div className="relative">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -71,13 +73,13 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
               value={data.firstName}
               onChange={handleNameChange}
               className={`w-full pl-12 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-[#F03D3D]/20 outline-none transition bg-gray-50 focus:bg-white ${errors.firstName ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#F03D3D]"}`}
-              placeholder="John"
+              placeholder={t("signup.firstNamePlaceholder")}
             />
           </div>
           {errors.firstName && <p className="text-xs text-red-500 font-medium mt-1">{errors.firstName}</p>}
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-900">Last Name <span className="text-red-500">*</span></label>
+          <label className="text-sm font-bold text-gray-900">{t("signup.lastName")} <span className="text-red-500">*</span></label>
           <div className="relative">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -86,7 +88,7 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
               value={data.lastName}
               onChange={handleNameChange}
               className={`w-full pl-12 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-[#F03D3D]/20 outline-none transition bg-gray-50 focus:bg-white ${errors.lastName ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#F03D3D]"}`}
-              placeholder="Doe"
+              placeholder={t("signup.lastNamePlaceholder")}
             />
           </div>
           {errors.lastName && <p className="text-xs text-red-500 font-medium mt-1">{errors.lastName}</p>}
@@ -95,7 +97,7 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-900">Email Address <span className="text-red-500">*</span></label>
+          <label className="text-sm font-bold text-gray-900">{t("signup.email")} <span className="text-red-500">*</span></label>
           <div className="relative">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -104,14 +106,14 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
               value={data.email}
               onChange={handleChange}
               className={`w-full pl-12 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-[#F03D3D]/20 outline-none transition bg-gray-50 focus:bg-white ${errors.email ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#F03D3D]"}`}
-              placeholder="john@example.com"
+              placeholder={t("signup.emailPlaceholder")}
             />
           </div>
           {errors.email && <p className="text-xs text-red-500 font-medium mt-1">{errors.email}</p>}
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-900">City <span className="text-red-500">*</span></label>
+          <label className="text-sm font-bold text-gray-900">{t("signup.city")} <span className="text-red-500">*</span></label>
           <div className="relative">
             <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <select
@@ -120,7 +122,7 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
               onChange={(e) => updateData({ city: e.target.value })}
               className={`w-full pl-12 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-[#F03D3D]/20 outline-none transition bg-gray-50 focus:bg-white appearance-none ${errors.city ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#F03D3D]"}`}
             >
-              <option value="" disabled>Select City</option>
+              <option value="" disabled>{t("signup.selectCity")}</option>
               {GEORGIAN_CITIES.map((city) => (
                 <option key={city} value={city}>
                   {city}
@@ -139,7 +141,7 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-900">Phone Number <span className="text-red-500">*</span></label>
+          <label className="text-sm font-bold text-gray-900">{t("signup.phone")} <span className="text-red-500">*</span></label>
           <div className="relative">
             <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -148,13 +150,13 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
               value={data.phone}
               onChange={handlePhoneChange}
               className={`w-full pl-12 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-[#F03D3D]/20 outline-none transition bg-gray-50 focus:bg-white ${errors.phone ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#F03D3D]"}`}
-              placeholder="555 00 00 00"
+              placeholder={t("signup.phonePlaceholder")}
             />
           </div>
           {errors.phone && <p className="text-xs text-red-500 font-medium mt-1">{errors.phone}</p>}
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-900">Date of Birth <span className="text-red-500">*</span></label>
+          <label className="text-sm font-bold text-gray-900">{t("signup.dateOfBirth")} <span className="text-red-500">*</span></label>
           <div className="relative">
             <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -172,7 +174,7 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-bold text-gray-900">Address (Teaching Location) <span className="text-red-500">*</span></label>
+        <label className="text-sm font-bold text-gray-900">{t("signup.address")} <span className="text-red-500">*</span></label>
         <div className="relative">
           <MapPin className="absolute left-4 top-3 text-gray-400 w-5 h-5" />
           <textarea
@@ -180,7 +182,7 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
             value={data.address}
             onChange={(e) => updateData({ address: e.target.value })}
             className={`w-full pl-12 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-[#F03D3D]/20 outline-none transition bg-gray-50 focus:bg-white min-h-[100px] resize-none ${errors.address ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#F03D3D]"}`}
-            placeholder="Chavchavadze street, Tbilisi"
+            placeholder={t("signup.addressPlaceholder")}
           />
         </div>
         {errors.address && <p className="text-xs text-red-500 font-medium mt-1">{errors.address}</p>}

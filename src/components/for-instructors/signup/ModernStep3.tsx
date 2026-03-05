@@ -3,6 +3,12 @@
 import { FileText, Shield } from "lucide-react";
 import { useRef } from "react";
 import { StepProps, InstructorSignupFormData } from "@/types/instructor-signup";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { UPLOAD_LIMITS } from "@/config/constants";
+
+const MAX_LICENSE_FILES = UPLOAD_LIMITS.MAX_LICENSE_FILES;
+const MAX_CERTIFICATE_FILES = UPLOAD_LIMITS.MAX_CERTIFICATE_FILES;
+const MAX_FILE_SIZE_BYTES = UPLOAD_LIMITS.MAX_FILE_SIZE_BYTES;
 
 const FileUploadBox = ({ 
   label, 
@@ -11,7 +17,11 @@ const FileUploadBox = ({
   files, 
   onFileSelect,
   multiple = false,
-  error
+  error,
+  maxFiles = 1,
+  addMoreText = "Add More",
+  changeText = "Change",
+  selectFileText = "Select File",
 }: { 
   label: React.ReactNode; 
   icon: any; 
@@ -20,23 +30,30 @@ const FileUploadBox = ({
   onFileSelect: (files: File[]) => void;
   multiple?: boolean;
   error?: string;
+  maxFiles?: number;
+  addMoreText?: string;
+  changeText?: string;
+  selectFileText?: string;
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const newFiles = Array.from(e.target.files);
+      const newFiles = Array.from(e.target.files).filter(f => f.size <= MAX_FILE_SIZE_BYTES);
       onFileSelect(newFiles);
     }
   };
 
   const fileList = Array.isArray(files) ? files : (files ? [files] : []);
+  const isAtLimit = fileList.length >= maxFiles;
   
   return (
     <div>
       <div 
-        onClick={() => fileInputRef.current?.click()}
-        className={`border-2 border-dashed rounded-2xl p-8 text-center transition cursor-pointer group ${error ? "border-red-500 bg-red-50" : "border-gray-300 hover:border-[#F03D3D] hover:bg-[#F03D3D]/5"}`}
+        onClick={() => {
+          if (!isAtLimit) fileInputRef.current?.click();
+        }}
+        className={`border-2 border-dashed rounded-2xl p-8 text-center transition ${isAtLimit ? "cursor-default opacity-75" : "cursor-pointer"} group ${error ? "border-red-500 bg-red-50" : "border-gray-300 hover:border-[#F03D3D] hover:bg-[#F03D3D]/5"}`}
       >
         <input 
           type="file" 
@@ -62,16 +79,17 @@ const FileUploadBox = ({
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                fileInputRef.current?.click();
+                if (!isAtLimit) fileInputRef.current?.click();
               }}
-              className="text-sm text-gray-500 hover:text-[#F03D3D] underline ml-2"
+              className={`text-sm hover:text-[#F03D3D] underline ml-2 ${isAtLimit ? "text-gray-300 cursor-not-allowed" : "text-gray-500"}`}
+              disabled={isAtLimit}
             >
-              {multiple ? "Add More" : "Change"}
+              {multiple ? `${addMoreText} (${fileList.length}/${maxFiles})` : changeText}
             </button>
           </div>
         ) : (
           <button className={`px-4 py-2 bg-white border rounded-lg text-sm font-medium transition ${error ? "border-red-200 text-red-600" : "border-gray-200 text-gray-700 group-hover:border-[#F03D3D] group-hover:text-[#F03D3D]"}`}>
-            Select File{multiple ? "s" : ""}
+            {selectFileText}{multiple ? "s" : ""} ({fileList.length}/{maxFiles})
           </button>
         )}
       </div>
@@ -81,35 +99,46 @@ const FileUploadBox = ({
 };
 
 const ModernStep3 = ({ data, updateData, errors = {} }: StepProps<InstructorSignupFormData>) => {
+  const { t } = useLanguage();
+  
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
       <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
         <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
         <p className="text-sm text-blue-800">
-          Your documents are stored securely and only used for verification purposes. We are GDPR compliant.
+          {t("signup.documentsSecure")}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6">
         <FileUploadBox 
-          label={<span>Driving Instructor License <span className="text-red-500">*</span></span>}
+          label={<span>{t("signup.instructorLicense")} <span className="text-red-500">*</span></span>}
           icon={FileText} 
-          subtext="Upload clear photos of your license (front & back)"
+          subtext={t("signup.licenseSubtext")}
           files={data.instructorLicense}
           multiple={true}
           error={errors.instructorLicense}
+          maxFiles={MAX_LICENSE_FILES}
+          addMoreText={t("signup.addMore")}
+          changeText={t("signup.change")}
+          selectFileText={t("signup.selectFile")}
           onFileSelect={(files) => {
             const current = Array.isArray(data.instructorLicense) ? data.instructorLicense : [];
-            updateData({ instructorLicense: [...current, ...files] });
+            const combined = [...current, ...files].slice(0, MAX_LICENSE_FILES);
+            updateData({ instructorLicense: combined });
           }}
         />
 
         <FileUploadBox 
-          label={<span>Professional Certificate</span>}
+          label={<span>{t("signup.professionalCertificate")}</span>}
           icon={FileText} 
-          subtext="Upload your professional driving instructor certificate"
+          subtext={t("signup.certificateSubtext")}
           files={data.professionalCertificate}
           error={errors.professionalCertificate}
+          maxFiles={MAX_CERTIFICATE_FILES}
+          addMoreText={t("signup.addMore")}
+          changeText={t("signup.change")}
+          selectFileText={t("signup.selectFile")}
           onFileSelect={(files) => updateData({ professionalCertificate: files[0] })}
         />
       </div>

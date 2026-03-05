@@ -5,9 +5,15 @@ import Image from "next/image";
 import { useRef } from "react";
 import { logger } from "@/utils/secureLogger";
 import { StepProps, InstructorSignupFormData } from "@/types/instructor-signup";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { UPLOAD_LIMITS } from "@/config/constants";
+
+const MAX_VEHICLE_PHOTOS = UPLOAD_LIMITS.MAX_VEHICLE_PHOTOS;
+const MAX_FILE_SIZE_BYTES = UPLOAD_LIMITS.MAX_FILE_SIZE_BYTES;
 
 const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSignupFormData>) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useLanguage();
 
   const handleBrandSelect = (brand: string) => {
     updateData({ vehicleBrand: brand });
@@ -80,8 +86,14 @@ const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
+      const currentCount = data.vehiclePhotos?.length || 0;
       const newFiles = Array.from(e.target.files);
-      updateData({ vehiclePhotos: [...(data.vehiclePhotos || []), ...newFiles] });
+      const validFiles = newFiles.filter(f => f.size <= MAX_FILE_SIZE_BYTES);
+      const remaining = MAX_VEHICLE_PHOTOS - currentCount;
+      const filesToAdd = validFiles.slice(0, remaining);
+      if (filesToAdd.length > 0) {
+        updateData({ vehiclePhotos: [...(data.vehiclePhotos || []), ...filesToAdd] });
+      }
     }
   };
 
@@ -89,7 +101,7 @@ const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-900">Vehicle Brand <span className="text-red-500">*</span></label>
+          <label className="text-sm font-bold text-gray-900">{t("signup.vehicleBrand")} <span className="text-red-500">*</span></label>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center gap-3">
               <div className="shrink-0">
@@ -127,7 +139,7 @@ const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
           {errors.vehicleBrand && <p className="text-xs text-red-500 font-medium mt-1">{errors.vehicleBrand}</p>}
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-900">Vehicle Registration <span className="text-red-500">*</span></label>
+          <label className="text-sm font-bold text-gray-900">{t("signup.vehicleRegistration")} <span className="text-red-500">*</span></label>
           <div className="relative">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-4 bg-white rounded-sm border border-gray-300 flex items-center justify-center text-[8px] font-bold">GE</div>
             <input
@@ -139,14 +151,14 @@ const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
               placeholder="XX-123-XX"
             />
           </div>
-          <p className="text-xs text-gray-500">Format: XX-123-XX (Standard Georgian Plates)</p>
+          <p className="text-xs text-gray-500">{t("signup.registrationFormat")}</p>
           {errors.vehicleRegistration && <p className="text-xs text-red-500 font-medium mt-1">{errors.vehicleRegistration}</p>}
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-900">Year <span className="text-red-500">*</span></label>
+          <label className="text-sm font-bold text-gray-900">{t("signup.year")} <span className="text-red-500">*</span></label>
           <div className="relative">
             <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -162,7 +174,7 @@ const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
           {errors.vehicleYear && <p className="text-xs text-red-500 font-medium mt-1">{errors.vehicleYear}</p>}
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-900">Transmission <span className="text-red-500">*</span></label>
+          <label className="text-sm font-bold text-gray-900">{t("signup.transmission")} <span className="text-red-500">*</span></label>
           <div className="grid grid-cols-2 gap-4">
             <button
               type="button"
@@ -173,7 +185,7 @@ const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
                   : `bg-white text-gray-600 hover:border-gray-300 ${errors.transmission ? "border-red-500 bg-red-50" : "border-gray-200"}`
               }`}
             >
-              Automatic
+              {t("signup.automatic")}
             </button>
             <button
               type="button"
@@ -184,7 +196,7 @@ const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
                   : `bg-white text-gray-600 hover:border-gray-300 ${errors.transmission ? "border-red-500 bg-red-50" : "border-gray-200"}`
               }`}
             >
-              Manual
+              {t("signup.manual")}
             </button>
           </div>
           {errors.transmission && <p className="text-xs text-red-500 font-medium mt-1">{errors.transmission}</p>}
@@ -192,9 +204,12 @@ const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-bold text-gray-900">Vehicle Photos <span className="text-red-500">*</span></label>
+        <label className="text-sm font-bold text-gray-900">{t("signup.vehiclePhotos")} <span className="text-red-500">*</span></label>
         <div 
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            if ((data.vehiclePhotos?.length || 0) >= MAX_VEHICLE_PHOTOS) return;
+            fileInputRef.current?.click();
+          }}
           className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition hover:border-[#F03D3D] hover:bg-[#F03D3D]/5 group ${errors.vehiclePhotos ? "border-red-500 bg-red-50" : "border-gray-200"}`}
         >
           <input 
@@ -208,10 +223,10 @@ const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
           <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-white group-hover:text-[#F03D3D] transition">
             <Camera className="w-6 h-6 text-gray-500 group-hover:text-[#F03D3D]" />
           </div>
-          <h4 className="font-bold text-gray-900 mb-1">Upload Vehicle Photos</h4>
-          <p className="text-sm text-gray-500 mb-4">Upload clear photos of your vehicle (front, back, interior)</p>
+          <h4 className="font-bold text-gray-900 mb-1">{t("signup.uploadVehiclePhotos")}</h4>
+          <p className="text-sm text-gray-500 mb-4">{t("signup.vehiclePhotosSubtext")}</p>
           <button type="button" className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 group-hover:border-[#F03D3D] group-hover:text-[#F03D3D] transition">
-            Select Files
+            {t("signup.selectFiles")} ({data.vehiclePhotos?.length || 0}/{MAX_VEHICLE_PHOTOS})
           </button>
         </div>
         {data.vehiclePhotos && data.vehiclePhotos.length > 0 && (

@@ -12,12 +12,22 @@ import { ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { UPLOAD_LIMITS } from "@/config/constants";
+
+// File upload limits (from .env via constants)
+const MAX_VEHICLE_PHOTOS = UPLOAD_LIMITS.MAX_VEHICLE_PHOTOS;
+const MAX_LICENSE_FILES = UPLOAD_LIMITS.MAX_LICENSE_FILES;
+const MAX_CERTIFICATE_FILES = UPLOAD_LIMITS.MAX_CERTIFICATE_FILES;
+const MAX_FILE_SIZE_MB = UPLOAD_LIMITS.MAX_FILE_SIZE_MB;
+const MAX_FILE_SIZE_BYTES = UPLOAD_LIMITS.MAX_FILE_SIZE_BYTES;
 
 // Backend API URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const SignupPage = () => {
   const { getToken } = useAuth();
+  const { t } = useLanguage();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,10 +67,10 @@ const SignupPage = () => {
   } = useMultiStepForm(initialFormData, 4);
 
   const steps = [
-    { number: 1, title: "About You" },
-    { number: 2, title: "Vehicle Info" },
-    { number: 3, title: "Documents" },
-    { number: 4, title: "Review" },
+    { number: 1, title: t("signup.step1") },
+    { number: 2, title: t("signup.step2") },
+    { number: 3, title: t("signup.step3") },
+    { number: 4, title: t("signup.step4") },
   ];
 
   const statusStyles = {
@@ -70,10 +80,10 @@ const SignupPage = () => {
   } as const;
 
   const statusTitles = {
-    checking: "Verifying backend...",
-    connected: "Backend connected",
-    degraded: "Backend unreachable",
-  } as const;
+    checking: t("signup.verifyingBackend"),
+    connected: t("signup.backendConnected"),
+    degraded: t("signup.backendUnreachable"),
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -91,7 +101,7 @@ const SignupPage = () => {
             const payload = await response.json().catch(() => ({}));
             if (!cancelled) {
               setApiStatus("connected");
-              setApiStatusMessage(payload.message || "API is reachable");
+              setApiStatusMessage(payload.message || t("signup.apiReachable"));
             }
             return;
           }
@@ -102,7 +112,7 @@ const SignupPage = () => {
 
       if (!cancelled) {
         setApiStatus("degraded");
-        setApiStatusMessage("Unable to reach backend. Check NEXT_PUBLIC_API_URL.");
+        setApiStatusMessage(t("signup.unableToReach"));
       }
     };
 
@@ -131,73 +141,77 @@ const SignupPage = () => {
     let isValid = true;
 
     if (currentStep === 1) {
-      if (!formData.firstName) newErrors.firstName = "First name is required";
-      if (!formData.lastName) newErrors.lastName = "Last name is required";
-      if (!formData.email) newErrors.email = "Email is required";
-      if (!formData.city) newErrors.city = "City is required";
-      if (!formData.phone) newErrors.phone = "Phone number is required";
+      if (!formData.firstName) newErrors.firstName = t("signup.firstNameRequired");
+      if (!formData.lastName) newErrors.lastName = t("signup.lastNameRequired");
+      if (!formData.email) newErrors.email = t("signup.emailRequired");
+      if (!formData.city) newErrors.city = t("signup.cityRequired");
+      if (!formData.phone) newErrors.phone = t("signup.phoneRequired");
       if (formData.dateOfBirth) {
         const year = parseInt(formData.dateOfBirth.split('-')[0]);
         if (year < 1950 || year > 2026) {
-          newErrors.dateOfBirth = "Date of birth must be between 1950 and 2026";
+          newErrors.dateOfBirth = t("signup.dobRange");
         }
       }
-      if (!formData.address) newErrors.address = "Address is required";
+      if (!formData.address) newErrors.address = t("signup.addressRequired");
       
       // Name validation (no numbers)
       const nameRegex = /^[a-zA-Z\u10A0-\u10FF\s]*$/;
       if (formData.firstName && !nameRegex.test(formData.firstName)) {
-        newErrors.firstName = "First name must contain only letters";
+        newErrors.firstName = t("signup.nameLettersOnly");
       }
       if (formData.lastName && !nameRegex.test(formData.lastName)) {
-        newErrors.lastName = "Last name must contain only letters";
+        newErrors.lastName = t("signup.nameLettersOnly");
       }
 
       // Email validation
       if (formData.email && !formData.email.includes('@')) {
-        newErrors.email = "Please enter a valid email address";
+        newErrors.email = t("signup.invalidEmail");
       }
 
       // Phone validation
       if (formData.phone) {
         const phoneRaw = formData.phone.replace(/\s/g, '');
         if (!/^\d+$/.test(phoneRaw)) {
-          newErrors.phone = "Phone number must contain only numbers";
+          newErrors.phone = t("signup.phoneDigitsOnly");
         } else if (phoneRaw.length !== 9) {
-          newErrors.phone = "Phone number must be exactly 9 digits";
+          newErrors.phone = t("signup.phone9Digits");
         } else if (!phoneRaw.startsWith('5')) {
-          newErrors.phone = "Phone number must start with 5";
+          newErrors.phone = t("signup.phoneStart5");
         }
       }
     }
 
     if (currentStep === 2) {
-      if (!formData.vehicleBrand) newErrors.vehicleBrand = "Vehicle brand is required";
-      if (!formData.vehicleRegistration) newErrors.vehicleRegistration = "Registration is required";
-      if (!formData.vehicleYear) newErrors.vehicleYear = "Year is required";
-      if (!formData.transmission) newErrors.transmission = "Transmission is required";
+      if (!formData.vehicleBrand) newErrors.vehicleBrand = t("signup.vehicleBrandRequired");
+      if (!formData.vehicleRegistration) newErrors.vehicleRegistration = t("signup.registrationRequired");
+      if (!formData.vehicleYear) newErrors.vehicleYear = t("signup.yearRequired");
+      if (!formData.transmission) newErrors.transmission = t("signup.transmissionRequired");
       
       // Registration Regex (XX-123-XX)
       const regRegex = /^[A-Z]{2}-\d{3}-[A-Z]{2}$/;
       if (formData.vehicleRegistration && !regRegex.test(formData.vehicleRegistration)) {
-        newErrors.vehicleRegistration = "Format must be XX-123-XX (e.g., AA-123-AA)";
+        newErrors.vehicleRegistration = t("signup.registrationFormat2");
       }
 
       // Photo Validation
       if (!formData.vehiclePhotos || formData.vehiclePhotos.length === 0) {
-        newErrors.vehiclePhotos = "At least one vehicle photo is required";
+        newErrors.vehiclePhotos = t("signup.vehiclePhotoRequired");
+      } else if (formData.vehiclePhotos.length > MAX_VEHICLE_PHOTOS) {
+        newErrors.vehiclePhotos = t("signup.maxVehiclePhotos");
       }
     }
 
     if (currentStep === 3) {
       if (!formData.instructorLicense || formData.instructorLicense.length === 0) {
-        newErrors.instructorLicense = "Instructor license is required";
+        newErrors.instructorLicense = t("signup.licenseRequired");
+      } else if (formData.instructorLicense.length > MAX_LICENSE_FILES) {
+        newErrors.instructorLicense = t("signup.maxLicenseFiles");
       }
     }
 
     if (currentStep === 4) {
-      if (!formData.termsAccepted) newErrors.termsAccepted = "You must accept the Terms & Conditions";
-      if (!formData.privacyAccepted) newErrors.privacyAccepted = "You must accept the Privacy Policy";
+      if (!formData.termsAccepted) newErrors.termsAccepted = t("signup.termsRequired");
+      if (!formData.privacyAccepted) newErrors.privacyAccepted = t("signup.privacyRequired");
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -366,10 +380,10 @@ const SignupPage = () => {
           </Link>
           
           <h1 className="text-4xl font-bold leading-tight mb-6">
-            Join Georgia&apos;s fastest growing instructor network.
+            {t("signup.sidebarTitle")}
           </h1>
           <p className="text-gray-400 text-lg">
-            Complete your application in minutes and start receiving students as soon as you&apos;re verified.
+            {t("signup.sidebarSubtitle")}
           </p>
         </div>
 
@@ -379,8 +393,8 @@ const SignupPage = () => {
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-bold">Be Your Own Boss</h3>
-              <p className="text-sm text-gray-400">Work when you want, you choose your schedule</p>
+              <h3 className="font-bold">{t("signup.beYourOwnBoss")}</h3>
+              <p className="text-sm text-gray-400">{t("signup.beYourOwnBossDesc")}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -388,8 +402,8 @@ const SignupPage = () => {
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-bold">Guaranteed Payments</h3>
-              <p className="text-sm text-gray-400">Weekly payouts, every time</p>
+              <h3 className="font-bold">{t("signup.guaranteedPayments")}</h3>
+              <p className="text-sm text-gray-400">{t("signup.guaranteedPaymentsDesc")}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -397,8 +411,8 @@ const SignupPage = () => {
               <CheckCircle2 className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-bold">Make a Real Impact</h3>
-              <p className="text-sm text-gray-400">Be the hero who helps someone gain their driving freedom</p>
+              <h3 className="font-bold">{t("signup.makeImpact")}</h3>
+              <p className="text-sm text-gray-400">{t("signup.makeImpactDesc")}</p>
             </div>
           </div>
         </div>
@@ -428,8 +442,8 @@ const SignupPage = () => {
             </Link>
           </div>
 
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Instructor Application</h2>
-          <p className="text-gray-500 mb-8">Please fill in your details accurately.</p>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">{t("signup.pageTitle")}</h2>
+          <p className="text-gray-500 mb-8">{t("signup.pageSubtitle")}</p>
           
           <ModernStepIndicator currentStep={currentStep} steps={steps} />
           
@@ -449,7 +463,7 @@ const SignupPage = () => {
               `}
             >
               <ArrowLeft className="w-5 h-5 mr-2" />
-              Back
+              {t("signup.back")}
             </button>
 
             <button
@@ -468,10 +482,10 @@ const SignupPage = () => {
                   Submitting...
                 </>
               ) : isLastStep ? (
-                "Submit Application"
+                t("signup.submitApplication")
               ) : (
                 <>
-                  Continue
+                  {t("signup.continue")}
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </>
               )}
