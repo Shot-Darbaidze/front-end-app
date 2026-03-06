@@ -1,4 +1,8 @@
-import { Star, MapPin, Clock, Car, BadgeCheck } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { Star, MapPin, Clock, Car, BadgeCheck, Expand } from "lucide-react";
+import ImageLightbox from "@/components/ui/ImageLightbox";
 
 interface InstructorProfileHeaderProps {
   name: string;
@@ -25,6 +29,22 @@ const InstructorProfileHeader = ({
   bio,
   imageUrl
 }: InstructorProfileHeaderProps) => {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  // Build combined list of all images for the lightbox
+  const allImages = [
+    ...(imageUrl ? [{ src: imageUrl, alt: `${name} profile photo` }] : []),
+    ...vehiclePhotos.map((url, idx) => ({ src: url, alt: `Vehicle photo ${idx + 1}` })),
+  ];
+
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
+
+  // Offset for vehicle photos in the combined images array
+  const vehiclePhotoOffset = imageUrl ? 1 : 0;
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/50 overflow-hidden">
       {/* Cover Area */}
@@ -36,10 +56,27 @@ const InstructorProfileHeader = ({
       <div className="px-4 sm:px-8 pb-6 sm:pb-8 relative">
         {/* Profile Image & Main Info */}
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-start -mt-16 mb-6 md:mb-8">
-          <div className="relative">
-            <div className="w-32 h-32 rounded-3xl border-4 border-white bg-gray-200 shadow-lg overflow-hidden">
+          <div className="relative group">
+            <div
+              className={`w-32 h-32 rounded-3xl border-4 border-white bg-gray-200 shadow-lg overflow-hidden ${imageUrl ? "cursor-pointer" : ""}`}
+              onClick={() => imageUrl && openLightbox(0)}
+              role={imageUrl ? "button" : undefined}
+              tabIndex={imageUrl ? 0 : undefined}
+              aria-label={imageUrl ? `View ${name}'s profile photo` : undefined}
+              onKeyDown={(e) => {
+                if (imageUrl && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  openLightbox(0);
+                }
+              }}
+            >
               {imageUrl ? (
-                <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
+                <>
+                  <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                    <Expand className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                  </div>
+                </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-100 text-3xl font-bold text-gray-400">
                   {name.charAt(0)}
@@ -108,10 +145,30 @@ const InstructorProfileHeader = ({
               {vehiclePhotos.length > 0 && (
                 <div className="mt-4">
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Vehicle Photos</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {vehiclePhotos.map((url, idx) => (
-                      <div key={`${url}-${idx}`} className="overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
-                        <img src={url} alt={`Vehicle photo ${idx + 1}`} className="w-full h-28 object-cover" />
+                      <div
+                        key={`${url}-${idx}`}
+                        className="overflow-hidden rounded-xl border border-gray-100 bg-gray-50 cursor-pointer group relative"
+                        onClick={() => openLightbox(idx + vehiclePhotoOffset)}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`View vehicle photo ${idx + 1}`}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            openLightbox(idx + vehiclePhotoOffset);
+                          }
+                        }}
+                      >
+                        <img
+                          src={url}
+                          alt={`Vehicle photo ${idx + 1}`}
+                          className="w-full h-36 sm:h-44 object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <Expand className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -142,6 +199,14 @@ const InstructorProfileHeader = ({
           </div>
         </div>
       </div>
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={allImages}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+      />
     </div>
   );
 };

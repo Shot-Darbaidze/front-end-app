@@ -5,8 +5,9 @@ import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import Button from "@/components/ui/Button";
 import Link from "next/link";
 import { UPLOAD_LIMITS } from "@/config/constants";
-import { Camera, Trash2 } from "lucide-react";
+import { Camera, Trash2, Expand } from "lucide-react";
 import { API_CONFIG } from "@/config/constants";
+import ImageLightbox from "@/components/ui/ImageLightbox";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
     InstructorPost, InstructorAsset, InstructorProfileForm,
@@ -78,6 +79,8 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
     const [formData, setFormData] = useState<InstructorProfileForm>(emptyInstructorForm);
     const [vehiclePhotos, setVehiclePhotos] = useState<InstructorAsset[]>([]);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
     const [showOtherLanguages, setShowOtherLanguages] = useState(false);
 
     const isEditable = Boolean(instructorPost?.is_approved);
@@ -346,19 +349,37 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                 ) : vehiclePhotos.length === 0 ? (
                     <p className="text-sm text-gray-500">{t("settings.profile.noPhotos")}</p>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {vehiclePhotos.map((photo) => (
-                            <div key={photo.id} className="relative rounded-xl overflow-hidden bg-gray-50 border border-gray-100">
-                                <img src={photo.url} alt={photo.original_filename || "Vehicle photo"} className="w-full h-40 object-cover" />
-                                <div className="absolute top-2 right-2">
-                                    <button type="button" onClick={() => handleRemoveVehiclePhoto(photo.id)} disabled={!isEditable}
-                                        className="p-1.5 rounded-full bg-black/60 text-white hover:bg-red-500 transition disabled:opacity-60 disabled:cursor-not-allowed" aria-label="Remove vehicle photo">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                    <>
+                        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {vehiclePhotos.map((photo, idx) => (
+                                <div key={photo.id} className="relative rounded-xl overflow-hidden bg-gray-50 border border-gray-100 group">
+                                    <img
+                                        src={photo.url}
+                                        alt={photo.original_filename || "Vehicle photo"}
+                                        className="w-full h-36 sm:h-44 object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
+                                        onClick={() => { setLightboxIndex(idx); setLightboxOpen(true); }}
+                                    />
+                                    <div
+                                        className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none"
+                                    >
+                                        <Expand className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                                    </div>
+                                    <div className="absolute top-2 right-2 z-10">
+                                        <button type="button" onClick={() => handleRemoveVehiclePhoto(photo.id)} disabled={!isEditable}
+                                            className="p-1.5 rounded-full bg-black/60 text-white hover:bg-red-500 transition disabled:opacity-60 disabled:cursor-not-allowed" aria-label="Remove vehicle photo">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                        <ImageLightbox
+                            images={vehiclePhotos.map((p) => ({ src: p.url, alt: p.original_filename || "Vehicle photo" }))}
+                            initialIndex={lightboxIndex}
+                            open={lightboxOpen}
+                            onClose={() => setLightboxOpen(false)}
+                        />
+                    </>
                 )}
             </div>
         </div>
