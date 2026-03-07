@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import VercelAnalytics from "./analytics";
 
 const inter = localFont({
   src: [
@@ -98,6 +99,7 @@ export default function RootLayout({
       <html>
         <body className={`${inter.variable} font-sans font-medium antialiased`}>
           {children}
+          <VercelAnalytics />
         </body>
       </html>
     </ClerkProvider>
