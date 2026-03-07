@@ -3,7 +3,7 @@ import localFont from "next/font/local";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import VercelAnalytics from "./analytics";
-import { reportWebVitals } from "./web-vitals";
+import { reportWebVitals as webVitalsReporter } from "./web-vitals";
 
 const inter = localFont({
   src: [
@@ -108,5 +108,5 @@ export default function RootLayout({
 }
 
 export function reportWebVitals(metric: any) {
-  reportWebVitals(metric);
+  webVitalsReporter(metric);
 }
