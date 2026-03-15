@@ -46,7 +46,6 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
                     )}
                     <div>
                         <h3 className="font-bold text-gray-900 text-sm sm:text-base">{lesson.instructor_name || "Instructor"}</h3>
-                        <p className="text-sm text-gray-500">{fullDate}</p>
                         <Link
                             href={localeHref(`/instructors/${lesson.post_id}`)}
                             className="inline-flex items-center gap-1 text-xs font-semibold text-[#F03D3D] hover:text-red-700 hover:underline mt-0.5"
@@ -121,19 +120,47 @@ export const UpcomingLessons = memo(function UpcomingLessons({
         );
     }
 
+    // Group lessons by local date (YYYY-MM-DD)
+    const grouped = lessons.reduce((acc, lesson) => {
+        const d = new Date(lesson.start_time_utc);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(lesson);
+        return acc;
+    }, {} as Record<string, BookingResponse[]>);
+
+    const sortedDays = Object.keys(grouped).sort();
+
     return (
-        <div className="grid gap-3 sm:gap-4">
-            {lessons.map((lesson) => (
-                <UpcomingLessonCard
-                    key={lesson.id}
-                    lesson={lesson}
-                    onCancelClick={onCancelClick}
-                    canCancel={canCancelLesson(lesson)}
-                    lessonCode={lessonCodes[lesson.id]}
-                    isLoadingCode={isLoadingCodes}
-                    minCancelHours={minCancelHours}
-                />
-            ))}
+        <div className="space-y-6">
+            {sortedDays.map((dateKey) => {
+                const dayLessons = grouped[dateKey];
+                const dateLabel = new Date(dateKey + "T12:00:00").toLocaleDateString("en-US", {
+                    weekday: "long", month: "long", day: "numeric",
+                });
+                return (
+                    <div key={dateKey}>
+                        <div className="flex items-center gap-3 mb-3">
+                            <span className="text-sm font-bold text-gray-900">{dateLabel}</span>
+                            <div className="flex-1 h-px bg-gray-100" />
+                            <span className="text-xs font-semibold text-gray-400">{dayLessons.length} {dayLessons.length === 1 ? "lesson" : "lessons"}</span>
+                        </div>
+                        <div className="grid gap-3 sm:gap-4">
+                            {dayLessons.map((lesson) => (
+                                <UpcomingLessonCard
+                                    key={lesson.id}
+                                    lesson={lesson}
+                                    onCancelClick={onCancelClick}
+                                    canCancel={canCancelLesson(lesson)}
+                                    lessonCode={lessonCodes[lesson.id]}
+                                    isLoadingCode={isLoadingCodes}
+                                    minCancelHours={minCancelHours}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                );
+            })}
         </div>
     );
 });

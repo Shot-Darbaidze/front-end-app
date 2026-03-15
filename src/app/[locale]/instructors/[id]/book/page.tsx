@@ -3,10 +3,10 @@
 import React, { useState, use, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle, Info, Loader2, AlertCircle, Timer } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle, Info, Loader2, AlertCircle, Timer, PlusCircle, CreditCard, Lock, Shield, MapPin } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { useAuth } from "@clerk/nextjs";
-import { buildInstructorName, pickFirstValidPrice } from "@/utils/instructor";
+import { buildInstructorName, pickFirstValidPrice, extractCityName } from "@/utils/instructor";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // Types for backend data
@@ -26,6 +26,8 @@ interface InstructorPost {
   applicant_last_name?: string | null;
   automatic_city_price?: number | null;
   manual_city_price?: number | null;
+  located_at?: string | null;
+  google_maps_url?: string | null;
 }
 
 type SelectedSlot = {
@@ -360,9 +362,8 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
       // Clear reservation tracking (slots are now booked)
       reservedSlotIdsRef.current = [];
       setReservedUntilUtc(null);
-      
-      // All bookings successful - redirect to lessons page
-      router.push(`/${locale}/dashboard/lessons`);
+
+      router.replace(`/${locale}/dashboard/lessons`);
     } catch (err) {
       setBookingError(err instanceof Error ? err.message : "Booking failed. Please try again.");
       setBooking(false);
@@ -499,7 +500,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
           <div className="w-12 h-px bg-gray-200" />
           <div className={`flex items-center gap-2 ${step >= 3 ? "text-[#F03D3D]" : "text-gray-400"}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${step >= 3 ? "bg-[#F03D3D] text-white" : "bg-gray-200 text-gray-500"}`}>3</div>
-            <span className="font-medium hidden sm:inline">{t("booking.stepDone")}</span>
+            <span className="font-medium hidden sm:inline">{t("booking.stepPayment")}</span>
           </div>
         </div>
 
@@ -647,20 +648,48 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
                       <span className="text-gray-500 text-sm">{selectedSlots.length} {t("booking.slotsSelected")} ({totalDuration} {t("booking.min")})</span>
                       <span className="font-bold text-gray-900">₾{selectedSlots.length * price}</span>
                     </div>
-                    <Button 
-                      disabled={selectedSlots.length === 0 || reserving}
-                      onClick={handleContinueToConfirm}
-                      className="w-full"
-                    >
-                      {reserving ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          {t("booking.reserving")}
-                        </>
-                      ) : (
-                        t("booking.continueToConfirm")
-                      )}
-                    </Button>
+
+                    {viewingDate && selectedSlots.some(s => s.date === viewingDate) ? (
+                      <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                        <p className="text-sm font-semibold text-gray-700 mb-3">{t("booking.wantAnotherDay")}</p>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setViewingDate(null)}
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border-2 border-gray-200 text-sm font-semibold text-gray-700 hover:border-gray-900 hover:text-gray-900 transition-all"
+                          >
+                            <PlusCircle className="w-4 h-4" />
+                            {t("booking.addAnotherDay")}
+                          </button>
+                          <Button
+                            disabled={reserving}
+                            onClick={handleContinueToConfirm}
+                            className="flex-1 relative"
+                          >
+                            <span className={reserving ? "invisible" : ""}>{t("booking.doneSelectingDays")}</span>
+                            {reserving && (
+                              <span className="absolute inset-0 flex items-center justify-center gap-2">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                {t("booking.reserving")}
+                              </span>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        disabled={selectedSlots.length === 0 || reserving}
+                        onClick={handleContinueToConfirm}
+                        className="w-full relative"
+                      >
+                        <span className={reserving ? "invisible" : ""}>{t("booking.continueToConfirm")}</span>
+                        {reserving && (
+                          <span className="absolute inset-0 flex items-center justify-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            {t("booking.reserving")}
+                          </span>
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </>
               )}
@@ -785,30 +814,22 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
             </div>
 
             <div className="flex justify-between items-center pt-6 border-t border-gray-100">
-              <button 
+              <button
                 onClick={async () => {
                   await releaseReservation();
                   setBookingError(null);
                   setStep(1);
                 }}
-                disabled={booking}
-                className="text-gray-500 font-medium hover:text-gray-900 transition-colors disabled:opacity-50"
+                className="text-gray-500 font-medium hover:text-gray-900 transition-colors ml-4"
               >
                 {t("booking.back")}
               </button>
-              <Button 
-                onClick={handleConfirm}
-                disabled={booking || secondsLeft <= 0}
+              <Button
+                onClick={() => setStep(3)}
+                disabled={secondsLeft <= 0}
                 className="px-8"
               >
-                {booking ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    {t("booking.bookingInProgress")}
-                  </>
-                ) : (
-                  t("booking.confirm")
-                )}
+                {t("booking.confirm")}
               </Button>
             </div>
             </div>
@@ -816,20 +837,179 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
           </div>
         )}
 
-        {/* Step 3: Success */}
+        {/* Step 3: Payment */}
         {step === 3 && (
-          <div className="max-w-2xl mx-auto bg-white rounded-3xl border border-gray-100 p-12 shadow-sm text-center animate-in fade-in zoom-in-95 duration-500">
-            <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-10 h-10" />
+          <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+              {/* Payment Form */}
+              <div className="lg:col-span-3 bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-gray-900 mb-1 flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-[#F03D3D]" />
+                  {t("booking.paymentTitle")}
+                </h2>
+                <p className="text-sm text-gray-500 mb-6">{t("booking.paymentSubtitle")}</p>
+
+                {bookingError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-600">{bookingError}</p>
+                  </div>
+                )}
+
+                {/* BOG redirect notice */}
+                <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100 mb-6">
+                  <Shield className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                  <p className="text-sm text-blue-700">{t("booking.bogRedirectNote")}</p>
+                </div>
+
+                {/* Mock card form */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("booking.cardNumber")}</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder={t("booking.cardNumberPlaceholder")}
+                        maxLength={19}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] transition-colors pr-12"
+                        onChange={e => {
+                          const v = e.target.value.replace(/\D/g, "").slice(0, 16);
+                          e.target.value = v.replace(/(.{4})/g, "$1 ").trim();
+                        }}
+                      />
+                      <CreditCard className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("booking.cardHolder")}</label>
+                    <input
+                      type="text"
+                      placeholder={t("booking.cardHolderPlaceholder")}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] transition-colors"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("booking.expiryDate")}</label>
+                      <input
+                        type="text"
+                        placeholder={t("booking.expiryPlaceholder")}
+                        maxLength={5}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] transition-colors"
+                        onChange={e => {
+                          const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+                          e.target.value = v.length > 2 ? `${v.slice(0, 2)}/${v.slice(2)}` : v;
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("booking.cvv")}</label>
+                      <input
+                        type="text"
+                        placeholder={t("booking.cvvPlaceholder")}
+                        maxLength={3}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] transition-colors"
+                        onChange={e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 3); }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("booking.billingAddress")}</label>
+                    <input
+                      type="text"
+                      placeholder={t("booking.billingAddressPlaceholder")}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
+                  <button
+                    onClick={() => { setBookingError(null); setStep(2); }}
+                    disabled={booking}
+                    className="text-gray-500 font-medium hover:text-gray-900 transition-colors disabled:opacity-50 ml-4"
+                  >
+                    {t("booking.back")}
+                  </button>
+                  <Button
+                    onClick={handleConfirm}
+                    disabled={booking || secondsLeft <= 0}
+                    className="px-8 relative"
+                  >
+                    <span className={booking ? "invisible" : ""}>{t("booking.payNow")}{price * selectedSlots.length}</span>
+                    {booking && (
+                      <span className="absolute inset-0 flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {t("booking.paying")}
+                      </span>
+                    )}
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-center gap-2 mt-4 text-xs text-gray-400">
+                  <Lock className="w-3 h-3" />
+                  <span>{t("booking.securePayment")}</span>
+                </div>
+              </div>
+
+              {/* Order Summary */}
+              <div className="lg:col-span-2">
+                <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm sticky top-24">
+                  <h3 className="font-bold text-gray-900 mb-4">{t("booking.orderSummary")}</h3>
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">{instructorName}</span>
+                    </div>
+                    {instructor?.located_at && (
+                      <div className="flex items-start gap-1.5 text-sm text-gray-500">
+                        <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5 text-gray-400" />
+                        {instructor.google_maps_url ? (
+                          <a
+                            href={instructor.google_maps_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-[#F03D3D] transition-colors underline underline-offset-2"
+                          >
+                            {extractCityName(instructor.located_at)}
+                          </a>
+                        ) : (
+                          <span>{extractCityName(instructor.located_at)}</span>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">{selectedSlots.length} {selectedSlots.length > 1 ? t("booking.drivingLessons") : t("booking.drivingLesson")}</span>
+                      <span className="text-gray-700 font-medium">₾{price * selectedSlots.length}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-400">
+                      <span>{totalDuration} {t("booking.min")} {t("booking.total")}</span>
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-100 pt-4">
+                    <div className="flex justify-between font-bold text-gray-900">
+                      <span>Total</span>
+                      <span>₾{price * selectedSlots.length}</span>
+                    </div>
+                  </div>
+                  {secondsLeft > 0 && (
+                    <div className={`mt-4 flex items-center gap-2 text-xs rounded-xl px-3 py-2 ${
+                      secondsLeft <= 60 ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-600"
+                    }`}>
+                      <Timer className="w-3.5 h-3.5 shrink-0" />
+                      <span>{String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:{String(secondsLeft % 60).padStart(2, "0")} {t("booking.completeBeforeExpiry")}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t("booking.bookingConfirmedTitle")}</h2>
-            <p className="text-gray-500 mb-8">
-              {selectedSlots.length} {selectedSlots.length > 1 ? t("booking.drivingLessons") : t("booking.drivingLesson")} {t("booking.with")} {instructorName} {t("booking.bookingConfirmedDesc")} <br />
-              {t("booking.confirmationEmail")}
-            </p>
-            <p className="text-sm text-gray-400">{t("booking.redirecting")}</p>
           </div>
         )}
+
       </div>
     </div>
   );
