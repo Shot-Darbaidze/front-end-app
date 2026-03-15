@@ -6,7 +6,7 @@ import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import { ResponsiveCalendar, SlotData, SlotStatus, generateTimeSlots } from "@/components/dashboard/instructor/ResponsiveCalendar";
 import Button from "@/components/ui/Button";
 import { Save, RotateCcw, Clock, Loader2, AlertCircle, CheckCircle, Copy } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { API_CONFIG } from '@/config/constants';
 
 // Duration options in minutes
@@ -37,6 +37,8 @@ interface BatchCreateResponse {
 export default function SchedulePage() {
   const { getToken } = useClerkAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const locale = pathname?.split("/")[1] ?? "ka";
 
   // Auth state
   const [isApproved, setIsApproved] = useState(false);
@@ -132,7 +134,7 @@ export default function SchedulePage() {
   // Redirect if not approved
   useEffect(() => {
     if (!isChecking && !isApproved) {
-      router.replace("/dashboard");
+      router.replace(`/${locale}/dashboard`);
     }
   }, [isApproved, isChecking, router]);
 

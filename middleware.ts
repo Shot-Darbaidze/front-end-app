@@ -12,6 +12,7 @@ function isValidLocale(locale: string): boolean {
 // Define protected routes that require authentication
 const isProtectedRoute = createRouteMatcher([
   '/:locale/dashboard(.*)',
+  '/:locale/instructors/:id/book',
   '/api/protected(.*)',
 ]);
 

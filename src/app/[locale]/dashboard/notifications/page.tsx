@@ -21,54 +21,38 @@ export default function NotificationsPage() {
   useEffect(() => {
     let isMounted = true;
 
-    if (typeof window !== "undefined") {
-      const cached = sessionStorage.getItem("instructor-approval");
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached) as { is_approved?: boolean | null };
-          if (parsed?.is_approved) {
-            setIsInstructor(true);
-          }
-        } catch (_error) {
-          sessionStorage.removeItem("instructor-approval");
-        }
-      }
-    }
-
     const checkApproval = async () => {
       try {
         const token = await getToken();
         if (!token) {
-          if (isMounted) {
-            setIsInstructor(false);
-          }
+          if (isMounted) setIsInstructor(false);
           return;
         }
 
         const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (!response.ok) {
-          if (isMounted) {
-            setIsInstructor(false);
-          }
+          if (isMounted) setIsInstructor(false);
+          sessionStorage.removeItem("instructor-approval");
           return;
         }
 
         const result: { is_approved?: boolean | null } = await response.json();
-        if (typeof window !== "undefined" && result?.is_approved) {
-          sessionStorage.setItem("instructor-approval", JSON.stringify(result));
+        const approved = Boolean(result?.is_approved);
+
+        if (typeof window !== "undefined") {
+          if (approved) {
+            sessionStorage.setItem("instructor-approval", JSON.stringify(result));
+          } else {
+            sessionStorage.removeItem("instructor-approval");
+          }
         }
-        if (isMounted) {
-          setIsInstructor(Boolean(result?.is_approved));
-        }
+
+        if (isMounted) setIsInstructor(approved);
       } catch (_error) {
-        if (isMounted) {
-          setIsInstructor(false);
-        }
+        if (isMounted) setIsInstructor(false);
       }
     };
 
