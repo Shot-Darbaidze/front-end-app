@@ -7,7 +7,6 @@ import {
   LogOut,
   LayoutDashboard,
   Calendar,
-  Heart,
   Bell,
   Settings,
   CalendarDays,
@@ -37,7 +36,6 @@ const AccountSidebar: React.FC<AccountSidebarProps> = ({ isInstructor = false })
   const studentNav = [
     { icon: LayoutDashboard, label: t("dashboard.nav.overview"), href: "/dashboard" },
     { icon: Calendar, label: t("dashboard.nav.myLessons"), href: "/dashboard/lessons" },
-    { icon: Heart, label: t("dashboard.nav.favorites"), href: "/dashboard/favorites" },
     { icon: Bell, label: t("dashboard.nav.notifications"), href: "/dashboard/notifications" },
     { icon: Settings, label: t("dashboard.nav.settings"), href: "/dashboard/settings" },
   ];

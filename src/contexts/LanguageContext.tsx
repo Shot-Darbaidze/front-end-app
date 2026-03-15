@@ -509,7 +509,7 @@ const translationsEn = {
     title: "Settings",
     subtitle: "Manage your account and preferences.",
     tabs: {
-      profile: "Instructor Profile",
+      profile: "Profile",
       account: "Account",
       notifications: "Notifications",
     },
@@ -1032,7 +1032,7 @@ const translationsKa = {
     title: "პარამეტრები",
     subtitle: "მართეთ თქვენი ანგარიში და პრეფერენციები.",
     tabs: {
-      profile: "ინსტრუქტორის პროფილი",
+      profile: "პროფილი",
       account: "ანგარიში",
       notifications: "შეტყობინებები",
     },

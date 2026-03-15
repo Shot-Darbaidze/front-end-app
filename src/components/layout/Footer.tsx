@@ -8,7 +8,7 @@ import { useLocaleHref } from "@/hooks/useLocaleHref";
 const Footer = () => {
   const pathname = usePathname();
   const localeHref = useLocaleHref();
-  
+
   if (pathname?.includes('/dashboard')) {
     return null;
   }

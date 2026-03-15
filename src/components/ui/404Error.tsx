@@ -3,9 +3,11 @@
 import React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const Error404 = () => {
   const router = useRouter();
+  const { language } = useLanguage();
 
   return (
     <div className="flex flex-col items-center justify-center py-10 sm:py-20 gap-4 sm:gap-6 px-4">
@@ -23,7 +25,7 @@ const Error404 = () => {
 
       {/* Title */}
       <h1 className="text-center text-gray-900 font-semibold text-3xl sm:text-4xl md:text-5xl leading-tight">
-        Page couldn't be found
+        {language === "ka" ? "გვერდი ვერ მოიძებნა" : "Page couldn't be found"}
       </h1>
 
       {/* Go Back Button */}
@@ -31,7 +33,7 @@ const Error404 = () => {
         className="flex items-center justify-center gap-1.5 px-5 py-2.5 bg-[#F03D3D] text-white rounded-lg font-medium text-sm hover:bg-[#C44545] transition-colors"
         onClick={() => router.back()}
       >
-        <span>Go Back</span>
+        <span>{language === "ka" ? "უკან დაბრუნება" : "Go Back"}</span>
       </button>
     </div>
   );

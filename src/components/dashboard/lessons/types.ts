@@ -17,10 +17,8 @@ export type CancellationReason =
     | "illness"
     | "weather"
     | "transportation"
-    | "financial"
     | "found_alternative"
     | "no_longer_needed"
-    | "instructor_request"
     | "other";
 
 export interface CancellationResponse {
@@ -53,10 +51,8 @@ export const CANCELLATION_REASON_LABELS: Record<CancellationReason, string> = {
     illness: "Illness",
     weather: "Weather Conditions",
     transportation: "Transportation Issues",
-    financial: "Financial Reasons",
     found_alternative: "Found Alternative",
     no_longer_needed: "No Longer Needed",
-    instructor_request: "Instructor Request",
     other: "Other",
 };
 

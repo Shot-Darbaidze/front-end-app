@@ -3,7 +3,6 @@ import BookingSidebar from "@/components/instructor-profile/BookingSidebar";
 import LocationCard from "@/components/instructor-profile/LocationCard";
 import CommentSection from "@/components/instructor-profile/CommentSection";
 import BackToInstructorsButton from "@/components/instructor-profile/BackToInstructorsButton";
-import FavoriteButton from "@/components/ui/FavoriteButton";
 import {
   buildInstructorName,
   extractCityName,
@@ -83,7 +82,6 @@ export default async function InstructorProfilePage({ params }: { params: Promis
             fallbackHref={`/${locale}/find-instructors`}
             className="inline-flex items-center text-sm text-gray-500 hover:text-[#F03D3D] transition-colors font-medium"
           />
-          <FavoriteButton postId={id} variant="button" size="md" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">

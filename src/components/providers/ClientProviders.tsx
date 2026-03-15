@@ -2,7 +2,6 @@
 
 import { ReactNode } from "react";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import ErrorBoundary from "@/components/ui/ErrorBoundary";
 import { QueryProvider } from "@/providers/QueryProvider";
 import type { Locale } from "@/lib/i18n";
@@ -12,9 +11,7 @@ export default function ClientProviders({ children, locale }: { children: ReactN
     <ErrorBoundary>
       <QueryProvider>
         <LanguageProvider initialLocale={locale}>
-          <FavoritesProvider>
-            {children}
-          </FavoritesProvider>
+          {children}
         </LanguageProvider>
       </QueryProvider>
     </ErrorBoundary>

@@ -67,6 +67,92 @@ const InputField = ({ label, ...props }: InputFieldProps) => (
 
 type ClerkUser = ReturnType<typeof useUser>["user"];
 
+// Georgian mobile: 9 digits starting with 5 (e.g. 555 123 456)
+function validatePhone(value: string): string | null {
+    if (!value.trim()) return null; // empty is fine — optional field
+    const digits = value.replace(/\D/g, "");
+    if (digits.length === 9 && digits[0] === "5") return null;
+    return "Enter a valid Georgian phone number (e.g. 555 123 456)";
+}
+
+function StudentProfileSettings({ user }: { user: ClerkUser }) {
+    const { t } = useLanguage();
+    const [phone, setPhone] = useState<string>(
+        (user?.unsafeMetadata?.phone as string) || ""
+    );
+    const [phoneError, setPhoneError] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+    const handlePhoneChange = (value: string) => {
+        setPhone(value);
+        setPhoneError(validatePhone(value));
+        setSuccessMessage(null);
+    };
+
+    const handleSave = async () => {
+        if (!user) return;
+        const err = validatePhone(phone);
+        if (err) { setPhoneError(err); return; }
+        setIsSaving(true);
+        setSuccessMessage(null);
+        try {
+            await user.update({ unsafeMetadata: { ...user.unsafeMetadata, phone } });
+            setSuccessMessage(t("settings.profile.profileUpdated"));
+        } catch { /* silent */ } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* Avatar */}
+            <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                <div className="relative flex-shrink-0">
+                    <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center text-2xl font-bold text-gray-400 border-2 border-white shadow-sm overflow-hidden">
+                        {user?.imageUrl ? <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" /> : user?.firstName?.[0] || "U"}
+                    </div>
+                </div>
+                <div className="text-center sm:text-left">
+                    <h3 className="font-bold text-lg text-gray-900">{t("settings.profile.photoTitle")}</h3>
+                    <p className="text-sm text-gray-500 mb-3">{t("settings.profile.photoDesc")}</p>
+                    <Button size="sm" variant="outline">{t("settings.profile.updateInAccount")}</Button>
+                </div>
+            </div>
+
+            {/* Personal info */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <h3 className="font-bold text-lg text-gray-900 mb-6">{t("settings.profile.personalInfo")}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <InputField label={t("settings.profile.firstName")} value={user?.firstName || ""} disabled />
+                    <InputField label={t("settings.profile.lastName")} value={user?.lastName || ""} disabled />
+                    <InputField label={t("settings.profile.contactEmail")} type="email" value={user?.primaryEmailAddress?.emailAddress || ""} disabled />
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-gray-700">{t("settings.profile.phone")}</label>
+                        <input
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => handlePhoneChange(e.target.value)}
+                            placeholder="555 123 456"
+                            className={`w-full px-4 py-2.5 bg-gray-50 border-transparent focus:bg-white focus:ring-2 rounded-xl transition-all outline-none text-sm ${
+                                phoneError
+                                    ? "ring-2 ring-red-300 border-red-400 bg-red-50 focus:ring-red-300"
+                                    : "focus:ring-[#F03D3D]/20 focus:border-[#F03D3D]"
+                            }`}
+                        />
+                        {phoneError && <p className="text-xs text-red-500">{phoneError}</p>}
+                    </div>
+                </div>
+                <p className="text-xs text-gray-400 mt-4">{t("settings.profile.emailSecurityNote")}</p>
+                {successMessage && <p className="text-sm text-green-700 font-semibold mt-4">{successMessage}</p>}
+                <div className="mt-6 flex justify-end">
+                    <Button disabled={isSaving} onClick={handleSave}>{t("settings.profile.saveChanges")}</Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isInstructor: boolean }) {
     const { getToken } = useClerkAuth();
     const { t } = useLanguage();
@@ -235,13 +321,19 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
         } catch { /* silent */ }
     };
 
+    // ── Student view ──────────────────────────────────────────────────────────
+    if (!isInstructor) {
+        return <StudentProfileSettings user={user} />;
+    }
+
+    // ── Instructor view ───────────────────────────────────────────────────────
     return (
         <div className="space-y-6">
             {/* Avatar */}
             <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
                 <div className="relative group cursor-pointer flex-shrink-0">
                     <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center text-2xl font-bold text-gray-400 border-2 border-white shadow-sm overflow-hidden">
-                        {user?.imageUrl ? <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" /> : user?.firstName?.[0] || (isInstructor ? "I" : "U")}
+                        {user?.imageUrl ? <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" /> : user?.firstName?.[0] || "I"}
                     </div>
                     <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <Camera className="w-6 h-6 text-white" />

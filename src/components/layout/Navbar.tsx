@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Languages, Bell, Heart, Home, Search, Briefcase, Car, ChevronRight, LogOut, Settings } from "lucide-react";
+import { LayoutDashboard, Languages, Bell, Home, Search, Briefcase, Car, ChevronRight, LogOut, Settings } from "lucide-react";
 import {
   SignInButton,
   SignUpButton,
@@ -344,14 +344,6 @@ const Navbar = () => {
                 />
 
                 <Link
-                  href={localeHref("/dashboard/favorites")}
-                  className="p-2 text-gray-600 hover:text-[#F03D3D] transition-colors rounded-full hover:bg-gray-50"
-                  aria-label="Favorites"
-                >
-                  <Heart className="w-5 h-5" />
-                </Link>
-
-                <Link
                   href={localeHref("/dashboard")}
                   className="p-2 text-gray-600 hover:text-[#F03D3D] transition-colors rounded-full hover:bg-gray-50"
                   aria-label="Dashboard"
@@ -563,17 +555,6 @@ const Navbar = () => {
                           {unreadCount}
                         </span>
                       )}
-                    </Link>
-                    <Link
-                      href={localeHref("/dashboard/favorites")}
-                      className={`w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium transition-colors ${
-                        pathname === localeHref("/dashboard/favorites")
-                          ? "bg-red-50 text-[#F03D3D]"
-                          : "text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D]"
-                      }`}
-                    >
-                      <Heart className="w-5 h-5" />
-                      <span>{language === "ka" ? "ფავორიტები" : "Favorites"}</span>
                     </Link>
                     <Link
                       href={localeHref("/dashboard/settings")}
