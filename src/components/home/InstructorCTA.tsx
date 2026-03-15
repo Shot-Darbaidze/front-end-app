@@ -68,7 +68,7 @@ const InstructorCTA = () => {
 
              <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-2xl border-4 border-white rotate-2 hover:rotate-0 transition duration-500">
                <Image
-                 src="https://images.unsplash.com/photo-1580273916550-e323be2ebcc6?auto=format&fit=crop&w=800&q=80"
+                 src="https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&w=800&q=80"
                  alt="Instructor teaching student"
                  fill
                  sizes="(max-width: 1024px) 0px, 50vw"

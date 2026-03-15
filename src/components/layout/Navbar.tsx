@@ -539,14 +539,22 @@ const Navbar = () => {
                   <div className="rounded-xl border border-gray-200 p-3 space-y-1">
                     <Link
                       href={localeHref("/dashboard")}
-                      className="w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D] transition-colors"
+                      className={`w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium transition-colors ${
+                        pathname === localeHref("/dashboard")
+                          ? "bg-red-50 text-[#F03D3D]"
+                          : "text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D]"
+                      }`}
                     >
                       <LayoutDashboard className="w-5 h-5" />
                       <span>{language === "ka" ? "დაფა" : "Dashboard"}</span>
                     </Link>
                     <Link
                       href={localeHref("/dashboard/notifications")}
-                      className="w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D] transition-colors"
+                      className={`w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium transition-colors ${
+                        pathname === localeHref("/dashboard/notifications")
+                          ? "bg-red-50 text-[#F03D3D]"
+                          : "text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D]"
+                      }`}
                     >
                       <Bell className="w-5 h-5" />
                       <span>{language === "ka" ? "შეტყობინებები" : "Notifications"}</span>
@@ -558,14 +566,22 @@ const Navbar = () => {
                     </Link>
                     <Link
                       href={localeHref("/dashboard/favorites")}
-                      className="w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D] transition-colors"
+                      className={`w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium transition-colors ${
+                        pathname === localeHref("/dashboard/favorites")
+                          ? "bg-red-50 text-[#F03D3D]"
+                          : "text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D]"
+                      }`}
                     >
                       <Heart className="w-5 h-5" />
                       <span>{language === "ka" ? "ფავორიტები" : "Favorites"}</span>
                     </Link>
                     <Link
                       href={localeHref("/dashboard/settings")}
-                      className="w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D] transition-colors"
+                      className={`w-full rounded-lg px-2 py-2 flex items-center gap-2 text-sm font-medium transition-colors ${
+                        pathname === localeHref("/dashboard/settings")
+                          ? "bg-red-50 text-[#F03D3D]"
+                          : "text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D]"
+                      }`}
                     >
                       <Settings className="w-5 h-5" />
                       <span>{language === "ka" ? "პარამეტრები" : "Settings"}</span>

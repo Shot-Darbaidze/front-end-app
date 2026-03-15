@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
+import { useAuth as useClerkAuth, useUser, SignInButton } from "@clerk/nextjs";
 import { Loader2, Star, ChevronDown, ArrowUpDown, Send } from "lucide-react";
 import { API_CONFIG } from "@/config/constants";
 import { Comment } from "./CommentTypes";
@@ -328,7 +328,12 @@ export default function CommentSection({ postId }: CommentSectionProps) {
         />
       ) : (
         <div className="mb-8 p-5 bg-slate-50 rounded-2xl text-center border border-dashed border-slate-200">
-          <p className="text-slate-600 font-medium">{t("reviews.signInPrompt")}</p>
+          <p className="text-slate-600 font-medium mb-3">{t("reviews.signInPrompt")}</p>
+          <SignInButton mode="modal">
+            <button className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#F03D3D] text-white text-sm font-bold rounded-xl hover:bg-[#d62f2f] transition-colors shadow-sm active:scale-95">
+              {t("reviews.signIn")}
+            </button>
+          </SignInButton>
         </div>
       )}
 

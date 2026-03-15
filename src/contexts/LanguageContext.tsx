@@ -386,7 +386,7 @@ const translationsEn = {
     title: "Student Reviews",
     subtitle: "What learners say about this instructor",
     rateExperience: "Rate your experience",
-    placeholder: "Share your experience working with this instructor...",
+    placeholder: "Share your experience...",
     postReview: "Post Review",
     signInPrompt: "Sign in to leave a review and join the conversation",
     noReviews: "No reviews yet",
@@ -412,6 +412,7 @@ const translationsEn = {
     selectRatingAndReview: "Please select a rating and write a review",
     selectRating: "Please select a rating",
     writeReview: "Please write a review",
+    signIn: "Sign In",
   },
   faq: {
     title: "Frequently Asked Questions",
@@ -886,7 +887,7 @@ const translationsKa = {
     title: "მოსწავლეთა შეფასებები",
     subtitle: "რას ამბობენ მოსწავლეები ამ ინსტრუქტორზე",
     rateExperience: "შეაფასეთ თქვენი გამოცდილება",
-    placeholder: "გაგვიზიარეთ თქვენი გამოცდილება ამ ინსტრუქტორთან...",
+    placeholder: "გაგვიზიარეთ თქვენი გამოცდილება...",
     postReview: "შეფასების გამოქვეყნება",
     signInPrompt: "შეფასების დასატოვებლად გაიარეთ ავტორიზაცია",
     noReviews: "შეფასებები ჯერ არ არის",
@@ -912,6 +913,7 @@ const translationsKa = {
     selectRatingAndReview: "გთხოვთ აირჩიოთ შეფასება და დაწეროთ მიმოხილვა",
     selectRating: "გთხოვთ აირჩიოთ შეფასება",
     writeReview: "გთხოვთ დაწეროთ მიმოხილვა",
+    signIn: "ავტორიზაცია",
   },
   faq: {
     title: "ხშირად დასმული შეკითხვები",

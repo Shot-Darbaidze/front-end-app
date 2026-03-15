@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import Link from "next/link";
 import { useUser, useAuth as useClerkAuth } from "@clerk/nextjs";
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import Button from "@/components/ui/Button";
 import { AlertCircle, Loader2 } from "lucide-react";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { API_CONFIG } from "@/config/constants";
 
 import {
@@ -18,6 +20,7 @@ import { CancelModal } from "@/components/dashboard/lessons/CancelModal";
 export default function LessonsPage() {
   const { user: clerkUser } = useUser();
   const { getToken } = useClerkAuth();
+  const localeHref = useLocaleHref();
   const isInstructor = (clerkUser?.publicMetadata?.userType as string) === "instructor";
 
   const [activeTab, setActiveTab] = useState<TabId>("upcoming");
@@ -154,7 +157,9 @@ export default function LessonsPage() {
               </button>
             ))}
           </div>
-          <Button className="w-full sm:w-auto">Book New Lesson</Button>
+          <Link href={localeHref("/find-instructors")}>
+            <Button className="w-full sm:w-auto">Book New Lesson</Button>
+          </Link>
         </div>
 
         {/* Content */}
