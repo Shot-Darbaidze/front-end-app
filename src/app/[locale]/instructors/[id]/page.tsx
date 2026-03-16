@@ -98,6 +98,7 @@ export default async function InstructorProfilePage({ params }: { params: Promis
               vehiclePhotos={vehiclePhotos}
               bio={post.description || "Instructor bio coming soon."}
               imageUrl={post.image_url ?? undefined}
+              postId={id}
             />
           </div>
 

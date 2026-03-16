@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Star, MapPin, Clock, Car, BadgeCheck, Expand } from "lucide-react";
 import ImageLightbox from "@/components/ui/ImageLightbox";
 
@@ -15,7 +15,10 @@ interface InstructorProfileHeaderProps {
   vehiclePhotos?: string[];
   bio: string;
   imageUrl?: string;
+  postId: string; // Used to fetch dynamic availability
 }
+
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes cache for availability
 
 const InstructorProfileHeader = ({
   name,
@@ -27,10 +30,49 @@ const InstructorProfileHeader = ({
   vehicles,
   vehiclePhotos = [],
   bio,
-  imageUrl
+  imageUrl,
+  postId
 }: InstructorProfileHeaderProps) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  // Dynamic Availability State
+  const [isAvailableThisWeek, setIsAvailableThisWeek] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!postId) {
+      setIsAvailableThisWeek(false);
+      return;
+    }
+
+    let active = true;
+    const fetchAvailability = async () => {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        // Convert postId to string correctly, as sometimes it might be passed as an unexpected type
+        const res = await fetch(`${baseUrl}/api/bookings/by-post/${String(postId)}?status=available&limit=500`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to fetch slots");
+        
+        const slots: { start_time_utc: string }[] = await res.json();
+        
+        const now = new Date();
+        const nextWeek = new Date();
+        nextWeek.setDate(now.getDate() + 7);
+
+        const hasUpcomingWithinWeek = slots.some(slot => {
+          const slotDate = new Date(slot.start_time_utc);
+          return slotDate > now && slotDate <= nextWeek;
+        });
+
+        if (active) setIsAvailableThisWeek(hasUpcomingWithinWeek);
+      } catch (err) {
+        if (active) setIsAvailableThisWeek(false); // Fallback to not available on error
+      }
+    };
+
+    fetchAvailability();
+    return () => { active = false; };
+  }, [postId]);
 
   // Build combined list of all images for the lightbox
   const allImages = [
@@ -191,10 +233,45 @@ const InstructorProfileHeader = ({
 
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-3">Availability</h3>
-              <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-3 rounded-xl border border-green-100">
-                <Clock className="w-5 h-5" />
-                <span className="font-medium">Available this week</span>
-              </div>
+              {isAvailableThisWeek === null ? (
+                <div className="flex items-center gap-3 bg-gray-50 px-5 py-4 rounded-xl border border-gray-100 animate-pulse w-full max-w-sm">
+                  <div className="w-8 h-8 rounded-full bg-gray-200" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-24" />
+                    <div className="h-3 bg-gray-100 rounded w-32" />
+                  </div>
+                </div>
+              ) : isAvailableThisWeek ? (
+                <div className="inline-flex items-center gap-3 bg-emerald-50 px-4 py-3 rounded-xl border border-emerald-100/80 shadow-sm transition-all hover:shadow-md hover:border-emerald-200">
+                  <div className="relative flex items-center justify-center bg-white p-2 rounded-full shadow-sm">
+                    <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white z-10"></div>
+                    <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping opacity-75"></div>
+                    <Clock className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <div className="pr-2">
+                    <span className="block text-[15px] font-semibold text-gray-900 leading-tight">
+                      Available this week
+                    </span>
+                    <span className="block text-[13px] text-emerald-600/90 font-medium mt-0.5">
+                      Accepting new students
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-3 bg-gray-50 px-4 py-3 rounded-xl border border-gray-200 shadow-sm opacity-90">
+                  <div className="bg-white p-2 rounded-full shadow-sm border border-gray-100">
+                    <Clock className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <div className="pr-2">
+                    <span className="block text-[15px] font-medium text-gray-700 leading-tight">
+                      No availability this week
+                    </span>
+                    <span className="block text-[13px] text-gray-500 font-medium mt-0.5">
+                      Check back soon
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

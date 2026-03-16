@@ -13,7 +13,7 @@ const HeroModern = () => {
   const router = useRouter();
   const [searchInput, setSearchInput] = useState("");
   const localeHref = useLocaleHref();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const handleFindInstructors = () => {
     const trimmed = searchInput.trim();
@@ -47,7 +47,7 @@ const HeroModern = () => {
               <span>{t("home.hero.badge")}</span>
             </div>
 
-                    <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold leading-tight tracking-tight">
+            <h1 className={`font-bold leading-tight tracking-tight ${language === 'ka' ? 'text-3xl sm:text-5xl lg:text-5xl xl:text-6xl' : 'text-3xl sm:text-5xl md:text-7xl'}`}>
               {t("home.hero.title")} <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F03D3D] to-orange-500">
                 {t("home.hero.titleHighlight")}

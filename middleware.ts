@@ -41,7 +41,7 @@ function addSecurityHeaders(response: NextResponse, request: NextRequest) {
     "img-src 'self' data: https: blob:",
     "worker-src 'self' blob:",
     "connect-src 'self' http://localhost:* https://*.onrender.com https://*.clerk.accounts.dev https://clerk.accounts.dev",
-    "frame-src 'self' https://*.clerk.accounts.dev https://clerk.accounts.dev",
+    "frame-src 'self' https://*.clerk.accounts.dev https://clerk.accounts.dev https://www.google.com https://maps.google.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

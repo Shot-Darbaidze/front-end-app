@@ -33,24 +33,6 @@ const inter = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
-  title: {
-    default: "Instruktori.ge - Find Driving Instructors in Georgia",
-    template: "%s | Instruktori.ge",
-  },
-  description:
-    "Connect with certified driving instructors across Georgia. Book lessons for city and yard driving, compare prices, and learn to drive safely with experienced professionals.",
-  keywords: [
-    "driving instructor",
-    "driving lessons",
-    "Georgia driving school",
-    "learn to drive",
-    "driving test preparation",
-    "automatic transmission",
-    "manual transmission",
-    "city driving lessons",
-    "driving instructor Tbilisi",
-    "driving instructor Batumi",
-  ],
   authors: [
     {
       name: "Instruktori.ge Team",
@@ -68,22 +50,6 @@ export const metadata: Metadata = {
       "max-image-preview": "large",
       "max-snippet": -1,
     },
-  },
-  openGraph: {
-    type: "website",
-    locale: "ka_GE",
-    url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-    title: "Instruktori.ge - Find Driving Instructors in Georgia",
-    description:
-      "Connect with certified driving instructors across Georgia. Book lessons, compare prices, and learn to drive safely.",
-    siteName: "Instruktori.ge",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Instruktori.ge - Find Driving Instructors in Georgia",
-    description:
-      "Connect with certified driving instructors across Georgia. Book lessons, compare prices, and learn to drive safely.",
-    creator: "@instruktori",
   },
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
