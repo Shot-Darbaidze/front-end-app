@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { CheckCircle, Lightbulb, RotateCcw, Trophy, XCircle } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { CheckCircle, Lightbulb, RotateCcw, Trash2, Trophy, XCircle } from "lucide-react";
+import { useAuth } from "@clerk/nextjs";
 import { useCityExamProgress } from "../mastery/useCityExamMastery";
 import { FabiaInterior } from "./FabiaInterior";
 import { TechnicalQuestionsSimulation } from "./TechnicalQuestionsSimulation";
@@ -787,11 +788,16 @@ const SimulationPlayer = ({
 export const SimulationQuiz = () => {
   const [selectedSimulationId, setSelectedSimulationId] = useState(CITY_EXAM_SIMULATIONS[0].id);
   const [simulationMode, setSimulationMode] = useState<SimulationMode>("practice");
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const playerSectionRef = useRef<HTMLDivElement>(null);
+  const { getToken, isSignedIn } = useAuth();
   const {
     progressState,
+    isSyncing,
     recordSimulationResult,
     recordMockSimulationResult,
-  } = useCityExamProgress();
+    resetProgress,
+  } = useCityExamProgress(getToken);
 
   const selectedSimulation =
     CITY_EXAM_SIMULATIONS.find((simulation) => simulation.id === selectedSimulationId) ??
@@ -833,11 +839,19 @@ export const SimulationQuiz = () => {
     }
   };
 
+  const handleSelectSimulation = useCallback((simulationId: string) => {
+    setSelectedSimulationId(simulationId);
+    // Small delay to let React re-render the player before scrolling
+    requestAnimationFrame(() => {
+      playerSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
+
   const handleActivateMockMode = () => {
     setSimulationMode("mock");
 
     if (selectedSimulation.type === "technical") {
-      setSelectedSimulationId(firstMockReadySimulation.id);
+      handleSelectSimulation(firstMockReadySimulation.id);
     }
   };
 
@@ -875,6 +889,47 @@ export const SimulationQuiz = () => {
               <p className="text-xs text-gray-600">ეტაპი</p>
             </div>
           </div>
+        </div>
+
+        {/* Clear progress + sync indicator */}
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            {isSignedIn && (
+              <span className="flex items-center gap-1">
+                <span className={`h-2 w-2 rounded-full ${isSyncing ? 'bg-amber-400 animate-pulse' : 'bg-green-400'}`} />
+                {isSyncing ? 'სინქრონიზაცია...' : 'სერვერზე შენახული'}
+              </span>
+            )}
+          </div>
+
+          {!showClearConfirm ? (
+            <button
+              onClick={() => setShowClearConfirm(true)}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              პროგრესის წაშლა
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-red-600 font-medium">დარწმუნებული ხართ?</span>
+              <button
+                onClick={async () => {
+                  await resetProgress();
+                  setShowClearConfirm(false);
+                }}
+                className="rounded-md bg-red-500 px-3 py-1 text-xs font-semibold text-white hover:bg-red-600 transition-colors"
+              >
+                წაშლა
+              </button>
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="rounded-md bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-200 transition-colors"
+              >
+                გაუქმება
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -928,6 +983,119 @@ export const SimulationQuiz = () => {
         </div>
       </div>
 
+      {/* Selected scenario + Player — shown first so users don't have to scroll past all cards */}
+      <div ref={playerSectionRef} className="scroll-mt-24 space-y-8">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#F03D3D] mb-2">
+                არჩეული სცენარი
+              </p>
+              <h3 className="text-2xl font-bold text-gray-900">{selectedSimulation.title}</h3>
+              <p className="text-gray-600 mt-2">{selectedSimulation.summary}</p>
+
+              <div className="flex flex-wrap gap-2 mt-4">
+                <DifficultyBadge difficulty={selectedSimulation.difficulty} />
+                <span className="inline-flex items-center rounded-full border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">
+                  {getSimulationFormatLabel(selectedSimulation)}
+                </span>
+                <span className="inline-flex items-center rounded-full border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">
+                  {getSimulationItemCount(selectedSimulation)} {getSimulationItemLabel(selectedSimulation)}
+                </span>
+                <span className="inline-flex items-center rounded-full border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">
+                  რეჟიმი: {effectiveMode === "mock" ? "mock" : "სწავლა"}
+                </span>
+              </div>
+
+              {selectedSimulation.sourceUrl ? (
+                <a
+                  href={selectedSimulation.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700 hover:text-blue-900 mt-4"
+                >
+                  {selectedSimulation.sourceLabel ?? "ოფიციალური წყარო"}
+                </a>
+              ) : null}
+            </div>
+
+            <div className="rounded-2xl bg-gray-50 border border-gray-200 p-4 min-w-[280px]">
+              <p className="text-sm font-semibold text-gray-800">
+                {selectedProgress ? "ბოლო შენახული შედეგები" : "რას ავარჯიშებთ"}
+              </p>
+
+              {selectedProgress?.lastScore != null ? (
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{selectedProgress.lastScore}%</p>
+                    <p className="text-xs text-gray-500">ბოლო ქულა</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{selectedProgress.lastMistakes ?? 0}</p>
+                    <p className="text-xs text-gray-500">
+                      {selectedSimulation.type === "technical" ? "გასამეორებელი" : "შეცდომა"}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {selectedProgress?.lastMockOutcome ? (
+                <div
+                  className={`rounded-xl border mt-4 p-4 ${
+                    selectedProgress.lastMockOutcome === "passed"
+                      ? "border-blue-200 bg-blue-50"
+                      : "border-red-200 bg-red-50"
+                  }`}
+                >
+                  <p
+                    className={`text-sm font-semibold ${
+                      selectedProgress.lastMockOutcome === "passed"
+                        ? "text-blue-900"
+                        : "text-red-900"
+                    }`}
+                  >
+                    ბოლო mock:{" "}
+                    {selectedProgress.lastMockOutcome === "passed"
+                      ? "ჩაბარებული"
+                      : "ჩაჭრილი"}
+                  </p>
+                  <p
+                    className={`text-sm mt-1 ${
+                      selectedProgress.lastMockOutcome === "passed"
+                        ? "text-blue-800"
+                        : "text-red-800"
+                    }`}
+                  >
+                    მსუბუქი: {selectedProgress.lastMockLightErrors ?? 0} • მძიმე:{" "}
+                    {selectedProgress.lastMockHeavyErrors ?? 0}
+                    {selectedProgress.lastMockDisqualified ? " • DQ" : ""}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap gap-2 mt-3">
+                {selectedSimulation.focusPoints.map((focusPoint) => (
+                  <span
+                    key={focusPoint}
+                    className="inline-flex items-center rounded-full bg-white border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600"
+                  >
+                    {focusPoint}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <SimulationPlayer
+          key={`${selectedSimulation.id}-${effectiveMode}`}
+          simulation={selectedSimulation}
+          mode={effectiveMode}
+          onComplete={handleSimulationComplete}
+        />
+      </div>
+
+      {/* Simulation selection grid — below the player */}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {CITY_EXAM_SIMULATIONS.map((simulation) => {
           const isActive = simulation.id === selectedSimulation.id;
@@ -936,7 +1104,7 @@ export const SimulationQuiz = () => {
           return (
             <button
               key={simulation.id}
-              onClick={() => setSelectedSimulationId(simulation.id)}
+              onClick={() => handleSelectSimulation(simulation.id)}
               className={`rounded-2xl border p-5 text-left transition-all ${
                 isActive
                   ? "border-[#F03D3D] bg-red-50 shadow-sm shadow-red-100"
@@ -989,115 +1157,6 @@ export const SimulationQuiz = () => {
           );
         })}
       </div>
-
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#F03D3D] mb-2">
-              არჩეული სცენარი
-            </p>
-            <h3 className="text-2xl font-bold text-gray-900">{selectedSimulation.title}</h3>
-            <p className="text-gray-600 mt-2">{selectedSimulation.summary}</p>
-
-            <div className="flex flex-wrap gap-2 mt-4">
-              <DifficultyBadge difficulty={selectedSimulation.difficulty} />
-              <span className="inline-flex items-center rounded-full border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">
-                {getSimulationFormatLabel(selectedSimulation)}
-              </span>
-              <span className="inline-flex items-center rounded-full border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">
-                {getSimulationItemCount(selectedSimulation)} {getSimulationItemLabel(selectedSimulation)}
-              </span>
-              <span className="inline-flex items-center rounded-full border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">
-                რეჟიმი: {effectiveMode === "mock" ? "mock" : "სწავლა"}
-              </span>
-            </div>
-
-            {selectedSimulation.sourceUrl ? (
-              <a
-                href={selectedSimulation.sourceUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700 hover:text-blue-900 mt-4"
-              >
-                {selectedSimulation.sourceLabel ?? "ოფიციალური წყარო"}
-              </a>
-            ) : null}
-          </div>
-
-          <div className="rounded-2xl bg-gray-50 border border-gray-200 p-4 min-w-[280px]">
-            <p className="text-sm font-semibold text-gray-800">
-              {selectedProgress ? "ბოლო შენახული შედეგები" : "რას ავარჯიშებთ"}
-            </p>
-
-            {selectedProgress?.lastScore != null ? (
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{selectedProgress.lastScore}%</p>
-                  <p className="text-xs text-gray-500">ბოლო ქულა</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{selectedProgress.lastMistakes ?? 0}</p>
-                  <p className="text-xs text-gray-500">
-                    {selectedSimulation.type === "technical" ? "გასამეორებელი" : "შეცდომა"}
-                  </p>
-                </div>
-              </div>
-            ) : null}
-
-            {selectedProgress?.lastMockOutcome ? (
-              <div
-                className={`rounded-xl border mt-4 p-4 ${
-                  selectedProgress.lastMockOutcome === "passed"
-                    ? "border-blue-200 bg-blue-50"
-                    : "border-red-200 bg-red-50"
-                }`}
-              >
-                <p
-                  className={`text-sm font-semibold ${
-                    selectedProgress.lastMockOutcome === "passed"
-                      ? "text-blue-900"
-                      : "text-red-900"
-                  }`}
-                >
-                  ბოლო mock:{" "}
-                  {selectedProgress.lastMockOutcome === "passed"
-                    ? "ჩაბარებული"
-                    : "ჩაჭრილი"}
-                </p>
-                <p
-                  className={`text-sm mt-1 ${
-                    selectedProgress.lastMockOutcome === "passed"
-                      ? "text-blue-800"
-                      : "text-red-800"
-                  }`}
-                >
-                  მსუბუქი: {selectedProgress.lastMockLightErrors ?? 0} • მძიმე:{" "}
-                  {selectedProgress.lastMockHeavyErrors ?? 0}
-                  {selectedProgress.lastMockDisqualified ? " • DQ" : ""}
-                </p>
-              </div>
-            ) : null}
-
-            <div className="flex flex-wrap gap-2 mt-3">
-              {selectedSimulation.focusPoints.map((focusPoint) => (
-                <span
-                  key={focusPoint}
-                  className="inline-flex items-center rounded-full bg-white border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600"
-                >
-                  {focusPoint}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <SimulationPlayer
-        key={`${selectedSimulation.id}-${effectiveMode}`}
-        simulation={selectedSimulation}
-        mode={effectiveMode}
-        onComplete={handleSimulationComplete}
-      />
     </div>
   );
 };
