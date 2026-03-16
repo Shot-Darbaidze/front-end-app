@@ -154,7 +154,7 @@ const Navbar = () => {
     };
   }, []);
 
-  const isDashboard = pathname?.includes('/dashboard');
+  const isDashboard = pathname?.includes('/dashboard') || pathname?.includes('/city-exam');
 
   const parseBackgroundColor = (color: string) => {
     const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/i);
