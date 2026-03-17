@@ -12,7 +12,6 @@ export type InstructorPost = {
     language_skills?: string | null;
     applicant_first_name?: string | null;
     applicant_last_name?: string | null;
-    contact_email?: string | null;
     phone?: string | null;
     applicant_city?: string | null;
     applicant_address?: string | null;
@@ -44,7 +43,6 @@ export type InstructorProfileForm = {
     language_skills: string;
     applicant_first_name: string;
     applicant_last_name: string;
-    contact_email: string;
     phone: string;
     applicant_city: string;
     applicant_address: string;
@@ -56,7 +54,7 @@ export const emptyInstructorForm: InstructorProfileForm = {
     automatic_city_price: "", automatic_yard_price: "",
     manual_city_price: "", manual_yard_price: "",
     language_skills: "", applicant_first_name: "", applicant_last_name: "",
-    contact_email: "", phone: "", applicant_city: "",
+    phone: "", applicant_city: "",
     applicant_address: "", applicant_date_of_birth: "",
 };
 
@@ -113,7 +111,6 @@ export const mapPostToForm = (post: InstructorPost): InstructorProfileForm => ({
     language_skills: post.language_skills || "",
     applicant_first_name: post.applicant_first_name || "",
     applicant_last_name: post.applicant_last_name || "",
-    contact_email: post.contact_email || "",
     phone: post.phone || "",
     applicant_city: post.applicant_city || "",
     applicant_address: post.applicant_address || "",
@@ -132,7 +129,6 @@ export const buildUpdatePayload = (form: InstructorProfileForm) => ({
     language_skills: form.language_skills || null,
     applicant_first_name: form.applicant_first_name || null,
     applicant_last_name: form.applicant_last_name || null,
-    contact_email: form.contact_email || null,
     phone: form.phone || null,
     applicant_city: form.applicant_city || null,
     applicant_address: form.applicant_address || null,

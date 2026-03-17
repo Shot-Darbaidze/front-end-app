@@ -403,7 +403,6 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                     </>)}
                     <InputField label={t("settings.profile.firstName")} value={formData.applicant_first_name} onChange={(e) => handleTextChange("applicant_first_name")(e.target.value)} disabled={!isEditable} />
                     <InputField label={t("settings.profile.lastName")} value={formData.applicant_last_name} onChange={(e) => handleTextChange("applicant_last_name")(e.target.value)} disabled={!isEditable} />
-                    <InputField label={t("settings.profile.contactEmail")} type="email" value={formData.contact_email} onChange={(e) => handleTextChange("contact_email")(e.target.value)} disabled={!isEditable} />
                     <InputField label={t("settings.profile.phone")} type="tel" value={formData.phone} onChange={(e) => handleTextChange("phone")(e.target.value)} disabled={!isEditable} />
                     <InputField label={t("settings.profile.city")} value={formData.applicant_city} onChange={(e) => handleTextChange("applicant_city")(e.target.value)} disabled={!isEditable} />
                     <InputField label={t("settings.profile.dateOfBirth")} type="date" value={formData.applicant_date_of_birth} onChange={(e) => handleTextChange("applicant_date_of_birth")(e.target.value)} disabled={!isEditable} />

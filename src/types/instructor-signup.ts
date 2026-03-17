@@ -6,7 +6,6 @@ export interface InstructorSignupFormData {
   // Step 1: Personal Information
   firstName: string;
   lastName: string;
-  email: string;
   city: string;
   phone: string;
   dateOfBirth: string;

@@ -38,7 +38,6 @@ const SignupPage = () => {
   const initialFormData = {
     firstName: "",
     lastName: "",
-    email: "",
     city: "",
     phone: "",
     dateOfBirth: "",
@@ -143,7 +142,6 @@ const SignupPage = () => {
     if (currentStep === 1) {
       if (!formData.firstName) newErrors.firstName = t("signup.firstNameRequired");
       if (!formData.lastName) newErrors.lastName = t("signup.lastNameRequired");
-      if (!formData.email) newErrors.email = t("signup.emailRequired");
       if (!formData.city) newErrors.city = t("signup.cityRequired");
       if (!formData.phone) newErrors.phone = t("signup.phoneRequired");
       if (formData.dateOfBirth) {
@@ -161,11 +159,6 @@ const SignupPage = () => {
       }
       if (formData.lastName && !nameRegex.test(formData.lastName)) {
         newErrors.lastName = t("signup.nameLettersOnly");
-      }
-
-      // Email validation
-      if (formData.email && !formData.email.includes('@')) {
-        newErrors.email = t("signup.invalidEmail");
       }
 
       // Phone validation
@@ -243,7 +236,6 @@ const SignupPage = () => {
     console.log("[Personal Information]");
     console.log("  First Name:", formData.firstName);
     console.log("  Last Name:", formData.lastName);
-    console.log("  Email:", formData.email);
     console.log("  Phone:", formData.phone);
     console.log("  City:", formData.city);
     console.log("  Address:", formData.address);
@@ -282,7 +274,6 @@ const SignupPage = () => {
       // Personal Info
       submitData.append("firstName", formData.firstName);
       submitData.append("lastName", formData.lastName);
-      submitData.append("email", formData.email);
       submitData.append("phone", formData.phone);
       submitData.append("city", formData.city);
       submitData.append("address", formData.address);

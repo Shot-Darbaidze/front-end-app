@@ -97,22 +97,6 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-900">{t("signup.email")} <span className="text-red-500">*</span></label>
-          <div className="relative">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="email"
-              name="email"
-              value={data.email}
-              onChange={handleChange}
-              className={`w-full pl-12 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-[#F03D3D]/20 outline-none transition bg-gray-50 focus:bg-white ${errors.email ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#F03D3D]"}`}
-              placeholder={t("signup.emailPlaceholder")}
-            />
-          </div>
-          {errors.email && <p className="text-xs text-red-500 font-medium mt-1">{errors.email}</p>}
-        </div>
-
-        <div className="space-y-2">
           <label className="text-sm font-bold text-gray-900">{t("signup.city")} <span className="text-red-500">*</span></label>
           <div className="relative">
             <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />

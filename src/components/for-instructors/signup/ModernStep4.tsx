@@ -29,7 +29,6 @@ const ModernStep4 = ({ data, updateData, onEditStep, errors = {} }: ReviewStepPr
       <div className="space-y-4">
         <Section title={t("signup.step1")} step={1}>
           <p><span className="font-medium text-gray-900">{t("signup.name")}</span> {data.firstName} {data.lastName}</p>
-          <p><span className="font-medium text-gray-900">{t("signup.emailLabel")}</span> {data.email}</p>
           <p><span className="font-medium text-gray-900">{t("signup.phoneLabel")}</span> {data.phone}</p>
           <p><span className="font-medium text-gray-900">{t("signup.addressLabel")}</span> {data.address}</p>
         </Section>
