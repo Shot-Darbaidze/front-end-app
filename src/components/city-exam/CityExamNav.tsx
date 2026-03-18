@@ -7,6 +7,7 @@ import {
   Activity,
   Car,
   BookOpen,
+  ClipboardCheck,
   MapPin,
   Target,
 } from "lucide-react";
@@ -22,6 +23,7 @@ export const CityExamNav = () => {
     { icon: Car, label: "სიმულაციები", href: "/city-exam/simulations" },
     { icon: BookOpen, label: "რჩევები", href: "/city-exam/tips" },
     { icon: MapPin, label: "მარშრუტები", href: "/city-exam/routes" },
+    { icon: ClipboardCheck, label: "ჩეკლისტი", href: "/city-exam/checklist" },
   ];
 
   const isActiveLink = (href: string) => {

@@ -10,8 +10,7 @@ const CATEGORIES = [
   { label: "ყველა", value: "all" },
   { label: "მძიმე შეცდომები", value: "მძიმე შეცდომები" },
   { label: "მსუბუქი შეცდომები", value: "მსუბუქი შეცდომები" },
-  { label: "მოედანი", value: "მოედანი" },
-  { label: "ქალაქი", value: "ქალაქი" },
+{ label: "ქალაქი", value: "ქალაქი" },
   { label: "ზოგადი", value: "ზოგადი" },
 ];
 
@@ -39,26 +38,41 @@ export default function TipsPage() {
               </h1>
             </div>
             <p className="text-gray-600">
-              მოემზადეთ გამოცდისთვის — ისწავლეთ ხშირი შეცდომები, რჩევები
-              მოედნისთვის და ქალაქისთვის
+              მოემზადეთ გამოცდისთვის — შეცდომები, ტექნიკები, რეგისტრაცია და
+              ყველაფერი, რაც უნდა იცოდეთ
             </p>
           </div>
 
           {/* Category filters */}
           <div className="flex flex-wrap gap-2 mb-8">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.value}
-                onClick={() => setActiveCategory(cat.value)}
-                className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${
-                  activeCategory === cat.value
-                    ? "bg-[#F03D3D] text-white shadow-md shadow-red-500/20"
-                    : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:text-gray-900"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+            {CATEGORIES.map((cat) => {
+              const count =
+                cat.value === "all"
+                  ? ARTICLES.length
+                  : ARTICLES.filter((a) => a.category === cat.value).length;
+              return (
+                <button
+                  key={cat.value}
+                  onClick={() => setActiveCategory(cat.value)}
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${
+                    activeCategory === cat.value
+                      ? "bg-[#F03D3D] text-white shadow-md shadow-red-500/20"
+                      : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:text-gray-900"
+                  }`}
+                >
+                  {cat.label}
+                  <span
+                    className={`ml-1.5 text-xs ${
+                      activeCategory === cat.value
+                        ? "text-white/70"
+                        : "text-gray-400"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Articles */}

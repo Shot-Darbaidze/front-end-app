@@ -222,7 +222,7 @@ export const TechnicalQuestionsSimulation = ({
           </div>
 
           <TechnicalQuestionIllustration
-            imageKey={currentQuestion.imageKey}
+            questionId={currentQuestion.id}
             title={currentQuestion.imageTitle}
             hint={currentQuestion.imageHint}
             revealTarget={answerVisible}

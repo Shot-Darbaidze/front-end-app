@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CITIES, getCityRoutes, type City } from "./routeData";
 import {
   CheckCircle2,
@@ -13,15 +14,27 @@ import {
 import { useCityExamProgress } from "../mastery/useCityExamMastery";
 
 export const RouteVideos = () => {
+  const searchParams = useSearchParams();
+  const routeParam = searchParams.get("route");
   const { progressState, setSelectedCityId, toggleRouteCompleted } =
     useCityExamProgress();
   const selectedCity =
     CITIES.find((city) => city.id === progressState.selectedCityId) ?? CITIES[0];
+  const cityRoutes = getCityRoutes(selectedCity);
+  const routeFromParam = routeParam
+    ? cityRoutes.find((r) => r.routeNumber === Number(routeParam))
+    : null;
   const [activeVideo, setActiveVideo] = useState<string | null>(
-    selectedCity.videos[0]?.youtubeId ?? null
+    routeFromParam?.video?.youtubeId ?? selectedCity.videos[0]?.youtubeId ?? null
   );
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const cityRoutes = getCityRoutes(selectedCity);
+  const routeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (routeFromParam && routeRef.current) {
+      routeRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [routeFromParam]);
   const completedRouteNumbers = (
     progressState.routes[selectedCity.id]?.completedRouteNumbers ?? []
   ).filter((routeNumber) => selectedCity.routeNumbers.includes(routeNumber));
@@ -186,6 +199,7 @@ export const RouteVideos = () => {
           return (
             <div
               key={`${selectedCity.id}-${route.routeNumber}`}
+              ref={routeFromParam?.routeNumber === route.routeNumber ? routeRef : undefined}
               className={`rounded-2xl border p-4 transition-all ${
                 isActive
                   ? "border-[#F03D3D] bg-red-50/40"

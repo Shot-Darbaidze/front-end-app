@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import Link from "next/link";
-import { CheckCircle2, ChevronRight, MapPin, Route, Target, Trophy } from "lucide-react";
+import { CheckCircle2, ChevronRight, Route, Target, Trophy } from "lucide-react";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { useCityExamProgress } from "../mastery/useCityExamMastery";
 import { getCityRoutes, CITIES } from "../routes/routeData";
@@ -172,7 +172,7 @@ export const CityExamProgressDashboard = () => {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">
-                დარჩენილი სიმულაციები
+                სიმულაციები
               </p>
               <h3 className="text-xl font-bold text-gray-900 mt-2">
                 {remainingSimulations.length === 0
@@ -191,21 +191,35 @@ export const CityExamProgressDashboard = () => {
           </div>
 
           <div className="mt-5 space-y-3">
-            {remainingSimulations.length === 0 ? (
-              <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
-                სიმულაციების ნაწილი დასრულებულია.
-              </div>
-            ) : (
-              remainingSimulations.map((simulation) => (
-                <div
+            {CITY_EXAM_SIMULATIONS.map((simulation) => {
+              const isCompleted = (progressState.simulations[simulation.id]?.completions ?? 0) > 0;
+
+              return (
+                <Link
                   key={simulation.id}
-                  className="rounded-xl border border-gray-200 px-4 py-3"
+                  href={localeHref(`/city-exam/simulations?sim=${simulation.id}`)}
+                  className={`rounded-xl border px-4 py-3 flex items-center justify-between gap-4 transition-colors ${
+                    isCompleted
+                      ? "border-green-200 bg-green-50 hover:bg-green-100"
+                      : "border-gray-200 hover:bg-gray-50"
+                  }`}
                 >
-                  <p className="font-semibold text-gray-900">{simulation.title}</p>
-                  <p className="text-sm text-gray-500 mt-1">{simulation.summary}</p>
-                </div>
-              ))
-            )}
+                  <div>
+                    <p className={`font-semibold ${isCompleted ? "text-green-800" : "text-gray-900"}`}>
+                      {simulation.title}
+                    </p>
+                    <p className={`text-sm mt-1 ${isCompleted ? "text-green-600" : "text-gray-500"}`}>
+                      {simulation.summary}
+                    </p>
+                  </div>
+                  {isCompleted ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </div>
 
@@ -213,7 +227,7 @@ export const CityExamProgressDashboard = () => {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">
-                დარჩენილი მარშრუტები
+                მარშრუტები
               </p>
               <h3 className="text-xl font-bold text-gray-900 mt-2">
                 {remainingRoutes.length === 0
@@ -232,29 +246,36 @@ export const CityExamProgressDashboard = () => {
           </div>
 
           <div className="mt-5 space-y-3">
-            {remainingRoutes.length === 0 ? (
-              <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
-                არჩეული ქალაქის ყველა მარშრუტი დასრულებულია.
-              </div>
-            ) : (
-              remainingRoutes.map((route) => (
-                <div
+            {cityRoutes.map((route) => {
+              const isCompleted = completedRouteNumbers.includes(route.routeNumber);
+
+              return (
+                <Link
                   key={`${selectedCity.id}-${route.routeNumber}`}
-                  className="rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between gap-4"
+                  href={localeHref(`/city-exam/routes?route=${route.routeNumber}`)}
+                  className={`rounded-xl border px-4 py-3 flex items-center justify-between gap-4 transition-colors ${
+                    isCompleted
+                      ? "border-green-200 bg-green-50 hover:bg-green-100"
+                      : "border-gray-200 hover:bg-gray-50"
+                  }`}
                 >
                   <div>
-                    <p className="font-semibold text-gray-900">
+                    <p className={`font-semibold ${isCompleted ? "text-green-800" : "text-gray-900"}`}>
                       მარშრუტი {route.routeNumber}
                     </p>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className={`text-sm mt-1 ${isCompleted ? "text-green-600" : "text-gray-500"}`}>
                       {route.video ? "ვიდეო ხელმისაწვდომია" : "ვიდეო ჯერ არ არის დამატებული"}
                     </p>
                   </div>
 
-                  <MapPin className="w-5 h-5 text-gray-400 shrink-0" />
-                </div>
-              ))
-            )}
+                  {isCompleted ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </div>
       </div>
