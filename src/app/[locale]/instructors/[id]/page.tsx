@@ -70,7 +70,6 @@ export default async function InstructorProfilePage({ params }: { params: Promis
 
   const name = buildInstructorName(post.applicant_first_name, post.applicant_last_name, post.title || "Instructor");
   const cityLocation = extractCityName(post.located_at);
-  const applicantAddress = (post.applicant_address || post.address || "").trim();
   const vehicles = buildVehicleInfo(post.vehicle_brand, post.vehicle_year);
   const languages = formatLanguages(post.language_skills);
   const vehiclePhotos = assets.map((asset) => asset.url);
@@ -114,7 +113,6 @@ export default async function InstructorProfilePage({ params }: { params: Promis
             />
             <LocationCard
               location={cityLocation}
-              applicantAddress={applicantAddress}
               googleMapsUrl={post.google_maps_url}
             />
           </div>
