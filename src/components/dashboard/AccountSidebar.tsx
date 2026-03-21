@@ -10,6 +10,7 @@ import {
   Bell,
   Settings,
   CalendarDays,
+  Wallet,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
@@ -25,7 +26,7 @@ const AccountSidebar: React.FC<AccountSidebarProps> = ({ isInstructor = false })
   const router = useRouter();
   const pathname = usePathname();
   const localeHref = useLocaleHref();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const displayName = clerkUser
     ? clerkUser.fullName || `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim()
@@ -42,7 +43,9 @@ const AccountSidebar: React.FC<AccountSidebarProps> = ({ isInstructor = false })
 
   const instructorNav = [
     { icon: LayoutDashboard, label: t("dashboard.nav.overview"), href: "/dashboard" },
+    { icon: Calendar, label: t("dashboard.nav.myLessons"), href: "/dashboard/lessons" },
     { icon: CalendarDays, label: t("dashboard.nav.schedule"), href: "/dashboard/schedule" },
+    { icon: Wallet, label: language === "ka" ? "ფინანსები" : "Finances", href: "/dashboard/finances" },
     { icon: Bell, label: t("dashboard.nav.notifications"), href: "/dashboard/notifications" },
     { icon: Settings, label: t("dashboard.nav.settings"), href: "/dashboard/settings" },
   ];

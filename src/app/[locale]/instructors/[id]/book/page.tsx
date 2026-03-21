@@ -27,6 +27,8 @@ interface InstructorPost {
   automatic_city_price?: number | null;
   manual_city_price?: number | null;
   located_at?: string | null;
+  applicant_address?: string | null;
+  address?: string | null;
   google_maps_url?: string | null;
 }
 
@@ -35,6 +37,43 @@ type SelectedSlot = {
   date: string;
   time: string;
   duration_minutes: number;
+};
+
+const extractGoogleMapsHref = (value?: string | null): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  const iframeMatch = trimmed.match(/src\s*=\s*(["'])(.*?)\1/i);
+  const rawUrl = iframeMatch?.[2]?.trim() || trimmed;
+  if (!/^https?:\/\//i.test(rawUrl)) return null;
+
+  try {
+    const url = new URL(rawUrl);
+    const host = url.hostname.toLowerCase();
+    const isGoogleMaps =
+      host.includes("maps.google.") ||
+      host.endsWith("google.com") ||
+      host.endsWith("google.ge") ||
+      host.endsWith("maps.app.goo.gl") ||
+      host.endsWith("goo.gl");
+
+    if (!isGoogleMaps) {
+      return rawUrl;
+    }
+
+    const q = url.searchParams.get("q") || url.searchParams.get("query") || "";
+    if (q) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+    }
+
+    if (url.searchParams.get("output") === "embed") {
+      url.searchParams.delete("output");
+      return url.toString();
+    }
+
+    return rawUrl;
+  } catch {
+    return rawUrl;
+  }
 };
 
 // ── Module-level cache so data survives language-switch remounts ────
@@ -60,6 +99,14 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
   const [booking, setBooking] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
 
+  // Phone requirement gate before reservation
+  const [userPhone, setUserPhone] = useState<string>("");
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneConfirmed, setPhoneConfirmed] = useState(false);
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
   // Reservation (temporary hold) state
   const [reserving, setReserving] = useState(false);
   const [reservedUntilUtc, setReservedUntilUtc] = useState<string | null>(null);
@@ -75,6 +122,9 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
   const price = instructor
     ? pickFirstValidPrice([instructor.automatic_city_price, instructor.manual_city_price]) ?? 0
     : 0;
+
+  const normalizePhone = (value: string) => value.replace(/\D/g, "");
+  const hasPhone = normalizePhone(userPhone).length > 0;
 
   // Fetch data on mount — with module-level cache to survive locale switches
   const initialMonthSet = useRef(false);
@@ -188,6 +238,32 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
     checkExistingReservation();
   }, [isSignedIn, id, getToken, step]);
 
+  useEffect(() => {
+    if (!isSignedIn) {
+      setUserPhone("");
+      return;
+    }
+
+    const loadPhone = async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const res = await fetch(`${baseUrl}/api/users/me/phone`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setUserPhone((data.mobile_number as string) || "");
+      } catch {
+        // Non-blocking: user can still add phone in the modal on reservation.
+      }
+    };
+
+    loadPhone();
+  }, [isSignedIn, getToken]);
+
   // ── Countdown timer for reservation hold ──────────────────────────
   useEffect(() => {
     if (!reservedUntilUtc) return;
@@ -234,7 +310,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
   // after 10 minutes if never confirmed.
 
   // ── Reserve slots when moving to Step 2 ───────────────────────────
-  const handleContinueToConfirm = async () => {
+  const reserveSelectedSlots = async () => {
     if (!isSignedIn) {
       router.push(`/sign-in?redirect=/instructors/${id}/book`);
       return;
@@ -280,6 +356,86 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
       setBookingError(err instanceof Error ? err.message : "Reservation failed");
     } finally {
       setReserving(false);
+    }
+  };
+
+  const handleContinueToConfirm = async () => {
+    if (!isSignedIn) {
+      router.push(`/sign-in?redirect=/instructors/${id}/book`);
+      return;
+    }
+
+    if (!hasPhone) {
+      setBookingError(language === "ka"
+        ? "რეზერვაციამდე აუცილებელია ტელეფონის ნომრის დამატება."
+        : "You need to add a phone number before reservation.");
+      setPhoneInput(userPhone || "");
+      setPhoneConfirmed(false);
+      setPhoneError(null);
+      setShowPhoneModal(true);
+      return;
+    }
+
+    await reserveSelectedSlots();
+  };
+
+  const handleSavePhoneAndContinue = async () => {
+    const digits = normalizePhone(phoneInput);
+
+    if (!(digits.length === 9 && digits.startsWith("5"))) {
+      setPhoneError(
+        language === "ka"
+          ? "შეიყვანეთ სწორი ქართული ნომერი (მაგ: 555123456)"
+          : "Enter a valid Georgian phone number (e.g. 555123456)"
+      );
+      return;
+    }
+
+    if (!phoneConfirmed) {
+      setPhoneError(
+        language === "ka"
+          ? "გთხოვთ მონიშნოთ, რომ ნომერი სწორია"
+          : "Please confirm your number is correct"
+      );
+      return;
+    }
+
+    setPhoneSaving(true);
+    setPhoneError(null);
+
+    try {
+      const token = await getToken();
+      if (!token) {
+        setPhoneError(language === "ka" ? "აუტორიზაცია ვერ მოიძებნა" : "Not authenticated");
+        return;
+      }
+
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${baseUrl}/api/users/me/phone`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mobile_number: digits,
+          confirmed: true,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Failed to save phone" }));
+        throw new Error(err.detail || "Failed to save phone");
+      }
+
+      setUserPhone(digits);
+      setShowPhoneModal(false);
+      setBookingError(null);
+      await reserveSelectedSlots();
+    } catch (err) {
+      setPhoneError(err instanceof Error ? err.message : "Failed to save phone");
+    } finally {
+      setPhoneSaving(false);
     }
   };
 
@@ -964,21 +1120,32 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{instructorName}</span>
                     </div>
-                    {instructor?.located_at && (
+                    {(instructor?.applicant_address || instructor?.address || instructor?.located_at) && (
                       <div className="flex items-start gap-1.5 text-sm text-gray-500">
                         <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5 text-gray-400" />
-                        {instructor.google_maps_url ? (
-                          <a
-                            href={instructor.google_maps_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:text-[#F03D3D] transition-colors underline underline-offset-2"
-                          >
-                            {extractCityName(instructor.located_at)}
-                          </a>
-                        ) : (
-                          <span>{extractCityName(instructor.located_at)}</span>
-                        )}
+                        {(() => {
+                          const addressText = (instructor.applicant_address || instructor.address || "").trim();
+                          const cityText = extractCityName(instructor.located_at);
+                          const showCity = Boolean(cityText) && cityText.toLowerCase() !== addressText.toLowerCase();
+                          const locationText = addressText || cityText;
+
+                          return extractGoogleMapsHref(instructor.google_maps_url) ? (
+                            <a
+                              href={extractGoogleMapsHref(instructor.google_maps_url) || "#"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:text-[#F03D3D] transition-colors underline underline-offset-2"
+                            >
+                              {locationText}
+                              {showCity ? ` (${cityText})` : ""}
+                            </a>
+                          ) : (
+                            <span>
+                              {locationText}
+                              {showCity ? ` (${cityText})` : ""}
+                            </span>
+                          );
+                        })()}
                       </div>
                     )}
                     <div className="flex justify-between text-sm">
@@ -1011,6 +1178,68 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
         )}
 
       </div>
+
+      {showPhoneModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowPhoneModal(false)}
+          />
+          <div className="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              {language === "ka" ? "ტელეფონის ნომერი საჭიროა" : "Phone number required"}
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {language === "ka"
+                ? "რეზერვაციამდე დაამატეთ ტელეფონის ნომერი და დაადასტურეთ, რომ სწორია."
+                : "Before reservation, add your phone number and confirm it is correct."}
+            </p>
+
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {language === "ka" ? "ტელეფონის ნომერი" : "Phone number"}
+            </label>
+            <input
+              value={phoneInput}
+              onChange={(e) => setPhoneInput(e.target.value)}
+              placeholder={language === "ka" ? "მაგ: 555123456" : "e.g. 555123456"}
+              className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/30 focus:border-[#F03D3D]"
+            />
+
+            <label className="mt-4 flex items-start gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={phoneConfirmed}
+                onChange={(e) => setPhoneConfirmed(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                {language === "ka" ? "ვადასტურებ, რომ ეს ნომერი სწორია" : "I confirm this phone number is correct"}
+              </span>
+            </label>
+
+            {phoneError && (
+              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {phoneError}
+              </div>
+            )}
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowPhoneModal(false)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                disabled={phoneSaving}
+              >
+                {language === "ka" ? "გაუქმება" : "Cancel"}
+              </button>
+              <Button onClick={handleSavePhoneAndContinue} disabled={phoneSaving}>
+                {phoneSaving
+                  ? (language === "ka" ? "ინახება..." : "Saving...")
+                  : (language === "ka" ? "შენახვა და გაგრძელება" : "Save and continue")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

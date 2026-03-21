@@ -13,6 +13,8 @@ interface UpcomingLessonCardProps {
     lessonCode?: string;
     isLoadingCode: boolean;
     minCancelHours: number;
+    isInstructor: boolean;
+    isHighlighted?: boolean;
 }
 
 const UpcomingLessonCard = memo(function UpcomingLessonCard({
@@ -20,6 +22,8 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
     onCancelClick,
     canCancel,
     minCancelHours,
+    isInstructor,
+    isHighlighted = false,
 }: UpcomingLessonCardProps) {
     const localeHref = useLocaleHref();
     const startDate = new Date(lesson.start_time_utc);
@@ -28,7 +32,19 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
     });
 
     return (
-        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 group">
+        <div
+            id={`lesson-card-${lesson.id}`}
+            className={`bg-white p-4 sm:p-6 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 group ${
+                isHighlighted
+                    ? "border-amber-300 ring-2 ring-amber-200 bg-amber-50/50"
+                    : "border-gray-100"
+            }`}
+        >
+            {isHighlighted && (
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-amber-100 text-amber-800 px-3 py-1 text-[11px] font-bold">
+                    From notification
+                </div>
+            )}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 
                 {/* Left: image + info */}
@@ -36,7 +52,7 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
                     {lesson.instructor_image ? (
                         <img 
                             src={lesson.instructor_image} 
-                            alt={lesson.instructor_name || "Instructor"}
+                            alt={lesson.instructor_name || (isInstructor ? "Student" : "Instructor")}
                             className="w-10 h-10 rounded-full object-cover shrink-0"
                         />
                     ) : (
@@ -45,13 +61,15 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
                         </div>
                     )}
                     <div>
-                        <h3 className="font-bold text-gray-900 text-sm sm:text-base">{lesson.instructor_name || "Instructor"}</h3>
-                        <Link
-                            href={localeHref(`/instructors/${lesson.post_id}`)}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#F03D3D] hover:text-red-700 hover:underline mt-0.5"
-                        >
-                            View Instructor <ExternalLink className="w-3 h-3" />
-                        </Link>
+                        <h3 className="font-bold text-gray-900 text-sm sm:text-base">{lesson.instructor_name || (isInstructor ? "Student" : "Instructor")}</h3>
+                        {!isInstructor && (
+                            <Link
+                                href={localeHref(`/instructors/${lesson.post_id}`)}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-[#F03D3D] hover:text-red-700 hover:underline mt-0.5"
+                            >
+                                View Instructor <ExternalLink className="w-3 h-3" />
+                            </Link>
+                        )}
                     </div>
                 </div>
 
@@ -98,6 +116,8 @@ interface UpcomingLessonsProps {
     lessonCodes: Record<string, string>;
     isLoadingCodes: boolean;
     minCancelHours: number;
+    isInstructor: boolean;
+    highlightedBookingId?: string | null;
 }
 
 export const UpcomingLessons = memo(function UpcomingLessons({
@@ -107,6 +127,8 @@ export const UpcomingLessons = memo(function UpcomingLessons({
     lessonCodes,
     isLoadingCodes,
     minCancelHours,
+    isInstructor,
+    highlightedBookingId,
 }: UpcomingLessonsProps) {
     if (lessons.length === 0) {
         return (
@@ -155,6 +177,8 @@ export const UpcomingLessons = memo(function UpcomingLessons({
                                     lessonCode={lessonCodes[lesson.id]}
                                     isLoadingCode={isLoadingCodes}
                                     minCancelHours={minCancelHours}
+                                    isInstructor={isInstructor}
+                                    isHighlighted={highlightedBookingId === lesson.id}
                                 />
                             ))}
                         </div>

@@ -129,8 +129,12 @@ const Footer = () => {
             © {currentYear} Instruktori Inc. All rights reserved.
           </p>
           <div className="flex gap-6 text-sm text-gray-500">
-            <span>Privacy Policy</span>
-            <span>Terms of Service</span>
+            <Link href={localeHref("/privacy-policy")} className="hover:text-white transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href={localeHref("/terms-of-service")} className="hover:text-white transition-colors">
+              Terms of Service
+            </Link>
           </div>
         </div>
       </div>

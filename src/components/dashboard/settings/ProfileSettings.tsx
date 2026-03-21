@@ -5,10 +5,11 @@ import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import Button from "@/components/ui/Button";
 import Link from "next/link";
 import { UPLOAD_LIMITS } from "@/config/constants";
-import { Camera, Trash2, Expand } from "lucide-react";
+import { Camera, Trash2, Expand, CheckCircle } from "lucide-react";
 import { API_CONFIG } from "@/config/constants";
 import ImageLightbox from "@/components/ui/ImageLightbox";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 import {
     InstructorPost, InstructorAsset, InstructorProfileForm,
     emptyInstructorForm, mapPostToForm, buildUpdatePayload,
@@ -52,6 +53,41 @@ function clearSettingsCache() {
     sessionStorage.removeItem(ASSETS_CACHE_KEY);
 }
 
+async function extractApiErrorMessage(res: Response, fallback: string): Promise<string> {
+    let raw = "";
+    try {
+        raw = await res.text();
+    } catch {
+        return fallback;
+    }
+
+    const trimmed = raw.trim();
+    if (!trimmed) return fallback;
+
+    try {
+        const payload = JSON.parse(trimmed);
+        if (typeof payload?.detail === "string" && payload.detail.trim()) {
+            return payload.detail;
+        }
+        if (typeof payload?.error === "string" && payload.error.trim()) {
+            return payload.error;
+        }
+        if (Array.isArray(payload?.detail)) {
+            const first = payload.detail[0];
+            if (typeof first === "string" && first.trim()) return first;
+            if (typeof first?.msg === "string" && first.msg.trim()) return first.msg;
+        }
+        if (typeof payload?.message === "string" && payload.message.trim()) {
+            return payload.message;
+        }
+    } catch {
+        // Non-JSON response; return raw text body.
+        return trimmed;
+    }
+
+    return trimmed || fallback;
+}
+
 interface InputFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
     label: string;
 }
@@ -75,14 +111,36 @@ function validatePhone(value: string): string | null {
     return "Enter a valid Georgian phone number (e.g. 555 123 456)";
 }
 
-function StudentProfileSettings({ user }: { user: ClerkUser }) {
+function StudentProfileSettings({ user, getToken }: { user: ClerkUser; getToken: () => Promise<string | null> }) {
     const { t } = useLanguage();
-    const [phone, setPhone] = useState<string>(
-        (user?.unsafeMetadata?.phone as string) || ""
-    );
+    const [phone, setPhone] = useState<string>("");
     const [phoneError, setPhoneError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        const loadPhone = async () => {
+            if (!user) return;
+            try {
+                const token = await getToken();
+                if (!token) return;
+                const res = await fetch(`${API_CONFIG.BASE_URL}/api/users/me/phone`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    cache: "no-store",
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (isMounted) {
+                    setPhone((data.mobile_number as string) || "");
+                }
+            } catch {
+                // silent
+            }
+        };
+        loadPhone();
+        return () => { isMounted = false; };
+    }, [getToken, user]);
 
     const handlePhoneChange = (value: string) => {
         setPhone(value);
@@ -94,12 +152,40 @@ function StudentProfileSettings({ user }: { user: ClerkUser }) {
         if (!user) return;
         const err = validatePhone(phone);
         if (err) { setPhoneError(err); return; }
+        if (!phone.trim()) {
+            setPhoneError(t("booking.phoneRequired") || "Phone number is required");
+            return;
+        }
         setIsSaving(true);
         setSuccessMessage(null);
         try {
-            await user.update({ unsafeMetadata: { ...user.unsafeMetadata, phone } });
+            const token = await getToken();
+            if (!token) {
+                setPhoneError("Not authenticated");
+                return;
+            }
+
+            const digits = phone.replace(/\D/g, "");
+            const res = await fetch(`${API_CONFIG.BASE_URL}/api/users/me/phone`, {
+                method: "PUT",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ mobile_number: digits, confirmed: true }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({ detail: "Failed to update phone" }));
+                throw new Error(data.detail || "Failed to update phone");
+            }
+
+            const updated = await res.json();
+            setPhone((updated.mobile_number as string) || digits);
             setSuccessMessage(t("settings.profile.profileUpdated"));
-        } catch { /* silent */ } finally {
+        } catch (e) {
+            setPhoneError(e instanceof Error ? e.message : "Failed to update phone");
+        } finally {
             setIsSaving(false);
         }
     };
@@ -144,7 +230,14 @@ function StudentProfileSettings({ user }: { user: ClerkUser }) {
                     </div>
                 </div>
                 <p className="text-xs text-gray-400 mt-4">{t("settings.profile.emailSecurityNote")}</p>
-                {successMessage && <p className="text-sm text-green-700 font-semibold mt-4">{successMessage}</p>}
+                {successMessage && (
+                    <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
+                        <div className="p-2 bg-green-100 rounded-full shrink-0">
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                        </div>
+                        <p className="text-sm font-medium text-green-800">{successMessage}</p>
+                    </div>
+                )}
                 <div className="mt-6 flex justify-end">
                     <Button disabled={isSaving} onClick={handleSave}>{t("settings.profile.saveChanges")}</Button>
                 </div>
@@ -155,16 +248,21 @@ function StudentProfileSettings({ user }: { user: ClerkUser }) {
 
 export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isInstructor: boolean }) {
     const { getToken } = useClerkAuth();
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    const localeHref = useLocaleHref();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isStatusSaving, setIsStatusSaving] = useState(false);
     const [isAssetLoading, setIsAssetLoading] = useState(false);
     const [isAssetUploading, setIsAssetUploading] = useState(false);
     const [instructorPost, setInstructorPost] = useState<InstructorPost | null>(null);
     const [formData, setFormData] = useState<InstructorProfileForm>(emptyInstructorForm);
     const [vehiclePhotos, setVehiclePhotos] = useState<InstructorAsset[]>([]);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [formError, setFormError] = useState<string | null>(null);
+    const [statusError, setStatusError] = useState<string | null>(null);
+    const [assetError, setAssetError] = useState<string | null>(null);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const [showOtherLanguages, setShowOtherLanguages] = useState(false);
@@ -174,6 +272,7 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
     const transmission = normalizeTransmission(instructorPost?.transmission);
     const showAutomaticPrices = !transmission || transmission === "automatic" || transmission === "auto";
     const showManualPrices = !transmission || transmission === "manual";
+    const isSearchVisible = formData.status === "active";
 
     useEffect(() => {
         let isMounted = true;
@@ -244,44 +343,152 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
     const handleSave = async () => {
         if (!instructorPost || !isEditable) return;
         setIsSaving(true);
+        setFormError(null);
+        setSuccessMessage(null);
         try {
             const token = await getToken();
-            if (!token) return;
+            if (!token) {
+                setFormError(language === "ka" ? "ავტორიზაცია ვერ დადასტურდა." : "Authentication failed.");
+                return;
+            }
             const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/${instructorPost.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify(buildUpdatePayload(formData)),
             });
-            if (!res.ok) throw new Error("Failed to save");
+            if (!res.ok) {
+                const message = await extractApiErrorMessage(
+                    res,
+                    language === "ka" ? "შენახვა ვერ მოხერხდა." : "Failed to save."
+                );
+                throw new Error(message);
+            }
             const updated: InstructorPost = await res.json();
             clearSettingsCache();
             setCache(PROFILE_CACHE_KEY, updated);
             setInstructorPost(updated);
             setFormData(mapPostToForm(updated));
-            setSuccessMessage(t("settings.profile.profileUpdated"));
-        } catch { /* silent */ } finally { setIsSaving(false); }
+            setSuccessMessage(language === "ka" ? "ცვლილებები წარმატებით შეინახა." : "Changes saved successfully.");
+        } catch (error) {
+            setFormError(error instanceof Error ? error.message : (language === "ka" ? "შენახვა ვერ მოხერხდა." : "Failed to save changes."));
+        } finally { setIsSaving(false); }
+    };
+
+    const handleStatusToggle = async () => {
+        if (!instructorPost || !isEditable || isStatusSaving) return;
+
+        const nextStatus: InstructorProfileForm["status"] = formData.status === "active" ? "inactive" : "active";
+        const prevStatus: InstructorProfileForm["status"] = formData.status;
+
+        setFormData((prev) => ({ ...prev, status: nextStatus }));
+        setIsStatusSaving(true);
+        setStatusError(null);
+        setFormError(null);
+        setSuccessMessage(null);
+
+        try {
+            const token = await getToken();
+            if (!token) {
+                throw new Error(language === "ka" ? "ავტორიზაცია ვერ დადასტურდა." : "Authentication failed.");
+            }
+
+            const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/${instructorPost.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ status: nextStatus }),
+            });
+
+            if (!res.ok) {
+                const message = await extractApiErrorMessage(
+                    res,
+                    language === "ka" ? "სტატუსის განახლება ვერ მოხერხდა." : "Failed to update status."
+                );
+                throw new Error(message);
+            }
+
+            const updated: InstructorPost = await res.json();
+            clearSettingsCache();
+            setCache(PROFILE_CACHE_KEY, updated);
+            setInstructorPost(updated);
+            setFormData((prev) => ({ ...prev, status: mapPostToForm(updated).status }));
+            setSuccessMessage(
+                language === "ka"
+                    ? "პროფილის აქტივაციის სტატუსი განახლდა."
+                    : "Profile activation status updated."
+            );
+        } catch (error) {
+            setFormData((prev) => ({ ...prev, status: prevStatus }));
+            const message = error instanceof Error
+                ? error.message
+                : (language === "ka" ? "სტატუსის განახლება ვერ მოხერხდა." : "Failed to update status.");
+            setStatusError(message);
+            setFormError(message);
+        } finally {
+            setIsStatusSaving(false);
+        }
     };
 
     const handleDiscard = () => {
         if (!instructorPost) return;
         setFormData(mapPostToForm(instructorPost));
         setSuccessMessage(null);
+        setFormError(null);
     };
 
     const MAX_VEHICLE_PHOTOS = UPLOAD_LIMITS.MAX_VEHICLE_PHOTOS;
     const MAX_FILE_SIZE_BYTES = UPLOAD_LIMITS.MAX_FILE_SIZE_BYTES;
     const isAtPhotoLimit = vehiclePhotos.length >= MAX_VEHICLE_PHOTOS;
 
+    const placeholders = language === "ka"
+        ? {
+            title: "მაგ: Nova Drive აკადემია",
+            locatedAt: "მაგ: თბილისი, ვაკე",
+            mapsUrl: "https://maps.google.com/...",
+            cityPrice: "მაგ: 45",
+            yardPrice: "მაგ: 35",
+            firstName: "მაგ: გიორგი",
+            lastName: "მაგ: ბერიძე",
+            phone: "555 123 456",
+            city: "მაგ: თბილისი",
+            description: "მოკლედ აღწერეთ სწავლების სტილი, გამოცდილება და რას მიიღებს მოსწავლე თქვენს გაკვეთილებზე.",
+            address: "მაგ: ჭავჭავაძის გამზირი 12, თბილისი",
+        }
+        : {
+            title: "e.g. Nova Drive Academy",
+            locatedAt: "e.g. Tbilisi, Vake",
+            mapsUrl: "https://maps.google.com/...",
+            cityPrice: "e.g. 45",
+            yardPrice: "e.g. 35",
+            firstName: "e.g. Giorgi",
+            lastName: "e.g. Beridze",
+            phone: "555 123 456",
+            city: "e.g. Tbilisi",
+            description: "Briefly describe your teaching style, experience, and what students can expect from your lessons.",
+            address: "e.g. Chavchavadze Ave. 12, Tbilisi",
+        };
+
     const handleUploadVehiclePhotos = async (files: FileList | null) => {
         if (!files || !isEditable) return;
+        setAssetError(null);
         const remaining = MAX_VEHICLE_PHOTOS - vehiclePhotos.length;
         if (remaining <= 0) {
             setSuccessMessage(null);
+            setAssetError(`Maximum ${MAX_VEHICLE_PHOTOS} photos allowed.`);
             return;
         }
-        const validFiles = Array.from(files)
-            .filter((f) => f.size <= MAX_FILE_SIZE_BYTES)
-            .slice(0, remaining);
+        const selectedFiles = Array.from(files);
+        const oversizedFiles = selectedFiles.filter((f) => f.size > MAX_FILE_SIZE_BYTES);
+        const sizeAcceptedFiles = selectedFiles.filter((f) => f.size <= MAX_FILE_SIZE_BYTES);
+
+        if (oversizedFiles.length > 0) {
+            setAssetError(`Some files were skipped because they exceed ${UPLOAD_LIMITS.MAX_FILE_SIZE_MB}MB.`);
+        }
+
+        if (sizeAcceptedFiles.length > remaining) {
+            setAssetError(`You can only upload ${remaining} more photo(s).`);
+        }
+
+        const validFiles = sizeAcceptedFiles.slice(0, remaining);
         if (validFiles.length === 0) return;
         setIsAssetUploading(true);
         try {
@@ -291,7 +498,10 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
             data.append("asset_type", "vehicle_photos");
             validFiles.forEach((f) => data.append("files", f));
             const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine/assets`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: data });
-            if (!res.ok) throw new Error("Upload failed");
+            if (!res.ok) {
+                const payload = await res.json().catch(() => ({ detail: "Upload failed" }));
+                throw new Error(payload.detail || "Upload failed");
+            }
             const uploaded: InstructorAsset[] = await res.json();
             setVehiclePhotos((prev) => {
                 const next = [...uploaded, ...prev];
@@ -299,7 +509,9 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                 return next;
             });
             setSuccessMessage(t("settings.profile.photosUpdated"));
-        } catch { /* silent */ } finally {
+        } catch (error) {
+            setAssetError(error instanceof Error ? error.message : "Upload failed");
+        } finally {
             setIsAssetUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = "";
         }
@@ -307,6 +519,7 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
 
     const handleRemoveVehiclePhoto = async (assetId: string) => {
         if (!isEditable) return;
+        setAssetError(null);
         try {
             const token = await getToken();
             if (!token) return;
@@ -318,12 +531,14 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                 return next;
             });
             setSuccessMessage(t("settings.profile.photoRemoved"));
-        } catch { /* silent */ }
+        } catch (error) {
+            setAssetError(error instanceof Error ? error.message : "Failed to remove photo");
+        }
     };
 
     // ── Student view ──────────────────────────────────────────────────────────
     if (!isInstructor) {
-        return <StudentProfileSettings user={user} />;
+        return <StudentProfileSettings user={user} getToken={getToken} />;
     }
 
     // ── Instructor view ───────────────────────────────────────────────────────
@@ -346,21 +561,83 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                 </div>
             </div>
 
+            <div className="rounded-2xl border border-[#F03D3D]/10 bg-gradient-to-r from-[#fff7f7] to-[#fff] p-4 sm:p-5">
+                <p className="text-sm font-semibold text-gray-900">{language === "ka" ? "პროფილის ხარისხი" : "Profile quality"}</p>
+                <p className="text-sm text-gray-600 mt-1">
+                    {language === "ka"
+                        ? "გამოიყენეთ მკაფიო სათაური (მაგ: ავტოსკოლის სახელი), განაახლეთ ფასები და ატვირთეთ მაღალი ხარისხის ავტომობილის ფოტოები."
+                        : "Use a clear title (for example your autoschool name), keep pricing updated, and upload high-quality vehicle photos."}
+                </p>
+            </div>
+
+            <div className="bg-white p-6 sm:p-7 rounded-3xl border border-gray-100 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h3 className="font-bold text-lg text-gray-900">{language === "ka" ? "პროფილის აქტივაცია" : "Profile Activation"}</h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                            {language === "ka"
+                                ? "ჩართეთ, რომ თქვენი პროფილი გამოჩნდეს ინსტრუქტორების ძიებაში."
+                                : "Turn this on to make your profile visible in instructor search."}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleStatusToggle}
+                        disabled={!isEditable || isStatusSaving}
+                        className={`inline-flex items-center gap-3 rounded-full px-4 py-2.5 text-sm font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+                            isSearchVisible
+                                ? "bg-green-50 text-green-700 border border-green-200"
+                                : "bg-gray-100 text-gray-600 border border-gray-200"
+                        }`}
+                        aria-pressed={isSearchVisible}
+                    >
+                        <span
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                isSearchVisible ? "bg-green-500" : "bg-gray-400"
+                            }`}
+                        >
+                            <span
+                                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                                    isSearchVisible ? "translate-x-5" : "translate-x-1"
+                                }`}
+                            />
+                        </span>
+                        <span>
+                            {isStatusSaving
+                                ? (language === "ka" ? "ინახება..." : "Saving...")
+                                : (isSearchVisible ? (language === "ka" ? "აქტიურია" : "Active") : (language === "ka" ? "არააქტიური" : "Inactive"))}
+                        </span>
+                    </button>
+                </div>
+                    {statusError && (
+                        <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2">
+                            <p className="text-sm font-semibold text-red-700">
+                                {language === "ka" ? "პროფილი ვერ გაითიშა" : "Could not deactivate profile"}
+                            </p>
+                            <p className="text-sm text-red-700/90 mt-0.5">{statusError}</p>
+                        </div>
+                    )}
+            </div>
+
             {/* Availability */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                 <h3 className="font-bold text-lg text-gray-900 mb-2">{t("settings.profile.availability")}</h3>
                 <p className="text-sm text-gray-500 mb-4">{t("settings.profile.availabilityDesc")}</p>
-                <Button asChild><Link href="/dashboard/schedule">{t("settings.profile.openCalendar")}</Link></Button>
+                <Button asChild><Link href={localeHref("/dashboard/schedule")}>{t("settings.profile.openCalendar")}</Link></Button>
             </div>
 
             {/* Personal Info */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                <h3 className="font-bold text-lg text-gray-900 mb-6">{t("settings.profile.personalInfo")}</h3>
+            <div className="bg-white p-6 sm:p-7 rounded-3xl border border-gray-100 shadow-sm">
+                <h3 className="font-bold text-lg text-gray-900">{t("settings.profile.personalInfo")}</h3>
+                <p className="text-sm text-gray-500 mt-1 mb-6">{language === "ka" ? "პროფილის ინფორმაცია გამოჩნდება ინსტრუქტორის გვერდზე." : "These details are displayed on your instructor profile."}</p>
                 {showNotInstructorMessage && <p className="text-sm text-gray-500 mb-6">{t("settings.profile.notInstructor")}</p>}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <InputField label={t("settings.profile.title")} value={formData.title} onChange={(e) => handleTextChange("title")(e.target.value)} disabled={!isEditable} />
-                    <InputField label={t("settings.profile.locatedAt")} value={formData.located_at} onChange={(e) => handleTextChange("located_at")(e.target.value)} disabled={!isEditable} />
-                    <InputField label={t("settings.profile.googleMapsUrl")} value={formData.google_maps_url} onChange={(e) => handleTextChange("google_maps_url")(e.target.value)} disabled={!isEditable} />
+                    <div className="md:col-span-2">
+                        <InputField label={t("settings.profile.title")} placeholder={placeholders.title} value={formData.title} onChange={(e) => handleTextChange("title")(e.target.value)} disabled={!isEditable} />
+                        <p className="text-xs text-gray-500 mt-1">{language === "ka" ? "სათაურში სასურველია მიუთითოთ თქვენი ავტოსკოლის/ბრენდის სახელი." : "Tip: use your autoschool or brand name in the title."}</p>
+                    </div>
+                    <InputField label={t("settings.profile.locatedAt")} placeholder={placeholders.locatedAt} value={formData.located_at} onChange={(e) => handleTextChange("located_at")(e.target.value)} disabled={!isEditable} />
+                    <InputField label={t("settings.profile.googleMapsUrl")} placeholder={placeholders.mapsUrl} value={formData.google_maps_url} onChange={(e) => handleTextChange("google_maps_url")(e.target.value)} disabled={!isEditable} />
                     <div className="md:col-span-2 space-y-2">
                         <label className="text-sm font-medium text-gray-700">{t("settings.profile.languageSkills")}</label>
                         <div className="flex flex-wrap gap-2">
@@ -394,31 +671,45 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                         <p className="text-xs text-gray-500">{t("settings.profile.selected")}: {formatLanguageLabels(formData.language_skills) || t("settings.profile.none")}</p>
                     </div>
                     {showAutomaticPrices && (<>
-                        <InputField label={t("settings.profile.automaticCityPrice")} value={formData.automatic_city_price} onChange={(e) => handleNumericChange("automatic_city_price")(e.target.value)} inputMode="decimal" disabled={!isEditable} />
-                        <InputField label={t("settings.profile.automaticYardPrice")} value={formData.automatic_yard_price} onChange={(e) => handleNumericChange("automatic_yard_price")(e.target.value)} inputMode="decimal" disabled={!isEditable} />
+                        <InputField label={t("settings.profile.automaticCityPrice")} placeholder={placeholders.cityPrice} value={formData.automatic_city_price} onChange={(e) => handleNumericChange("automatic_city_price")(e.target.value)} inputMode="decimal" disabled={!isEditable} />
+                        <InputField label={t("settings.profile.automaticYardPrice")} placeholder={placeholders.yardPrice} value={formData.automatic_yard_price} onChange={(e) => handleNumericChange("automatic_yard_price")(e.target.value)} inputMode="decimal" disabled={!isEditable} />
                     </>)}
                     {showManualPrices && (<>
-                        <InputField label={t("settings.profile.manualCityPrice")} value={formData.manual_city_price} onChange={(e) => handleNumericChange("manual_city_price")(e.target.value)} inputMode="decimal" disabled={!isEditable} />
-                        <InputField label={t("settings.profile.manualYardPrice")} value={formData.manual_yard_price} onChange={(e) => handleNumericChange("manual_yard_price")(e.target.value)} inputMode="decimal" disabled={!isEditable} />
+                        <InputField label={t("settings.profile.manualCityPrice")} placeholder={placeholders.cityPrice} value={formData.manual_city_price} onChange={(e) => handleNumericChange("manual_city_price")(e.target.value)} inputMode="decimal" disabled={!isEditable} />
+                        <InputField label={t("settings.profile.manualYardPrice")} placeholder={placeholders.yardPrice} value={formData.manual_yard_price} onChange={(e) => handleNumericChange("manual_yard_price")(e.target.value)} inputMode="decimal" disabled={!isEditable} />
                     </>)}
-                    <InputField label={t("settings.profile.firstName")} value={formData.applicant_first_name} onChange={(e) => handleTextChange("applicant_first_name")(e.target.value)} disabled={!isEditable} />
-                    <InputField label={t("settings.profile.lastName")} value={formData.applicant_last_name} onChange={(e) => handleTextChange("applicant_last_name")(e.target.value)} disabled={!isEditable} />
-                    <InputField label={t("settings.profile.phone")} type="tel" value={formData.phone} onChange={(e) => handleTextChange("phone")(e.target.value)} disabled={!isEditable} />
-                    <InputField label={t("settings.profile.city")} value={formData.applicant_city} onChange={(e) => handleTextChange("applicant_city")(e.target.value)} disabled={!isEditable} />
+                    <InputField label={t("settings.profile.firstName")} placeholder={placeholders.firstName} value={formData.applicant_first_name} onChange={(e) => handleTextChange("applicant_first_name")(e.target.value)} disabled={!isEditable} />
+                    <InputField label={t("settings.profile.lastName")} placeholder={placeholders.lastName} value={formData.applicant_last_name} onChange={(e) => handleTextChange("applicant_last_name")(e.target.value)} disabled={!isEditable} />
+                    <InputField label={t("settings.profile.phone")} type="tel" placeholder={placeholders.phone} value={formData.phone} onChange={(e) => handleTextChange("phone")(e.target.value)} disabled={!isEditable} />
+                    <InputField label={t("settings.profile.city")} placeholder={placeholders.city} value={formData.applicant_city} onChange={(e) => handleTextChange("applicant_city")(e.target.value)} disabled={!isEditable} />
                     <InputField label={t("settings.profile.dateOfBirth")} type="date" value={formData.applicant_date_of_birth} onChange={(e) => handleTextChange("applicant_date_of_birth")(e.target.value)} disabled={!isEditable} />
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("settings.profile.description")}</label>
                         <textarea className="w-full px-4 py-2.5 bg-gray-50 border-transparent focus:bg-white focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] rounded-xl transition-all outline-none text-sm min-h-[100px] disabled:opacity-60 disabled:cursor-not-allowed"
+                            placeholder={placeholders.description}
                             value={formData.description} onChange={(e) => handleTextChange("description")(e.target.value)} disabled={!isEditable} />
                     </div>
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("settings.profile.address")}</label>
                         <textarea className="w-full px-4 py-2.5 bg-gray-50 border-transparent focus:bg-white focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] rounded-xl transition-all outline-none text-sm min-h-[100px] disabled:opacity-60 disabled:cursor-not-allowed"
+                            placeholder={placeholders.address}
                             value={formData.applicant_address} onChange={(e) => handleTextChange("applicant_address")(e.target.value)} disabled={!isEditable} />
                     </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-4">{t("settings.profile.emailSecurityNote")}</p>
-                {successMessage && <p className="text-sm text-green-700 font-semibold mt-4">{successMessage}</p>}
+                {successMessage && (
+                    <div className="mt-4 p-4 bg-green-50 ring-1 ring-green-500/20 rounded-xl flex items-center gap-3 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-2 bg-green-100 rounded-full shrink-0">
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                        </div>
+                        <p className="text-sm font-medium text-green-900">{successMessage}</p>
+                    </div>
+                )}
+                {formError && (
+                    <div className="mt-4 p-4 bg-red-50 ring-1 ring-red-500/20 rounded-xl flex items-center gap-3 animate-in fade-in zoom-in-95 duration-200">
+                        <p className="text-sm font-medium text-red-900">{formError}</p>
+                    </div>
+                )}
                 <div className="mt-8 flex justify-end gap-3">
                     <Button variant="outline" disabled={!isEditable || isSaving} onClick={handleDiscard}>{t("settings.profile.discardChanges")}</Button>
                     <Button disabled={!isEditable || isSaving} onClick={handleSave}>{t("settings.profile.saveChanges")}</Button>
@@ -426,7 +717,7 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
             </div>
 
             {/* Vehicle Photos */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <div className="bg-white p-6 sm:p-7 rounded-3xl border border-gray-100 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
                     <h3 className="font-bold text-lg text-gray-900">{t("settings.profile.vehiclePhotos")} <span className="text-sm font-normal text-gray-500">({vehiclePhotos.length}/{MAX_VEHICLE_PHOTOS})</span></h3>
                     <div className="flex items-center gap-2">
@@ -434,7 +725,9 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                         <Button size="sm" variant="outline" disabled={!isEditable || isAssetUploading || isAtPhotoLimit} onClick={() => fileInputRef.current?.click()}>{isAtPhotoLimit ? t("settings.profile.limitReached") : t("settings.profile.uploadPhotos")}</Button>
                     </div>
                 </div>
+                <p className="text-xs text-gray-500 mb-3">Max {MAX_VEHICLE_PHOTOS} photos, up to {UPLOAD_LIMITS.MAX_FILE_SIZE_MB}MB each.</p>
                 {showNotInstructorMessage && <p className="text-sm text-gray-500 mb-6">{t("settings.profile.notInstructor")}</p>}
+                {assetError && <p className="text-sm text-red-600 mb-4">{assetError}</p>}
                 {isAssetLoading ? (
                     <p className="text-sm text-gray-500">{t("settings.profile.loadingPhotos")}</p>
                 ) : vehiclePhotos.length === 0 ? (

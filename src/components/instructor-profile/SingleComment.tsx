@@ -38,7 +38,7 @@ export function SingleComment({
     const { t } = useLanguage();
 
     return (
-        <div className={`${depth > 0 ? "ml-4 sm:ml-8 border-l-2 border-slate-100 pl-3 sm:pl-4" : ""}`}>
+        <div id={`comment-${comment.id}`} className={`${depth > 0 ? "ml-4 sm:ml-8 border-l-2 border-slate-100 pl-3 sm:pl-4" : ""}`}>
             <div className="flex gap-3 py-4">
                 {/* Avatar */}
                 <div className="flex-shrink-0">

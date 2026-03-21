@@ -14,7 +14,7 @@ import {
   useUser,
   useClerk
 } from "@clerk/nextjs";
-import { useNotifications } from "@/hooks";
+import { useDashboardNotifications } from "@/hooks/useDashboardNotifications";
 import Button from "@/components/ui/Button";
 import NotificationsDropdown from "@/components/navbar-components/NotificationsDropdown";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -53,14 +53,16 @@ const Navbar = () => {
 
   // Determine user type from Clerk metadata (default to "student")
   const userType = (user?.publicMetadata?.userType as "student" | "instructor") || "student";
-
   const {
     notifications,
     unreadCount,
     markAsRead,
     markAllAsRead,
     removeNotification,
-  } = useNotifications(userType);
+  } = useDashboardNotifications({
+    enabled: mounted && isLoaded && Boolean(user),
+    localeHref,
+  });
 
   // Prevent hydration mismatch by only rendering auth content after mount
   useEffect(() => {

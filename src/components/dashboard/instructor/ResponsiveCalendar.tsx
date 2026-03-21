@@ -3,14 +3,20 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Trash2, X } from "lucide-react";
 
-// Slot status types matching backend
-export type SlotStatus = "available" | "booked" | "cancelled" | "completed" | "pending";
+// Slot status types matching backend plus local UI-only pending state.
+export type SlotStatus = "available" | "reserved" | "booked" | "cancelled" | "completed" | "pending";
 
 export interface SlotData {
   id?: string;
   status: SlotStatus;
   duration_minutes: number;
   mode?: "city" | "yard" | null;
+  student?: {
+    id: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    image_url?: string | null;
+  };
 }
 
 interface ResponsiveCalendarProps {
@@ -26,6 +32,8 @@ interface ResponsiveCalendarProps {
   readOnly?: boolean;
   /** Callback when the current week changes - provides week start date and week days */
   onWeekChange?: (weekStart: Date, weekDays: Date[]) => void;
+  /** Called when instructor clicks a booked slot to cancel the lesson */
+  onBookedSlotCancel?: (slotId: string, slotKey: string) => void;
 }
 
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -68,15 +76,19 @@ const formatTimeRange = (timeString: string, durationMinutes: number): string =>
 
 // Get slot styling based on status
 const getSlotStyles = (status: SlotStatus | undefined, isPast: boolean) => {
-  if (isPast) {
+  // Keep booked/completed visually distinct and clickable even in the past
+  // so instructors can open lesson details.
+  if (isPast && status !== "booked" && status !== "completed") {
     return "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-50";
   }
 
   switch (status) {
     case "available":
       return "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300";
+    case "reserved":
+      return "bg-amber-50 text-amber-700 border border-amber-200 cursor-not-allowed";
     case "booked":
-      return "bg-blue-50 text-blue-700 border border-blue-200 cursor-not-allowed";
+      return "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:border-blue-300";
     case "cancelled":
       return "bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100 hover:border-orange-300";
     case "completed":
@@ -93,12 +105,14 @@ const getStatusLabel = (status: SlotStatus | undefined): string => {
   switch (status) {
     case "available":
       return "✓ Free";
+    case "reserved":
+      return "Reserved";
     case "booked":
       return "Booked";
     case "cancelled":
       return "Cancelled";
     case "completed":
-      return "Done";
+      return "Completed";
     case "pending":
       return "+ New";
     default:
@@ -113,6 +127,7 @@ export const ResponsiveCalendar: React.FC<ResponsiveCalendarProps> = ({
   durationMinutes = 60,
   readOnly = false,
   onWeekChange,
+  onBookedSlotCancel,
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -168,18 +183,31 @@ export const ResponsiveCalendar: React.FC<ResponsiveCalendarProps> = ({
   const handleSlotClick = useCallback((date: Date, timeString: string) => {
     if (readOnly) return;
 
+    const slotData = getSlotData(date, timeString);
+    const slotKey = getSlotKey(date, timeString);
     const isPast = isSlotPast(date, timeString);
+
+    // Allow opening details for booked/completed slots regardless of whether
+    // the time is in the past. Other past slots remain non-interactive.
+    if (slotData?.status === "booked" && slotData.id) {
+      onBookedSlotCancel?.(slotData.id, slotKey);
+      return;
+    }
+
+    if (slotData?.status === "completed" && slotData.id) {
+      onBookedSlotCancel?.(slotData.id, slotKey);
+      return;
+    }
+
     if (isPast) return;
 
-    const slotData = getSlotData(date, timeString);
-
-    // If slot is booked or completed, don't allow changes
-    if (slotData?.status === "booked" || slotData?.status === "completed") {
+    // Locked states should never be edited from schedule grid.
+    if (slotData?.status === "booked" || slotData?.status === "completed" || slotData?.status === "reserved") {
       return;
     }
 
     onSlotToggle?.(date, timeString);
-  }, [readOnly, isSlotPast, getSlotData, onSlotToggle]);
+  }, [readOnly, isSlotPast, getSlotData, getSlotKey, onBookedSlotCancel, onSlotToggle]);
 
   const handleDeleteClick = useCallback((e: React.MouseEvent, slotId: string, slotKey: string) => {
     e.stopPropagation();
@@ -288,10 +316,10 @@ export const ResponsiveCalendar: React.FC<ResponsiveCalendarProps> = ({
                     <div key={idx} className="relative group">
                       <button
                         onClick={() => handleSlotClick(day, timeString)}
-                        disabled={isPast || slotData?.status === "booked" || slotData?.status === "completed"}
+                        disabled={readOnly}
                         className={`
                           w-28 h-10 rounded-lg font-semibold text-xs transition-all duration-200
-                          ${!isPast && slotData?.status !== "booked" && slotData?.status !== "completed" ? "hover:shadow-md" : ""}
+                          ${!isPast && slotData?.status !== "completed" ? "hover:shadow-md" : ""}
                           ${getSlotStyles(slotData?.status, isPast)}
                         `}
                       >
@@ -381,7 +409,7 @@ export const ResponsiveCalendar: React.FC<ResponsiveCalendarProps> = ({
                         <button
                           key={idx}
                           onClick={() => handleSlotClick(day, timeString)}
-                          disabled={isPast || slotData?.status === "booked" || slotData?.status === "completed"}
+                          disabled={readOnly}
                           className={`
                             h-10 font-semibold text-xs transition-all duration-200 ${idx !== daySet.length - 1 ? "border-r border-gray-200" : ""}
                             ${getSlotStyles(slotData?.status, isPast)}
@@ -425,7 +453,7 @@ export const ResponsiveCalendar: React.FC<ResponsiveCalendarProps> = ({
                   <button
                     key={timeString}
                     onClick={() => handleSlotClick(day, timeString)}
-                    disabled={isPast || slotData?.status === "booked" || slotData?.status === "completed"}
+                    disabled={readOnly}
                     className={`
                       py-3 px-2 text-xs font-semibold transition-colors duration-200
                       ${getSlotStyles(slotData?.status, isPast)}

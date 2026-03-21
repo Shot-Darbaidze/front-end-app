@@ -1,14 +1,41 @@
 "use client";
 
-import React, { useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import React, { useEffect, useMemo, useState } from "react";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { useExamMonitor, CITY_CENTERS } from "@/hooks/useExamMonitor";
 import { Bell, MapPin, Play, Square, AlertCircle, CheckCircle } from "lucide-react";
 import { CityExamNav } from "@/components/city-exam/CityExamNav";
+import { API_CONFIG } from "@/config/constants";
+
+interface SubscriptionService {
+  code: string;
+  name: string;
+  contact_kind: "email" | "phone";
+  monthly_price_tetri: number;
+  monthly_price_gel: string;
+}
 
 const CityExamPage = () => {
-  const { user: _user, isLoaded } = useUser();
+  const { user, isLoaded } = useUser();
+  const { getToken } = useAuth();
+  const isAuthenticated = Boolean(user?.id);
   const [selectedCity, setSelectedCity] = useState<number | null>(null);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [services, setServices] = useState<SubscriptionService[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [servicesError, setServicesError] = useState<string | null>(null);
+  const [contactDefaults, setContactDefaults] = useState<{ email: string; phone: string }>({
+    email: "",
+    phone: "",
+  });
+  const [selectedServiceCode, setSelectedServiceCode] = useState<string>("");
+  const [selectedService, setSelectedService] = useState<SubscriptionService | null>(null);
+  const [wantsDefaultContact, setWantsDefaultContact] = useState<boolean | null>(null);
+  const [customContactValue, setCustomContactValue] = useState("");
+  const [subscriptionMessage, setSubscriptionMessage] = useState<string | null>(null);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [isSubmittingSubscription, setIsSubmittingSubscription] = useState(false);
   const {
     isMonitoring,
     availableSlots,
@@ -20,16 +47,13 @@ const CityExamPage = () => {
     error,
   } = useExamMonitor();
 
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-[#F03D3D] border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
   const handleStartMonitoring = () => {
+    if (!isAuthenticated) {
+      setAuthNotice("You must be authenticated to start monitoring.");
+      return;
+    }
     if (selectedCity) {
+      setAuthNotice(null);
       startMonitoring(selectedCity);
     }
   };
@@ -38,6 +62,186 @@ const CityExamPage = () => {
     id: parseInt(id),
     name,
   }));
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      setServicesLoading(true);
+      setServicesError(null);
+      try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/api/subscriptions/services`, {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to load services: ${response.status}`);
+        }
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid services response");
+        }
+        setServices(data);
+        setSelectedServiceCode((prev) => prev || data[0]?.code || "");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to load services";
+        setServicesError(message);
+      } finally {
+        setServicesLoading(false);
+      }
+    };
+
+    void fetchServices();
+  }, []);
+
+  useEffect(() => {
+    const fetchContactDefaults = async () => {
+      try {
+        const token = await getToken();
+        if (!token) {
+          return;
+        }
+
+        const response = await fetch(`${API_CONFIG.BASE_URL}/api/subscriptions/contact-defaults`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json().catch(() => ({}));
+        setContactDefaults({
+          email: typeof data?.email === "string" ? data.email : "",
+          phone: typeof data?.phone === "string" ? data.phone : "",
+        });
+      } catch {
+        // Non-blocking: fallback to Clerk-derived values below.
+      }
+    };
+
+    if (isLoaded && isAuthenticated) {
+      void fetchContactDefaults();
+    }
+  }, [getToken, isLoaded, isAuthenticated]);
+
+  const defaultEmail = useMemo(() => {
+    return (
+      contactDefaults.email ||
+      user?.primaryEmailAddress?.emailAddress ||
+      user?.emailAddresses?.[0]?.emailAddress ||
+      ""
+    );
+  }, [contactDefaults.email, user]);
+
+  const defaultPhone = useMemo(() => {
+    return (
+      contactDefaults.phone ||
+      user?.primaryPhoneNumber?.phoneNumber ||
+      user?.phoneNumbers?.[0]?.phoneNumber ||
+      ""
+    );
+  }, [contactDefaults.phone, user]);
+
+  const selectedDefaultContact = useMemo(() => {
+    if (!selectedService) {
+      return "";
+    }
+    return selectedService.contact_kind === "email" ? defaultEmail : defaultPhone;
+  }, [selectedService, defaultEmail, defaultPhone]);
+
+  const selectedContactLabel = selectedService?.contact_kind === "email" ? "email" : "number";
+
+  const openSubscriptionModal = (service: SubscriptionService) => {
+    if (!isAuthenticated) {
+      setAuthNotice("You must be authenticated to subscribe to a service.");
+      return;
+    }
+    setAuthNotice(null);
+    setSelectedService(service);
+    setWantsDefaultContact(null);
+    setCustomContactValue("");
+    setSubscriptionError(null);
+    setSubscriptionMessage(null);
+    setIsSubscriptionModalOpen(true);
+  };
+
+  const selectedServiceFromList = useMemo(() => {
+    return services.find((service) => service.code === selectedServiceCode) ?? null;
+  }, [services, selectedServiceCode]);
+
+  const closeSubscriptionModal = () => {
+    setIsSubscriptionModalOpen(false);
+    setSelectedService(null);
+    setWantsDefaultContact(null);
+    setCustomContactValue("");
+    setSubscriptionError(null);
+  };
+
+  const subscribe = async () => {
+    if (!selectedService) {
+      return;
+    }
+
+    if (selectedDefaultContact && wantsDefaultContact === null) {
+      setSubscriptionError(`Please choose if you want to use your current ${selectedContactLabel}.`);
+      return;
+    }
+
+    const useDefault = wantsDefaultContact === true;
+    const customValue = customContactValue.trim();
+    if (!useDefault && !customValue) {
+      setSubscriptionError(`Please enter ${selectedContactLabel}.`);
+      return;
+    }
+
+    setIsSubmittingSubscription(true);
+    setSubscriptionError(null);
+    setSubscriptionMessage(null);
+    try {
+      const token = await getToken();
+      if (!token) {
+        throw new Error("You must be logged in to subscribe");
+      }
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/subscriptions/subscribe`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          service_code: selectedService.code,
+          use_default_contact: useDefault,
+          contact_value: useDefault ? null : customValue,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail = typeof data?.detail === "string" ? data.detail : "Subscription failed";
+        throw new Error(detail);
+      }
+
+      setSubscriptionMessage("Subscription activated successfully.");
+      setTimeout(() => {
+        closeSubscriptionModal();
+      }, 900);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Subscription failed";
+      setSubscriptionError(message);
+    } finally {
+      setIsSubmittingSubscription(false);
+    }
+  };
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-[#F03D3D] border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-20">
@@ -53,6 +257,18 @@ const CityExamPage = () => {
             Monitor available exam slots and receive notifications when they open
           </p>
         </div>
+
+        {!isAuthenticated && (
+          <div className="mb-8 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Authentication is required. Please sign in to use subscription services and exam monitoring.
+          </div>
+        )}
+
+        {authNotice && (
+          <div className="mb-8 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {authNotice}
+          </div>
+        )}
 
         {/* Notification Alert */}
         {newSlotsNotification && (
@@ -90,8 +306,94 @@ const CityExamPage = () => {
           </div>
         )}
 
-        {/* Main Control Panel */}
+        {/* Subscription Section */}
         <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900">Subscription Services</h2>
+          <div className="mb-6 rounded-xl border border-[#F03D3D]/20 bg-red-50 p-5">
+            <div className="mb-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#F03D3D]">
+                Subscription Services
+              </p>
+              <p className="mt-1 text-sm text-gray-800">
+                თუ გინდა რომ მიიღო ღია სლოტების და ჯავშნების შესახებ გამოიწერე ეს სერვისი.
+              </p>
+            </div>
+
+            {servicesLoading && (
+              <p className="text-sm text-gray-600">Loading services...</p>
+            )}
+
+            {servicesError && (
+              <p className="text-sm text-red-700">
+                {servicesError}. Showing fallback service list.
+              </p>
+            )}
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {services.map((service) => (
+                <div
+                  key={service.code}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedServiceCode(service.code)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedServiceCode(service.code);
+                    }
+                  }}
+                  className={`flex cursor-pointer flex-col gap-3 rounded-lg border bg-white p-4 transition ${
+                    selectedServiceCode === service.code
+                      ? "border-[#F03D3D] ring-2 ring-[#F03D3D]/20"
+                      : "border-[#F03D3D]/20 hover:border-[#F03D3D]/50"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-gray-900">{service.name}</p>
+                      <span
+                        className={`h-4 w-4 rounded-full border ${
+                          selectedServiceCode === service.code
+                            ? "border-[#F03D3D] bg-[#F03D3D]"
+                            : "border-gray-400"
+                        }`}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-gray-600">
+                      Contact via {service.contact_kind === "email" ? "email" : "number"}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-gray-900">
+                      ფასი: ₾{(service.monthly_price_tetri / 100).toFixed(2)} / თვე
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {!servicesLoading && !servicesError && services.length === 0 && (
+              <p className="text-sm text-gray-600">No active services found.</p>
+            )}
+
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedServiceFromList) {
+                    openSubscriptionModal(selectedServiceFromList);
+                  }
+                }}
+                disabled={!selectedServiceFromList || !isAuthenticated}
+                className="inline-flex w-full items-center justify-center rounded-lg bg-[#F03D3D] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              >
+                Continue with Selected Service
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Monitoring Section */}
+        <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Exam Monitoring</h2>
           <div className="grid md:grid-cols-2 gap-6 mb-6">
             {/* City Selector */}
             <div>
@@ -104,7 +406,7 @@ const CityExamPage = () => {
               <select
                 value={selectedCity ?? ""}
                 onChange={(e) => setSelectedCity(parseInt(e.target.value) || null)}
-                disabled={isMonitoring}
+                disabled={isMonitoring || !isAuthenticated}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F03D3D] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
                 <option value="">Choose a city...</option>
@@ -148,7 +450,7 @@ const CityExamPage = () => {
           <div className="flex gap-4">
             <button
               onClick={handleStartMonitoring}
-              disabled={!selectedCity || isMonitoring}
+              disabled={!selectedCity || isMonitoring || !isAuthenticated}
               className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#F03D3D] text-white font-semibold rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
               <Play className="w-5 h-5" />
@@ -156,7 +458,7 @@ const CityExamPage = () => {
             </button>
             <button
               onClick={stopMonitoring}
-              disabled={!isMonitoring}
+              disabled={!isMonitoring || !isAuthenticated}
               className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
             >
               <Square className="w-5 h-5" />
@@ -205,6 +507,108 @@ const CityExamPage = () => {
         </div>
       </div>
     </main>
+
+    {isSubscriptionModalOpen && selectedService && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+          <h2 className="text-xl font-bold text-gray-900">{selectedService.name}</h2>
+          <p className="mt-3 text-sm text-gray-700">
+            თუ გინდა რომ მიიღო ღია სლოტების და ჯავშნების შესახებ გამოიწერე ეს სერვისი.
+          </p>
+          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Service price</p>
+            <p className="mt-1 text-lg font-bold text-gray-900">₾{(selectedService.monthly_price_tetri / 100).toFixed(2)} / თვე</p>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-gray-200 p-4">
+            <p className="text-sm font-medium text-gray-900">
+              Do you want to be notified on this {selectedContactLabel}?
+            </p>
+
+            {selectedDefaultContact ? (
+              <p className="mt-1 text-sm text-gray-700">{selectedDefaultContact}</p>
+            ) : (
+              <p className="mt-1 text-sm text-amber-700">
+                No default {selectedContactLabel} found. Please enter one below.
+              </p>
+            )}
+
+            {selectedDefaultContact && (
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWantsDefaultContact(true);
+                    setSubscriptionError(null);
+                  }}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${
+                    wantsDefaultContact === true
+                      ? "bg-green-600 text-white"
+                      : "border border-gray-300 text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWantsDefaultContact(false);
+                    setSubscriptionError(null);
+                  }}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${
+                    wantsDefaultContact === false
+                      ? "bg-[#F03D3D] text-white"
+                      : "border border-gray-300 text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  No
+                </button>
+              </div>
+            )}
+
+            {(!selectedDefaultContact || wantsDefaultContact === false) && (
+              <div className="mt-3">
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-600">
+                  Enter {selectedContactLabel}
+                </label>
+                <input
+                  value={customContactValue}
+                  onChange={(e) => setCustomContactValue(e.target.value)}
+                  placeholder={selectedService.contact_kind === "email" ? "example@gmail.com" : "+9955XXXXXXXX"}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#F03D3D]"
+                />
+              </div>
+            )}
+          </div>
+
+          {subscriptionError && (
+            <p className="mt-3 text-sm text-red-700">{subscriptionError}</p>
+          )}
+          {subscriptionMessage && (
+            <p className="mt-3 text-sm text-green-700">{subscriptionMessage}</p>
+          )}
+
+          <div className="mt-6 flex gap-3">
+            <button
+              type="button"
+              onClick={closeSubscriptionModal}
+              className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-100"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={subscribe}
+              disabled={isSubmittingSubscription}
+              className="flex-1 rounded-lg bg-[#F03D3D] px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700"
+            >
+              {isSubmittingSubscription ? "Saving..." : "Continue"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     </div>
   );
 };

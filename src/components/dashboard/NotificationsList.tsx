@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback } from "react";
+import Link from "next/link";
 import {
   Bell,
   Check,
@@ -152,6 +153,16 @@ export const NotificationsList: React.FC<NotificationsListProps> = ({
 
                 {/* Actions Inline */}
                 <div className="flex items-center gap-4 mt-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  {notification.actionUrl && (
+                    <Link
+                      href={notification.actionUrl}
+                      onClick={() => onMarkAsRead(notification.id)}
+                      className="text-xs font-bold text-[#F03D3D] hover:text-red-700 transition-colors"
+                    >
+                      View details
+                    </Link>
+                  )}
+                  {notification.actionUrl && <div className="w-1 h-1 rounded-full bg-gray-200" />}
                   {!notification.isRead ? (
                     <button
                       onClick={() => onMarkAsRead(notification.id)}

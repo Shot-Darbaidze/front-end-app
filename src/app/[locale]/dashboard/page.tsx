@@ -22,9 +22,7 @@ import type { InstructorActivityItemData } from "@/components/dashboard/instruct
 import type { StudentNextLessonData } from "@/components/dashboard/student/NextLessonCard";
 import type { RecentActivityItem } from "@/components/dashboard/student/RecentActivity";
 
-const APPROVAL_CACHE_KEY = "instructor-approval-v2";
 const APPROVAL_CACHE_TTL = 60 * 60 * 1000; // 1 hour
-const DASHBOARD_CACHE_KEY = "dashboard-summary-v1";
 const DASHBOARD_CACHE_TTL = 2 * 60 * 1000; // 2 minutes stale-while-revalidate
 const API_TIMEOUT_MS = 10_000; // 10 seconds
 
@@ -105,58 +103,62 @@ type DashboardSummary = {
 };
 
 /** Read cached approval from localStorage with TTL check */
-function getCachedApproval(): boolean | null {
+function getCachedApproval(userId: string): boolean | null {
   if (typeof window === "undefined") return null;
+  const cacheKey = `instructor-approval-v2:${userId}`;
   try {
-    const raw = localStorage.getItem(APPROVAL_CACHE_KEY);
+    const raw = localStorage.getItem(cacheKey);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { is_approved?: boolean; timestamp?: number };
     if (!parsed.timestamp || Date.now() - parsed.timestamp > APPROVAL_CACHE_TTL) {
-      localStorage.removeItem(APPROVAL_CACHE_KEY);
+      localStorage.removeItem(cacheKey);
       return null;
     }
     return Boolean(parsed.is_approved);
   } catch {
-    localStorage.removeItem(APPROVAL_CACHE_KEY);
+    localStorage.removeItem(cacheKey);
     return null;
   }
 }
 
 /** Write approval to localStorage with timestamp */
-function setCachedApproval(is_approved: boolean) {
+function setCachedApproval(userId: string, is_approved: boolean) {
   if (typeof window === "undefined") return;
+  const cacheKey = `instructor-approval-v2:${userId}`;
   try {
     localStorage.setItem(
-      APPROVAL_CACHE_KEY,
+      cacheKey,
       JSON.stringify({ is_approved, timestamp: Date.now() })
     );
   } catch { /* storage full — ignore */ }
 }
 
 /** Read cached dashboard summary from sessionStorage (short TTL) */
-function getCachedDashboard(): DashboardSummary | null {
+function getCachedDashboard(userId: string): DashboardSummary | null {
   if (typeof window === "undefined") return null;
+  const cacheKey = `dashboard-summary-v1:${userId}`;
   try {
-    const raw = sessionStorage.getItem(DASHBOARD_CACHE_KEY);
+    const raw = sessionStorage.getItem(cacheKey);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { data: DashboardSummary; timestamp: number };
     if (!parsed.timestamp || Date.now() - parsed.timestamp > DASHBOARD_CACHE_TTL) {
-      sessionStorage.removeItem(DASHBOARD_CACHE_KEY);
+      sessionStorage.removeItem(cacheKey);
       return null;
     }
     return parsed.data;
   } catch {
-    sessionStorage.removeItem(DASHBOARD_CACHE_KEY);
+    sessionStorage.removeItem(cacheKey);
     return null;
   }
 }
 
 /** Cache dashboard summary in sessionStorage */
-function setCachedDashboard(data: DashboardSummary) {
+function setCachedDashboard(userId: string, data: DashboardSummary) {
   if (typeof window === "undefined") return;
+  const cacheKey = `dashboard-summary-v1:${userId}`;
   try {
     sessionStorage.setItem(
-      DASHBOARD_CACHE_KEY,
+      cacheKey,
       JSON.stringify({ data, timestamp: Date.now() })
     );
   } catch { /* storage full — ignore */ }
@@ -233,8 +235,9 @@ function processDashboardData(data: DashboardSummary) {
 
 export default function DashboardPage() {
   const { getToken } = useClerkAuth();
-  const { user: clerkUser } = useUser();
+  const { user: clerkUser, isLoaded: isUserLoaded } = useUser();
   const { t } = useLanguage();
+  const userId = clerkUser?.id;
 
   // Always start with loading/empty state to match SSR (avoids hydration mismatch).
   // Cache is applied in useEffect after mount.
@@ -252,19 +255,34 @@ export default function DashboardPage() {
   const [instructorUpcoming, setInstructorUpcoming] = useState<InstructorNextLessonData[]>([]);
   const [instructorActivities, setInstructorActivities] = useState<InstructorActivityItemData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasResolvedApproval, setHasResolvedApproval] = useState(false);
 
   const firstName = clerkUser?.firstName || "";
 
   useEffect(() => {
+    if (!isUserLoaded) {
+      return;
+    }
+
+    if (!userId) {
+      setIsApproved(false);
+      setIsLoading(false);
+      setHasResolvedApproval(true);
+      return;
+    }
+
+    setHasResolvedApproval(false);
+
     let isMounted = true;
 
     // Read caches on client only (after mount) to avoid hydration mismatch
-    cachedApproval.current = getCachedApproval();
-    cachedDashboard.current = getCachedDashboard();
+    cachedApproval.current = getCachedApproval(userId);
+    cachedDashboard.current = getCachedDashboard(userId);
 
     // Apply cached approval immediately so instructor view shows without flash
     if (cachedApproval.current !== null) {
       setIsApproved(cachedApproval.current);
+      setHasResolvedApproval(true);
     }
 
     const loadDashboard = async () => {
@@ -274,12 +292,13 @@ export default function DashboardPage() {
         const { nextLesson: nl, recentActivity: ra } = processDashboardData(data);
         if (isMounted) {
           setIsApproved(data.is_approved);
-          setCachedApproval(data.is_approved);
+          setCachedApproval(userId, data.is_approved);
           setNextLesson(nl);
           setRecentActivity(ra);
           setStudentStats(data.stats);
           applyInstructorData(data);
           setIsLoading(false);
+          setHasResolvedApproval(true);
         }
         // Still revalidate in background (stale-while-revalidate)
       }
@@ -287,7 +306,10 @@ export default function DashboardPage() {
       try {
         const token = await getToken();
         if (!token) {
-          if (isMounted) setIsLoading(false);
+          if (isMounted) {
+            setIsLoading(false);
+            setHasResolvedApproval(true);
+          }
           return;
         }
 
@@ -299,7 +321,10 @@ export default function DashboardPage() {
         );
 
         if (!response.ok) {
-          if (isMounted) setIsLoading(false);
+          if (isMounted) {
+            setIsLoading(false);
+            setHasResolvedApproval(true);
+          }
           return;
         }
 
@@ -308,19 +333,21 @@ export default function DashboardPage() {
 
         if (isMounted) {
           setIsApproved(data.is_approved);
-          setCachedApproval(data.is_approved);
+          setCachedApproval(userId, data.is_approved);
           setNextLesson(nl);
           setRecentActivity(ra);
           setStudentStats(data.stats);
           applyInstructorData(data);
           setIsLoading(false);
+          setHasResolvedApproval(true);
         }
 
         // Cache for stale-while-revalidate on next navigation
-        setCachedDashboard(data);
+        setCachedDashboard(userId, data);
       } catch {
         if (isMounted) {
           setIsLoading(false);
+          setHasResolvedApproval(true);
           if (!cachedDashboard.current) {
             setNextLesson(null);
             setRecentActivity([]);
@@ -363,7 +390,11 @@ export default function DashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, [getToken]);
+  }, [getToken, userId, isUserLoaded]);
+
+  if (!hasResolvedApproval) {
+    return <div className="min-h-screen bg-[#f8fafc] pt-20" />;
+  }
 
   if (isApproved) {
     return (

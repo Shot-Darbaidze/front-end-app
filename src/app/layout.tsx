@@ -63,8 +63,8 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html>
-        <body className={`${inter.variable} font-sans font-medium antialiased`}>
+      <html suppressHydrationWarning>
+        <body suppressHydrationWarning className={`${inter.variable} font-sans font-medium antialiased`}>
           {children}
           <VercelAnalytics />
         </body>

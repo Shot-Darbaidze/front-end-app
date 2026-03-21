@@ -24,6 +24,9 @@ export async function GET(request: NextRequest) {
 
     const externalUrl = `${DATES_URL}?${externalParams.toString()}`;
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+
     const response = await fetch(externalUrl, {
       method: "GET",
       headers: {
@@ -34,28 +37,24 @@ export async function GET(request: NextRequest) {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       },
-      signal: request.signal,
+      signal: controller.signal,
+      cache: "no-store",
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(
-        `API Error ${response.status}: ${errorText}`
-      );
-      return NextResponse.json(
-        { error: `API error: ${response.status}`, details: errorText },
-        { status: response.status }
-      );
+      console.warn(`Exam upstream returned ${response.status}: ${errorText}`);
+      // Fail soft to keep monitor polling alive even when upstream is flaky.
+      return NextResponse.json([], { status: 200 });
     }
 
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("Exam slots API error:", message);
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+    console.warn("Exam slots API upstream unreachable:", message);
+    // Fail soft so frontend does not throw API 500 while upstream is unreachable.
+    return NextResponse.json([], { status: 200 });
   }
 }

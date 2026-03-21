@@ -9,15 +9,29 @@ import { BookingResponse, formatTime } from "./types";
 
 interface PastLessonCardProps {
     lesson: BookingResponse;
+    isInstructor: boolean;
+    isHighlighted?: boolean;
 }
 
-const PastLessonCard = memo(function PastLessonCard({ lesson }: PastLessonCardProps) {
+const PastLessonCard = memo(function PastLessonCard({ lesson, isInstructor, isHighlighted = false }: PastLessonCardProps) {
     const localeHref = useLocaleHref();
     const startDate = new Date(lesson.start_time_utc);
     const fullDate = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
     return (
-        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm opacity-75 hover:opacity-100 transition-opacity group">
+        <div
+            id={`lesson-card-${lesson.id}`}
+            className={`bg-white p-4 sm:p-6 rounded-2xl border shadow-sm opacity-75 hover:opacity-100 transition-opacity group ${
+                isHighlighted
+                    ? "border-amber-300 ring-2 ring-amber-200 bg-amber-50/50"
+                    : "border-gray-100"
+            }`}
+        >
+            {isHighlighted && (
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-amber-100 text-amber-800 px-3 py-1 text-[11px] font-bold">
+                    From notification
+                </div>
+            )}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 
                 {/* Left */}
@@ -25,7 +39,7 @@ const PastLessonCard = memo(function PastLessonCard({ lesson }: PastLessonCardPr
                     {lesson.instructor_image ? (
                         <img 
                             src={lesson.instructor_image} 
-                            alt={lesson.instructor_name || "Instructor"}
+                            alt={lesson.instructor_name || (isInstructor ? "Student" : "Instructor")}
                             className="w-10 h-10 rounded-full object-cover shrink-0"
                         />
                     ) : (
@@ -34,14 +48,16 @@ const PastLessonCard = memo(function PastLessonCard({ lesson }: PastLessonCardPr
                         </div>
                     )}
                     <div>
-                        <h3 className="font-bold text-gray-900 text-sm sm:text-base">{lesson.instructor_name || "Instructor"}</h3>
+                        <h3 className="font-bold text-gray-900 text-sm sm:text-base">{lesson.instructor_name || (isInstructor ? "Student" : "Instructor")}</h3>
                         <p className="text-sm text-gray-500">{fullDate} · {lesson.duration_minutes} min</p>
-                        <Link
-                            href={localeHref(`/instructors/${lesson.post_id}`)}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#F03D3D] hover:text-red-700 hover:underline mt-0.5"
-                        >
-                            View Instructor <ExternalLink className="w-3 h-3" />
-                        </Link>
+                        {!isInstructor && (
+                            <Link
+                                href={localeHref(`/instructors/${lesson.post_id}`)}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-[#F03D3D] hover:text-red-700 hover:underline mt-0.5"
+                            >
+                                View Instructor <ExternalLink className="w-3 h-3" />
+                            </Link>
+                        )}
                     </div>
                 </div>
 
@@ -71,9 +87,11 @@ const PastLessonCard = memo(function PastLessonCard({ lesson }: PastLessonCardPr
 
 interface PastLessonsProps {
     lessons: BookingResponse[];
+    isInstructor: boolean;
+    highlightedBookingId?: string | null;
 }
 
-export const PastLessons = memo(function PastLessons({ lessons }: PastLessonsProps) {
+export const PastLessons = memo(function PastLessons({ lessons, isInstructor, highlightedBookingId }: PastLessonsProps) {
     if (lessons.length === 0) {
         return (
             <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 border-dashed">
@@ -89,7 +107,12 @@ export const PastLessons = memo(function PastLessons({ lessons }: PastLessonsPro
     return (
         <div className="grid gap-3 sm:gap-4">
             {lessons.map((lesson) => (
-                <PastLessonCard key={lesson.id} lesson={lesson} />
+                <PastLessonCard
+                    key={lesson.id}
+                    lesson={lesson}
+                    isInstructor={isInstructor}
+                    isHighlighted={highlightedBookingId === lesson.id}
+                />
             ))}
         </div>
     );

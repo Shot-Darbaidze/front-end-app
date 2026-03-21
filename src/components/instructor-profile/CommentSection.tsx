@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth as useClerkAuth, useUser, SignInButton } from "@clerk/nextjs";
 import { Loader2, Star, ChevronDown, ArrowUpDown, Send } from "lucide-react";
 import { API_CONFIG } from "@/config/constants";
@@ -17,6 +18,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
   const { getToken, isSignedIn, isLoaded: isAuthLoaded } = useClerkAuth();
   const { user } = useUser();
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
 
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,6 +99,21 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     setIsLoading(true);
     fetchComments(true);
   }, [sortBy, postId, isAuthLoaded, isSignedIn]);
+
+  useEffect(() => {
+    const targetCommentId = searchParams.get("comment_id");
+    if (!targetCommentId || comments.length === 0) return;
+
+    const tryScroll = () => {
+      const el = document.getElementById(`comment-${targetCommentId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    };
+
+    const timer = setTimeout(tryScroll, 120);
+    return () => clearTimeout(timer);
+  }, [searchParams, comments]);
 
   const loadMoreComments = async () => {
     if (isLoadingMore || !hasMore) return;

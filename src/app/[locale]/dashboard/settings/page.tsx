@@ -1,33 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
-import { User as UserIcon, Bell, Settings } from "lucide-react";
+import { useInstructorApproval } from "@/hooks/useInstructorApproval";
 
 import { ProfileSettings } from "@/components/dashboard/settings/ProfileSettings";
 import { AccountSettings } from "@/components/dashboard/settings/AccountSettings";
 import { NotificationSettings } from "@/components/dashboard/settings/NotificationSettings";
-
-const TAB_IDS = ["profile", "account", "notifications"] as const;
-type TabId = (typeof TAB_IDS)[number];
-
-const TAB_ICONS: Record<TabId, typeof UserIcon> = {
-  profile: UserIcon,
-  account: Settings,
-  notifications: Bell,
-};
+import { SettingsNav, TAB_IDS, TabId } from "@/components/dashboard/settings/SettingsNav";
 
 export default function SettingsPage() {
   const { user } = useUser();
   const { t } = useLanguage();
-  const isInstructor = (user?.publicMetadata?.userType as string) === "instructor";
-  const [activeTab, setActiveTab] = useState<TabId>("profile");
+  const { isInstructor, isLoading: isRoleLoading } = useInstructorApproval();
+  const [activeTab, setActiveTab] = useState<TabId>(isInstructor ? "instructorProfile" : "profile");
+  
+  // Update visible tabs based on role
+  const visibleTabs = isInstructor
+    ? ([...TAB_IDS] as TabId[])
+    : (TAB_IDS.filter((id) => id !== "instructorProfile") as TabId[]);
+
+  useEffect(() => {
+    if (isRoleLoading) return;
+    // If user is not instructor but is on instructor tab, redirect to profile
+    if (!isInstructor && activeTab === "instructorProfile") {
+      setActiveTab("profile");
+    }
+  }, [isInstructor, isRoleLoading, activeTab]);
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20">
-      <MobileDashboardNav isInstructor={isInstructor} />
+      {!isRoleLoading && <MobileDashboardNav isInstructor={isInstructor} />}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -36,31 +41,19 @@ export default function SettingsPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Sidebar */}
+          {/* Sidebar Navigation */}
           <div className="lg:col-span-3">
-            <nav className="space-y-1">
-              {TAB_IDS.map((id) => {
-                const Icon = TAB_ICONS[id];
-                return (
-                  <button
-                    key={id}
-                    onClick={() => setActiveTab(id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all ${activeTab === id
-                        ? "bg-white text-[#F03D3D] shadow-sm ring-1 ring-gray-200"
-                        : "text-gray-600 hover:bg-white/50 hover:text-gray-900"
-                      }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {t(`settings.tabs.${id}`)}
-                  </button>
-                );
-              })}
-            </nav>
+            <SettingsNav 
+              activeTab={activeTab} 
+              setActiveTab={setActiveTab} 
+              visibleTabs={visibleTabs} 
+            />
           </div>
 
-          {/* Content */}
+          {/* Content Area */}
           <div className="lg:col-span-9 space-y-6">
-            {activeTab === "profile" && <ProfileSettings user={user} isInstructor={isInstructor} />}
+            {activeTab === "profile" && <ProfileSettings user={user} isInstructor={false} />}
+            {activeTab === "instructorProfile" && isInstructor && <ProfileSettings user={user} isInstructor={true} />}
             {activeTab === "account" && <AccountSettings />}
             {activeTab === "notifications" && <NotificationSettings isInstructor={isInstructor} />}
           </div>

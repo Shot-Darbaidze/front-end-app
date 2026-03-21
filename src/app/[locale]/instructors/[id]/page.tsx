@@ -18,6 +18,8 @@ type InstructorPost = {
   image_url?: string | null;
   google_maps_url?: string | null;
   located_at?: string | null;
+  applicant_address?: string | null;
+  address?: string | null;
   automatic_city_price?: number | null;
   manual_city_price?: number | null;
   language_skills?: string | null;
@@ -67,7 +69,8 @@ export default async function InstructorProfilePage({ params }: { params: Promis
   const assets = assetsResponse.ok ? ((await assetsResponse.json()) as InstructorAsset[]) : [];
 
   const name = buildInstructorName(post.applicant_first_name, post.applicant_last_name, post.title || "Instructor");
-  const location = extractCityName(post.located_at);
+  const cityLocation = extractCityName(post.located_at);
+  const applicantAddress = (post.applicant_address || post.address || "").trim();
   const vehicles = buildVehicleInfo(post.vehicle_brand, post.vehicle_year);
   const languages = formatLanguages(post.language_skills);
   const vehiclePhotos = assets.map((asset) => asset.url);
@@ -92,7 +95,7 @@ export default async function InstructorProfilePage({ params }: { params: Promis
               rating={Number(post.rating ?? 0)}
               reviewCount={post.review_count ?? 0}
               specialty={post.title || "Driving Instructor"}
-              location={location}
+              location={cityLocation}
               languages={languages.length ? languages : ["Not specified"]}
               vehicles={vehicles}
               vehiclePhotos={vehiclePhotos}
@@ -109,7 +112,11 @@ export default async function InstructorProfilePage({ params }: { params: Promis
               lessonDuration={60}
               instructorId={post.id}
             />
-            <LocationCard location={location} googleMapsUrl={post.google_maps_url} />
+            <LocationCard
+              location={cityLocation}
+              applicantAddress={applicantAddress}
+              googleMapsUrl={post.google_maps_url}
+            />
           </div>
 
           {/* 3. Reviews — mobile: 4th (last), desktop: main column */}

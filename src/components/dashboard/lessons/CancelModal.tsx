@@ -9,10 +9,14 @@ interface CancelModalProps {
     lessonStartTime: string;
     cancelReason: CancellationReason;
     cancelDescription: string;
+    cancelConfirmationText: string;
+    confirmationPrimary: string;
+    confirmationSecondary: string;
     cancelError: string | null;
     isCancelling: boolean;
     onReasonChange: (reason: CancellationReason) => void;
     onDescriptionChange: (desc: string) => void;
+    onConfirmationTextChange: (text: string) => void;
     onConfirm: () => void;
     onClose: () => void;
 }
@@ -21,10 +25,14 @@ export function CancelModal({
     lessonStartTime,
     cancelReason,
     cancelDescription,
+    cancelConfirmationText,
+    confirmationPrimary,
+    confirmationSecondary,
     cancelError,
     isCancelling,
     onReasonChange,
     onDescriptionChange,
+    onConfirmationTextChange,
     onConfirm,
     onClose,
 }: CancelModalProps) {
@@ -144,6 +152,18 @@ export function CancelModal({
                         </div>
                     )}
 
+                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3">
+                        <p className="text-xs text-red-700">
+                            To confirm cancellation, type <strong>{confirmationPrimary}</strong> or <strong>{confirmationSecondary}</strong>.
+                        </p>
+                        <input
+                            value={cancelConfirmationText}
+                            onChange={(e) => onConfirmationTextChange(e.target.value)}
+                            placeholder={`Type "${confirmationPrimary}" or "${confirmationSecondary}"`}
+                            className="mt-2 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm focus:border-red-400 focus:outline-none"
+                        />
+                    </div>
+
                     {cancelError && (
                         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                             {cancelError}
@@ -157,7 +177,11 @@ export function CancelModal({
                         <Button
                             className="flex-1"
                             onClick={onConfirm}
-                            disabled={isCancelling || (cancelReason === "other" && !cancelDescription.trim())}
+                            disabled={
+                                isCancelling ||
+                                (cancelReason === "other" && !cancelDescription.trim()) ||
+                                !cancelConfirmationText.trim()
+                            }
                         >
                             {isCancelling ? (
                                 <span className="flex items-center gap-2">

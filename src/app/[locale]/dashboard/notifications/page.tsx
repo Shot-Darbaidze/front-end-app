@@ -1,67 +1,24 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useAuth as useClerkAuth } from "@clerk/nextjs";
+import React from "react";
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import { NotificationsList } from "@/components/dashboard/NotificationsList";
-import { useNotifications } from "@/hooks/useNotifications";
-import { API_CONFIG } from '@/config/constants';
+import { useDashboardNotifications } from "@/hooks/useDashboardNotifications";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 
 export default function NotificationsPage() {
-  const { getToken } = useClerkAuth();
-  const [isInstructor, setIsInstructor] = useState(false);
+  const localeHref = useLocaleHref();
   const {
+    isInstructor,
     notifications,
     markAsRead,
     markAsUnread,
     markAllAsRead,
     removeNotification,
-  } = useNotifications(isInstructor ? "instructor" : "student");
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const checkApproval = async () => {
-      try {
-        const token = await getToken();
-        if (!token) {
-          if (isMounted) setIsInstructor(false);
-          return;
-        }
-
-        const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!response.ok) {
-          if (isMounted) setIsInstructor(false);
-          sessionStorage.removeItem("instructor-approval");
-          return;
-        }
-
-        const result: { is_approved?: boolean | null } = await response.json();
-        const approved = Boolean(result?.is_approved);
-
-        if (typeof window !== "undefined") {
-          if (approved) {
-            sessionStorage.setItem("instructor-approval", JSON.stringify(result));
-          } else {
-            sessionStorage.removeItem("instructor-approval");
-          }
-        }
-
-        if (isMounted) setIsInstructor(approved);
-      } catch (_error) {
-        if (isMounted) setIsInstructor(false);
-      }
-    };
-
-    checkApproval();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [getToken]);
+  } = useDashboardNotifications({
+    enabled: true,
+    localeHref,
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20">

@@ -5,6 +5,7 @@ import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import { ResponsiveCalendar, SlotData, SlotStatus, generateTimeSlots } from "@/components/dashboard/instructor/ResponsiveCalendar";
 import Button from "@/components/ui/Button";
+import { useInstructorApproval } from "@/hooks/useInstructorApproval";
 import { Save, RotateCcw, Clock, Loader2, AlertCircle, CheckCircle, Copy } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { API_CONFIG } from '@/config/constants';
@@ -29,20 +30,47 @@ interface SlotResponse {
   user_id: string | null;
 }
 
+interface BookedSlotWithStudentResponse {
+  id: string;
+  start_time_utc: string;
+  duration_minutes: number;
+  mode: "city" | "yard" | null;
+  student: {
+    id: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    image_url?: string | null;
+  } | null;
+}
+
 interface BatchCreateResponse {
   created: SlotResponse[];
   failed: { booking_time: string; error: string }[];
 }
+
+interface BookedSlotCancelState {
+  slotId: string;
+  slotKey: string;
+  status: "booked" | "completed";
+  startLabel: string;
+  durationMinutes: number;
+  mode: "city" | "yard" | null;
+  studentName: string;
+  studentImage?: string | null;
+}
+
+const CANCELLATION_CONFIRM_TOKENS = ["cancel", "გაუქმება"] as const;
 
 export default function SchedulePage() {
   const { getToken } = useClerkAuth();
   const router = useRouter();
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] ?? "ka";
+  const confirmationPrimary = locale === "ka" ? "გაუქმება" : "cancel";
+  const confirmationSecondary = locale === "ka" ? "cancel" : "გაუქმება";
 
   // Auth state
-  const [isApproved, setIsApproved] = useState(false);
-  const [isChecking, setIsChecking] = useState(true);
+  const { isInstructor: isApproved, isLoading: isChecking } = useInstructorApproval();
 
   // Schedule state
   const [slots, setSlots] = useState<Record<string, SlotData>>({});
@@ -57,79 +85,13 @@ export default function SchedulePage() {
   const [isCopying, setIsCopying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [slotToCancel, setSlotToCancel] = useState<BookedSlotCancelState | null>(null);
+  const [showCancelStep, setShowCancelStep] = useState(false);
+  const [cancelConfirmationText, setCancelConfirmationText] = useState("");
+  const [isCancellingBookedSlot, setIsCancellingBookedSlot] = useState(false);
 
   // Get user's timezone
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-  // Check instructor approval status
-  useEffect(() => {
-    let isMounted = true;
-
-    const checkApproval = async () => {
-      if (typeof window !== "undefined") {
-        const cached = sessionStorage.getItem("instructor-approval");
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached) as { is_approved?: boolean | null };
-            if (parsed?.is_approved) {
-              if (isMounted) {
-                setIsApproved(true);
-                setIsChecking(false);
-              }
-              return;
-            }
-          } catch (_error) {
-            sessionStorage.removeItem("instructor-approval");
-          }
-        }
-      }
-
-      try {
-        const token = await getToken();
-        if (!token) {
-          if (isMounted) {
-            setIsApproved(false);
-            setIsChecking(false);
-          }
-          return;
-        }
-
-        const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          if (isMounted) {
-            setIsApproved(false);
-            setIsChecking(false);
-          }
-          return;
-        }
-
-        const result: { is_approved?: boolean | null } = await response.json();
-        if (typeof window !== "undefined" && result?.is_approved) {
-          sessionStorage.setItem("instructor-approval", JSON.stringify(result));
-        }
-        if (isMounted) {
-          setIsApproved(Boolean(result?.is_approved));
-          setIsChecking(false);
-        }
-      } catch (_error) {
-        if (isMounted) {
-          setIsApproved(false);
-          setIsChecking(false);
-        }
-      }
-    };
-
-    checkApproval();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [getToken]);
 
   // Redirect if not approved
   useEffect(() => {
@@ -150,21 +112,35 @@ export default function SchedulePage() {
         return;
       }
 
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/bookings/slots/mine?time_zone=${encodeURIComponent(timeZone)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const [slotsResponse, bookedWithStudentsResponse] = await Promise.all([
+        fetch(
+          `${API_CONFIG.BASE_URL}/api/bookings/slots/mine?time_zone=${encodeURIComponent(timeZone)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        ),
+        fetch(
+          `${API_CONFIG.BASE_URL}/api/bookings/slots/mine/with-students`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        ),
+      ]);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+      if (!slotsResponse.ok) {
+        const errorData = await slotsResponse.json().catch(() => ({}));
         throw new Error(errorData.detail || "Failed to fetch slots");
       }
 
-      const data: SlotResponse[] = await response.json();
+      const data: SlotResponse[] = await slotsResponse.json();
+      const bookedWithStudents: BookedSlotWithStudentResponse[] = bookedWithStudentsResponse.ok
+        ? await bookedWithStudentsResponse.json()
+        : [];
+      const bookedById = new Map(bookedWithStudents.map((item) => [item.id, item]));
 
       // Convert API response to slot map
       const slotMap: Record<string, SlotData> = {};
@@ -181,6 +157,7 @@ export default function SchedulePage() {
           status: slot.status,
           duration_minutes: slot.duration_minutes,
           mode: slot.mode,
+          student: bookedById.get(slot.id)?.student ?? undefined,
         };
       });
 
@@ -276,6 +253,105 @@ export default function SchedulePage() {
 
     return result;
   }, [slots, pendingSlots, durationMinutes]);
+
+  const handleBookedSlotCancelClick = useCallback((slotId: string, slotKey: string) => {
+    const selectedSlot = slots[slotKey];
+    if (!selectedSlot || (selectedSlot.status !== "booked" && selectedSlot.status !== "completed")) {
+      return;
+    }
+
+    const [dateStr, timeStr] = slotKey.split("_");
+    const localDate = new Date(`${dateStr}T${timeStr}:00`);
+    const startLabel = localDate.toLocaleString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+    const studentName = selectedSlot.student
+      ? `${selectedSlot.student.first_name || ""} ${selectedSlot.student.last_name || ""}`.trim() || "Student"
+      : "Student";
+
+    setSlotToCancel({
+      slotId,
+      slotKey,
+      status: selectedSlot.status,
+      startLabel,
+      durationMinutes: selectedSlot.duration_minutes,
+      mode: selectedSlot.mode ?? null,
+      studentName,
+      studentImage: selectedSlot.student?.image_url,
+    });
+    setShowCancelStep(false);
+    setCancelConfirmationText("");
+  }, [slots]);
+
+  const handleConfirmBookedSlotCancel = useCallback(async () => {
+    if (!slotToCancel) return;
+
+    const normalized = cancelConfirmationText.trim().toLowerCase();
+    if (!CANCELLATION_CONFIRM_TOKENS.includes(normalized as (typeof CANCELLATION_CONFIRM_TOKENS)[number])) {
+      setError('Please type "cancel" or "გაუქმება" to confirm cancellation.');
+      return;
+    }
+
+    setIsCancellingBookedSlot(true);
+    setError(null);
+
+    try {
+      const token = await getToken();
+      if (!token) {
+        setError("Authentication required");
+        return;
+      }
+
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/bookings/${slotToCancel.slotId}/cancel`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            reason: "instructor_request",
+            description: "Cancelled by instructor from schedule",
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Failed to cancel lesson");
+      }
+
+      setSlots((prev) => {
+        const next = { ...prev };
+        const current = next[slotToCancel.slotKey];
+        if (current) {
+          next[slotToCancel.slotKey] = {
+            ...current,
+            status: "cancelled",
+            mode: null,
+            student: undefined,
+          };
+        }
+        return next;
+      });
+
+      setSuccessMessage("Booked lesson cancelled successfully.");
+      setTimeout(() => setSuccessMessage(null), 4000);
+      setSlotToCancel(null);
+      setShowCancelStep(false);
+      setCancelConfirmationText("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to cancel lesson");
+    } finally {
+      setIsCancellingBookedSlot(false);
+    }
+  }, [slotToCancel, cancelConfirmationText, getToken]);
 
   // Save pending slots to backend
   const handleSave = async () => {
@@ -587,7 +663,7 @@ export default function SchedulePage() {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-              <span>Pending</span>
+              <span>Reserved</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
@@ -618,12 +694,102 @@ export default function SchedulePage() {
               slots={combinedSlots}
               onSlotToggle={handleSlotToggle}
               onSlotDelete={handleSlotDelete}
+              onBookedSlotCancel={handleBookedSlotCancelClick}
               durationMinutes={durationMinutes}
               onWeekChange={handleWeekChange}
             />
           )}
         </div>
       </div>
+
+      {slotToCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="text-xl font-bold text-gray-900">
+              {slotToCancel.status === "completed" ? "Completed lesson details" : "Booked lesson details"}
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Slot: <span className="font-semibold text-gray-900">{slotToCancel.startLabel}</span>
+            </p>
+            <p className="mt-1 text-sm text-gray-600">
+              Duration: <span className="font-semibold text-gray-900">{slotToCancel.durationMinutes} min</span>
+            </p>
+            <p className="mt-1 text-sm text-gray-600">
+              Mode: <span className="font-semibold text-gray-900">{slotToCancel.mode || "N/A"}</span>
+            </p>
+
+            <div className="mt-4 flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              {slotToCancel.studentImage ? (
+                <img
+                  src={slotToCancel.studentImage}
+                  alt={slotToCancel.studentName}
+                  className="h-10 w-10 rounded-full object-cover"
+                />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-bold text-gray-600">
+                  {slotToCancel.studentName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-gray-500">Booked by</p>
+                <p className="text-sm font-semibold text-gray-900">{slotToCancel.studentName}</p>
+              </div>
+            </div>
+
+            {slotToCancel.status === "booked" && showCancelStep && (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3">
+                <p className="text-xs text-red-700">
+                  To confirm cancellation, type <strong>{confirmationPrimary}</strong> or <strong>{confirmationSecondary}</strong>.
+                </p>
+                <input
+                  value={cancelConfirmationText}
+                  onChange={(e) => setCancelConfirmationText(e.target.value)}
+                  className="mt-2 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm focus:border-red-400 focus:outline-none"
+                  placeholder={`Type "${confirmationPrimary}" or "${confirmationSecondary}"`}
+                />
+              </div>
+            )}
+
+            <div className="mt-6 flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setSlotToCancel(null);
+                  setShowCancelStep(false);
+                  setCancelConfirmationText("");
+                }}
+                disabled={isCancellingBookedSlot}
+              >
+                Close
+              </Button>
+              {slotToCancel.status === "booked" && !showCancelStep ? (
+                <Button
+                  className="flex-1"
+                  onClick={() => setShowCancelStep(true)}
+                >
+                  Cancel Lesson
+                </Button>
+              ) : slotToCancel.status === "booked" ? (
+                <Button
+                  className="flex-1"
+                  onClick={handleConfirmBookedSlotCancel}
+                  disabled={isCancellingBookedSlot}
+                >
+                  {isCancellingBookedSlot ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Cancelling...
+                    </span>
+                  ) : (
+                    "Confirm Cancel"
+                  )}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

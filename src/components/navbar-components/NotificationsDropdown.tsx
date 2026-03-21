@@ -35,6 +35,13 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const localeHref = useLocaleHref();
 
+  const getSafeActionHref = (actionUrl?: string) => {
+    if (!actionUrl) return undefined;
+    if (actionUrl.startsWith("/ka/") || actionUrl.startsWith("/en/")) return actionUrl;
+    if (!actionUrl.startsWith("/")) return actionUrl;
+    return localeHref(actionUrl);
+  };
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -160,7 +167,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
                           </span>
                           {notification.actionUrl && (
                             <Link
-                              href={notification.actionUrl}
+                              href={getSafeActionHref(notification.actionUrl) || "#"}
                               onClick={() => {
                                 onMarkAsRead(notification.id);
                                 onClose();

@@ -17,6 +17,7 @@ export type InstructorPost = {
     applicant_address?: string | null;
     applicant_date_of_birth?: string | null;
     is_approved?: boolean | null;
+    status?: "active" | "inactive" | string | null;
 };
 
 export type InstructorAsset = {
@@ -47,6 +48,7 @@ export type InstructorProfileForm = {
     applicant_city: string;
     applicant_address: string;
     applicant_date_of_birth: string;
+    status: "active" | "inactive";
 };
 
 export const emptyInstructorForm: InstructorProfileForm = {
@@ -55,7 +57,7 @@ export const emptyInstructorForm: InstructorProfileForm = {
     manual_city_price: "", manual_yard_price: "",
     language_skills: "", applicant_first_name: "", applicant_last_name: "",
     phone: "", applicant_city: "",
-    applicant_address: "", applicant_date_of_birth: "",
+    applicant_address: "", applicant_date_of_birth: "", status: "inactive",
 };
 
 export const PRIMARY_LANGUAGE_OPTIONS: Array<{ code: string; label: string }> = [
@@ -115,6 +117,8 @@ export const mapPostToForm = (post: InstructorPost): InstructorProfileForm => ({
     applicant_city: post.applicant_city || "",
     applicant_address: post.applicant_address || "",
     applicant_date_of_birth: normalizeDate(post.applicant_date_of_birth),
+    // Treat missing/legacy status values as inactive by default.
+    status: post.status === "active" ? "active" : "inactive",
 });
 
 export const buildUpdatePayload = (form: InstructorProfileForm) => ({
@@ -133,4 +137,5 @@ export const buildUpdatePayload = (form: InstructorProfileForm) => ({
     applicant_city: form.applicant_city || null,
     applicant_address: form.applicant_address || null,
     applicant_date_of_birth: form.applicant_date_of_birth || null,
+    status: form.status,
 });

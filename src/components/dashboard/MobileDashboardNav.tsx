@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -9,6 +10,7 @@ import {
   Bell,
   Settings,
   CalendarDays,
+  Wallet,
 } from "lucide-react";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -20,7 +22,12 @@ interface MobileDashboardNavProps {
 export const MobileDashboardNav = ({ isInstructor = false }: MobileDashboardNavProps) => {
   const pathname = usePathname();
   const localeHref = useLocaleHref();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const studentNav = [
     { icon: LayoutDashboard, label: t("dashboard.nav.overview"), href: "/dashboard" },
@@ -31,12 +38,16 @@ export const MobileDashboardNav = ({ isInstructor = false }: MobileDashboardNavP
 
   const instructorNav = [
     { icon: LayoutDashboard, label: t("dashboard.nav.overview"), href: "/dashboard" },
+    { icon: Calendar, label: t("dashboard.nav.myLessons"), href: "/dashboard/lessons" },
     { icon: CalendarDays, label: t("dashboard.nav.schedule"), href: "/dashboard/schedule" },
+    { icon: Wallet, label: language === "ka" ? "ფინანსები" : "Finances", href: "/dashboard/finances" },
     { icon: Bell, label: t("dashboard.nav.notifications"), href: "/dashboard/notifications" },
     { icon: Settings, label: t("dashboard.nav.settings"), href: "/dashboard/settings" },
   ];
 
-  const navItems = isInstructor ? instructorNav : studentNav;
+  // Keep SSR and first client render identical to avoid hydration mismatch,
+  // then switch to role-specific nav after mount.
+  const navItems = mounted && isInstructor ? instructorNav : studentNav;
 
   const isActiveLink = (href: string) => {
     const fullHref = localeHref(href);
