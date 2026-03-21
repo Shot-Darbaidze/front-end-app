@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { ImageOff } from "lucide-react";
 
@@ -37,6 +37,7 @@ export const TechnicalQuestionIllustration = ({
             src={photoPath}
             alt={title}
             fill
+            unoptimized
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 640px"
             onError={() => setHasError(true)}

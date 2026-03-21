@@ -64,11 +64,13 @@ function FindInstructorsContent() {
         onChange={setSearchTerm}
         onSearch={handleSearch}
         isLoading={isLoading}
+        instructorType={filters.instructorType}
+        onInstructorTypeChange={(type) => handleFilterUpdate('instructorType', type)}
       />
       
       <div id="results-section" className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        
-        <HorizontalFilterBar 
+
+        <HorizontalFilterBar
             filters={filters}
             updateFilter={handleFilterUpdate}
             resetFilters={handleResetFilters}

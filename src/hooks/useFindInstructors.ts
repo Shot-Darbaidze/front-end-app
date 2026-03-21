@@ -156,6 +156,7 @@ export const useFindInstructors = () => {
           city: saved.filters?.city || '',
           transmissionType: saved.filters?.transmissionType || '',
           budget: saved.filters?.budget ?? [PRICING.MIN_PRICE_FILTER, PRICING.MAX_PRICE_FILTER],
+          instructorType: saved.filters?.instructorType ?? 'all',
         } satisfies FilterOptions,
       };
     }
@@ -223,6 +224,9 @@ export const useFindInstructors = () => {
       }
       if (filters.budget[1] !== PRICING.MAX_PRICE_FILTER) {
         params.set('max_price', String(filters.budget[1]));
+      }
+      if (filters.instructorType !== 'all') {
+        params.set('instructor_type', filters.instructorType);
       }
       if (sortBy !== 'rating') params.set('sort', sortBy);
 

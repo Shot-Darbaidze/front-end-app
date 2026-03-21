@@ -5,12 +5,14 @@ export interface FilterOptions {
   budget: [number, number];
   transmissionType: string;
   city: string;
+  instructorType: 'all' | 'solo' | 'school';
 }
 
 const getInitialFilters = (): FilterOptions => ({
   budget: [PRICING.MIN_PRICE_FILTER, PRICING.MAX_PRICE_FILTER],
   transmissionType: '',
   city: '',
+  instructorType: 'all',
 });
 
 export const useInstructorFilters = (initialValues?: Partial<FilterOptions>) => {
@@ -36,7 +38,8 @@ export const useInstructorFilters = (initialValues?: Partial<FilterOptions>) => 
       filters.budget[0] !== defaultFilters.budget[0] ||
       filters.budget[1] !== defaultFilters.budget[1] ||
       filters.transmissionType !== '' ||
-      filters.city !== ''
+      filters.city !== '' ||
+      filters.instructorType !== 'all'
     );
   }, [filters]);
 

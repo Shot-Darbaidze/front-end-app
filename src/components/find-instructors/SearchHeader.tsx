@@ -7,9 +7,11 @@ interface SearchHeaderProps {
   onChange: (value: string) => void;
   onSearch: () => void;
   isLoading?: boolean;
+  instructorType: 'all' | 'solo' | 'school';
+  onInstructorTypeChange: (type: 'all' | 'solo' | 'school') => void;
 }
 
-const SearchHeader = ({ value, onChange, onSearch, isLoading = false }: SearchHeaderProps) => {
+const SearchHeader = ({ value, onChange, onSearch, isLoading = false, instructorType, onInstructorTypeChange }: SearchHeaderProps) => {
   return (
     <div className="relative bg-[#0F172A] pt-24 pb-10 sm:pt-32 sm:pb-16 px-4 sm:px-6 overflow-hidden">
        {/* Abstract Background Shapes - Matching Home Page */}
@@ -59,6 +61,27 @@ const SearchHeader = ({ value, onChange, onSearch, isLoading = false }: SearchHe
               </span>
             ) : 'Search'}
           </button>
+        </div>
+
+        {/* Instructor Type Toggle */}
+        <div className="flex items-center justify-center gap-1 mt-5 p-1 bg-white/10 backdrop-blur-sm rounded-2xl w-fit mx-auto">
+          {([
+            { value: 'all', label: 'All' },
+            { value: 'solo', label: 'Solo Instructors' },
+            { value: 'school', label: 'Driving Schools' },
+          ] as const).map(({ value: v, label }) => (
+            <button
+              key={v}
+              onClick={() => onInstructorTypeChange(v)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                instructorType === v
+                  ? 'bg-[#F03D3D] text-white shadow-sm'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
     </div>
