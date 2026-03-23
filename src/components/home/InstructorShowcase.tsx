@@ -31,7 +31,7 @@ const InstructorShowcase = () => {
                 </div>
               </div>
 
-              <h3 className="text-xl font-bold mb-1">Giorgi Beridze</h3>
+              <h3 className="text-xl font-bold mb-1">გიორგი ბერიძე</h3>
               <p className="text-sm text-gray-400 mb-4">{t("home.showcase.specialty")}</p>
 
               <div className="flex flex-wrap gap-2 mb-6">

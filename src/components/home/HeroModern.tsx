@@ -7,7 +7,30 @@ import { useState } from "react";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const cityOptions = ["Tbilisi", "Batumi", "Kutaisi", "Rustavi"];
+const cityAliases = new Map([
+  ["tbilisi", "Tbilisi"],
+  ["თბილისი", "Tbilisi"],
+  ["batumi", "Batumi"],
+  ["ბათუმი", "Batumi"],
+  ["kutaisi", "Kutaisi"],
+  ["ქუთაისი", "Kutaisi"],
+  ["rustavi", "Rustavi"],
+  ["რუსთავი", "Rustavi"],
+  ["gori", "Gori"],
+  ["გორი", "Gori"],
+  ["telavi", "Telavi"],
+  ["თელავი", "Telavi"],
+  ["sachkhere", "Sachkhere"],
+  ["საჩხერე", "Sachkhere"],
+  ["ozurgeti", "Ozurgeti"],
+  ["ოზურგეთი", "Ozurgeti"],
+  ["zugdidi", "Zugdidi"],
+  ["ზუგდიდი", "Zugdidi"],
+  ["poti", "Poti"],
+  ["ფოთი", "Poti"],
+  ["akhaltsikhe", "Akhaltsikhe"],
+  ["ახალციხე", "Akhaltsikhe"],
+]);
 
 const HeroModern = () => {
   const router = useRouter();
@@ -19,9 +42,7 @@ const HeroModern = () => {
     const trimmed = searchInput.trim();
     const params = new URLSearchParams();
     if (trimmed) {
-      const matchedCity = cityOptions.find(
-        (city) => city.toLowerCase() === trimmed.toLowerCase()
-      );
+      const matchedCity = cityAliases.get(trimmed.toLowerCase());
       if (matchedCity) {
         params.set("city", matchedCity);
       } else {
