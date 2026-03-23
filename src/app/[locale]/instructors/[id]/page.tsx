@@ -10,6 +10,7 @@ import {
   buildVehicleInfo,
   pickFirstValidPrice,
 } from "@/utils/instructor";
+import { resolveMediaUrl } from "@/utils/media";
 
 type InstructorPost = {
   id: string;
@@ -72,7 +73,9 @@ export default async function InstructorProfilePage({ params }: { params: Promis
   const cityLocation = extractCityName(post.located_at);
   const vehicles = buildVehicleInfo(post.vehicle_brand, post.vehicle_year);
   const languages = formatLanguages(post.language_skills);
-  const vehiclePhotos = assets.map((asset) => asset.url);
+  const vehiclePhotos = assets
+    .map((asset) => resolveMediaUrl(asset.url))
+    .filter((url): url is string => Boolean(url));
   const cityPrice = pickFirstValidPrice([post.automatic_city_price, post.manual_city_price]);
 
   return (
@@ -99,7 +102,7 @@ export default async function InstructorProfilePage({ params }: { params: Promis
               vehicles={vehicles}
               vehiclePhotos={vehiclePhotos}
               bio={post.description || (locale === "ka" ? "ინსტრუქტორის აღწერა მალე დაემატება." : "Instructor bio coming soon.")}
-              imageUrl={post.image_url ?? undefined}
+              imageUrl={resolveMediaUrl(post.image_url)}
               postId={id}
             />
           </div>

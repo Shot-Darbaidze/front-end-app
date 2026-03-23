@@ -1,5 +1,20 @@
 import type { NextConfig } from "next";
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+const apiHostPattern = (() => {
+  if (!apiUrl) return null;
+
+  try {
+    const parsed = new URL(apiUrl);
+    return {
+      protocol: parsed.protocol.replace(":", "") as "http" | "https",
+      hostname: parsed.hostname,
+    };
+  } catch {
+    return null;
+  }
+})();
+
 const nextConfig: NextConfig = {
   /* config options here */
 
@@ -37,6 +52,7 @@ const nextConfig: NextConfig = {
   // Optimize images
   images: {
     remotePatterns: [
+      ...(apiHostPattern ? [apiHostPattern] : []),
       {
         protocol: 'http',
         hostname: 'localhost',

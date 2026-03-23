@@ -6,6 +6,7 @@ import { useInstructorFilters, type FilterOptions } from '@/hooks/useInstructorF
 import { api } from '@/services/api';
 import { LIMITS, ERROR_MESSAGES, PRICING, TIME_CONFIG, API_ENDPOINTS } from '@/config/constants';
 import { trackSearch, trackFilterChange } from '@/utils/analytics';
+import { resolveMediaUrl } from '@/utils/media';
 
 const PAGE_SIZE = 12;
 const DEBOUNCE_DELAY = TIME_CONFIG.DEBOUNCE_DELAY;
@@ -95,7 +96,7 @@ const mapResults = (results: SearchResult[]): InstructorCardData[] => {
       price: Number(item.hourly_rate ?? 0),
       cityPrice: item.city_price ?? null,
       tags,
-      imageUrl: item.image_url ?? undefined,
+      imageUrl: resolveMediaUrl(item.image_url),
     };
   });
 };

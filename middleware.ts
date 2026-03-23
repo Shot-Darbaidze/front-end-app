@@ -32,16 +32,25 @@ const isExcludedPath = (pathname: string) => {
  * Add security headers to response
  */
 function addSecurityHeaders(response: NextResponse, request: NextRequest) {
+  const clerkSources = [
+    "https://*.clerk.accounts.dev",
+    "https://clerk.accounts.dev",
+    "https://clerk.instruktori.ge",
+    "https://clerk.instruqtori.ge",
+    "https://*.clerk.dev",
+    "https://clerk.dev",
+  ].join(" ");
+
   // Content Security Policy - Prevents XSS attacks
   const cspDirectives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.clerk.accounts.dev https://clerk.accounts.dev",
+    `script-src 'self' 'unsafe-eval' 'unsafe-inline' ${clerkSources} https://www.youtube.com https://www.youtube-nocookie.com`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
     "worker-src 'self' blob:",
-    "connect-src 'self' http://localhost:* https://*.onrender.com https://*.clerk.accounts.dev https://clerk.accounts.dev",
-    "frame-src 'self' https://*.clerk.accounts.dev https://clerk.accounts.dev https://www.google.com https://maps.google.com",
+    `connect-src 'self' http://localhost:* https://*.onrender.com ${clerkSources} https://www.youtube.com https://www.youtube-nocookie.com`,
+    `frame-src 'self' ${clerkSources} https://www.google.com https://maps.google.com https://www.youtube.com https://www.youtube-nocookie.com`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -81,6 +90,10 @@ function addSecurityHeaders(response: NextResponse, request: NextRequest) {
   const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:3001',
+    'https://instruktori.ge',
+    'https://www.instruktori.ge',
+    'https://instruqtori.ge',
+    'https://www.instruqtori.ge',
     process.env.NEXT_PUBLIC_APP_URL || '',
   ].filter(Boolean);
 
