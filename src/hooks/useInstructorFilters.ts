@@ -38,8 +38,7 @@ export const useInstructorFilters = (initialValues?: Partial<FilterOptions>) => 
       filters.budget[0] !== defaultFilters.budget[0] ||
       filters.budget[1] !== defaultFilters.budget[1] ||
       filters.transmissionType !== '' ||
-      filters.city !== '' ||
-      filters.instructorType !== 'all'
+      filters.city !== ''
     );
   }, [filters]);
 

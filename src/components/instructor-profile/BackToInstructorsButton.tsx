@@ -1,11 +1,12 @@
 "use client";
 
 import { ChevronLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 interface BackToInstructorsButtonProps {
   fallbackHref: string;
   className?: string;
+  label?: string;
 }
 
 const RETURN_URL_KEY = "lastFindInstructorsReturnUrl";
@@ -13,8 +14,11 @@ const RETURN_URL_KEY = "lastFindInstructorsReturnUrl";
 export default function BackToInstructorsButton({
   fallbackHref,
   className = "",
+  label,
 }: BackToInstructorsButtonProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const isKa = pathname?.startsWith("/ka");
 
   const handleBack = () => {
     const storedHref = typeof window !== "undefined"
@@ -32,7 +36,7 @@ export default function BackToInstructorsButton({
   return (
     <button onClick={handleBack} className={className} type="button">
       <ChevronLeft className="w-4 h-4 mr-1" />
-      Back to Instructors
+      {label ?? (isKa ? "ინსტრუქტორებთან დაბრუნება" : "Back to Instructors")}
     </button>
   );
 }

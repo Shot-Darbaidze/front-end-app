@@ -11,9 +11,9 @@ const InstructorList = memo(({ instructors, onInstructorClick }: InstructorListP
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {instructors.map((instructor, index) => (
-        <InstructorCard 
-          key={instructor.id} 
-          {...instructor} 
+        <InstructorCard
+          key={instructor.id}
+          {...instructor}
           position={index}
           onCardClick={onInstructorClick}
         />

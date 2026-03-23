@@ -53,8 +53,8 @@ export default async function InstructorProfilePage({ params }: { params: Promis
       <div className="min-h-screen bg-gray-50/50 pt-28 pb-12">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm text-center">
-            <h1 className="text-2xl font-bold text-gray-900">Instructor not found</h1>
-            <p className="text-gray-500 mt-2">This instructor profile could not be loaded.</p>
+            <h1 className="text-2xl font-bold text-gray-900">{locale === "ka" ? "ინსტრუქტორი ვერ მოიძებნა" : "Instructor not found"}</h1>
+            <p className="text-gray-500 mt-2">{locale === "ka" ? "ინსტრუქტორის პროფილის ჩატვირთვა ვერ მოხერხდა." : "This instructor profile could not be loaded."}</p>
             <BackToInstructorsButton
               fallbackHref={`/${locale}/find-instructors`}
               className="inline-flex items-center text-sm text-[#F03D3D] hover:text-[#d62f2f] transition-colors font-medium mt-6"
@@ -68,7 +68,7 @@ export default async function InstructorProfilePage({ params }: { params: Promis
   const post = (await postResponse.json()) as InstructorPost;
   const assets = assetsResponse.ok ? ((await assetsResponse.json()) as InstructorAsset[]) : [];
 
-  const name = buildInstructorName(post.applicant_first_name, post.applicant_last_name, post.title || "Instructor");
+  const name = buildInstructorName(post.applicant_first_name, post.applicant_last_name, post.title || "ინსტრუქტორი");
   const cityLocation = extractCityName(post.located_at);
   const vehicles = buildVehicleInfo(post.vehicle_brand, post.vehicle_year);
   const languages = formatLanguages(post.language_skills);
@@ -93,12 +93,12 @@ export default async function InstructorProfilePage({ params }: { params: Promis
               name={name}
               rating={Number(post.rating ?? 0)}
               reviewCount={post.review_count ?? 0}
-              specialty={post.title || "Driving Instructor"}
+              specialty={post.title || "მართვის ინსტრუქტორი"}
               location={cityLocation}
-              languages={languages.length ? languages : ["Not specified"]}
+              languages={languages.length ? languages : [locale === "ka" ? "არ არის მითითებული" : "Not specified"]}
               vehicles={vehicles}
               vehiclePhotos={vehiclePhotos}
-              bio={post.description || "Instructor bio coming soon."}
+              bio={post.description || (locale === "ka" ? "ინსტრუქტორის აღწერა მალე დაემატება." : "Instructor bio coming soon.")}
               imageUrl={post.image_url ?? undefined}
               postId={id}
             />
@@ -114,6 +114,7 @@ export default async function InstructorProfilePage({ params }: { params: Promis
             <LocationCard
               location={cityLocation}
               googleMapsUrl={post.google_maps_url}
+              locale={locale}
             />
           </div>
 

@@ -246,7 +246,7 @@ const Navbar = () => {
     { href: "/", label: language === "ka" ? "მთავარი" : "Home" },
     { href: "/find-instructors", label: language === "ka" ? "ინსტრუქტორების ძებნა" : "Find Instructors" },
     { href: "/for-instructors", label: language === "ka" ? "ინსტრუქტორებისთვის" : "For Instructors" },
-    ...(userType === "student" ? [{ href: "/city-exam", label: language === "ka" ? "ქალაქის გამოცდა" : "City Exam" }] : []),
+    ...(userType === "student" ? [{ href: "/city-exam/monitor", label: language === "ka" ? "ქალაქის გამოცდა" : "City Exam" }] : []),
   ];
 
   const mobileNavItems = navLinks.map((link) => {

@@ -35,7 +35,7 @@ export function SingleComment({
     const [showReplies, setShowReplies] = useState(true);
     const hasReplies = comment.replies && comment.replies.length > 0;
     const isTopLevel = !comment.parent_id;
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
 
     return (
         <div id={`comment-${comment.id}`} className={`${depth > 0 ? "ml-4 sm:ml-8 border-l-2 border-slate-100 pl-3 sm:pl-4" : ""}`}>
@@ -57,7 +57,7 @@ export function SingleComment({
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                         <span className="font-bold text-slate-900 text-sm">{getUserDisplayName(comment.user)}</span>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-tight">{formatTimeAgo(comment.created_at)}</span>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-tight">{formatTimeAgo(comment.created_at, language)}</span>
                         {comment.rating && !comment.parent_id && (
                             <div className="flex items-center gap-0.5 ml-1">
                                 {[1, 2, 3, 4, 5].map((star) => (

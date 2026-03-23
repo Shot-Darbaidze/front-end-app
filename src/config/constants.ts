@@ -223,7 +223,19 @@ export const INSTRUCTOR_CATEGORIES = {
   PROFESSIONAL: 'professional',
 } as const;
 
-export const CITIES = ['Tbilisi', 'Batumi', 'Kutaisi', 'Rustavi'] as const;
+export const CITIES = [
+  'Tbilisi',
+  'Batumi',
+  'Kutaisi',
+  'Rustavi',
+  'Gori',
+  'Telavi',
+  'Sachkhere',
+  'Ozurgeti',
+  'Zugdidi',
+  'Poti',
+  'Akhaltsikhe',
+] as const;
 
 export const TRANSMISSION_TYPES = ['Manual', 'Automatic'] as const;
 
@@ -404,7 +416,6 @@ export const ROUTES = {
   BLOG: '/blog',
   CONTACT: '/contact',
   HOW_IT_WORKS: '/how-it-works',
-  NOT_FOUND: '/404',
 } as const;
 
 // ============================================================================

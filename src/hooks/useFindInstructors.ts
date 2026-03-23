@@ -77,13 +77,13 @@ const mapResults = (results: SearchResult[]): InstructorCardData[] => {
       tags.push(item.transmission.toLowerCase() === 'manual' ? 'Manual' : 'Automatic');
     }
 
-    let specialty = item.title ?? 'Driving Instructor';
+    let specialty = item.title ?? 'მართვის ინსტრუქტორი';
     if (specialty.startsWith(item.name)) {
       specialty = specialty.replace(item.name, '').trim();
       specialty = specialty.replace(/^[-–—]\s*/, '').trim();
     }
     if (!specialty || specialty === '') {
-      specialty = 'Driving Instructor';
+      specialty = 'მართვის ინსტრუქტორი';
     }
 
     return {

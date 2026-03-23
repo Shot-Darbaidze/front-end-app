@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Star, MapPin, Clock, Car, BadgeCheck, Expand } from "lucide-react";
 import ImageLightbox from "@/components/ui/ImageLightbox";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface InstructorProfileHeaderProps {
   name: string;
@@ -33,6 +34,8 @@ const InstructorProfileHeader = ({
   imageUrl,
   postId
 }: InstructorProfileHeaderProps) => {
+  const { language } = useLanguage();
+  const isKa = language === "ka";
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
@@ -76,8 +79,8 @@ const InstructorProfileHeader = ({
 
   // Build combined list of all images for the lightbox
   const allImages = [
-    ...(imageUrl ? [{ src: imageUrl, alt: `${name} profile photo` }] : []),
-    ...vehiclePhotos.map((url, idx) => ({ src: url, alt: `Vehicle photo ${idx + 1}` })),
+    ...(imageUrl ? [{ src: imageUrl, alt: isKa ? `${name} - პროფილის ფოტო` : `${name} profile photo` }] : []),
+    ...vehiclePhotos.map((url, idx) => ({ src: url, alt: isKa ? `ავტომობილის ფოტო ${idx + 1}` : `Vehicle photo ${idx + 1}` })),
   ];
 
   const openLightbox = (index: number) => {
@@ -104,7 +107,7 @@ const InstructorProfileHeader = ({
               onClick={() => imageUrl && openLightbox(0)}
               role={imageUrl ? "button" : undefined}
               tabIndex={imageUrl ? 0 : undefined}
-              aria-label={imageUrl ? `View ${name}'s profile photo` : undefined}
+              aria-label={imageUrl ? (isKa ? `${name}-ის პროფილის ფოტოს ნახვა` : `View ${name}'s profile photo`) : undefined}
               onKeyDown={(e) => {
                 if (imageUrl && (e.key === "Enter" || e.key === " ")) {
                   e.preventDefault();
@@ -142,7 +145,7 @@ const InstructorProfileHeader = ({
                   <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
                   <div className="flex flex-col">
                     <span className="text-lg font-bold text-gray-900 leading-none">{rating}</span>
-                    {reviewCount > 0 && <span className="text-xs text-gray-500">{reviewCount} reviews</span>}
+                    {reviewCount > 0 && <span className="text-xs text-gray-500">{isKa ? `${reviewCount} შეფასება` : `${reviewCount} reviews`}</span>}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 text-sm text-gray-600 md:hidden">
@@ -168,14 +171,14 @@ const InstructorProfileHeader = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           <div className="md:col-span-2 space-y-6">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">About Me</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">{isKa ? "ჩემ შესახებ" : "About Me"}</h3>
               <p className="text-gray-600 leading-relaxed">
                 {bio}
               </p>
             </div>
             
             <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">Vehicles</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">{isKa ? "ავტომობილები" : "Vehicles"}</h3>
               <div className="flex flex-wrap gap-3">
                 {vehicles.map((vehicle, idx) => (
                   <div key={idx} className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100 text-gray-700 font-medium">
@@ -186,7 +189,7 @@ const InstructorProfileHeader = ({
               </div>
               {vehiclePhotos.length > 0 && (
                 <div className="mt-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Vehicle Photos</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">{isKa ? "ავტომობილის ფოტოები" : "Vehicle Photos"}</h4>
                   <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {vehiclePhotos.map((url, idx) => (
                       <div
@@ -195,7 +198,7 @@ const InstructorProfileHeader = ({
                         onClick={() => openLightbox(idx + vehiclePhotoOffset)}
                         role="button"
                         tabIndex={0}
-                        aria-label={`View vehicle photo ${idx + 1}`}
+                        aria-label={isKa ? `ავტომობილის ფოტოს ნახვა ${idx + 1}` : `View vehicle photo ${idx + 1}`}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
@@ -205,7 +208,7 @@ const InstructorProfileHeader = ({
                       >
                         <img
                           src={url}
-                          alt={`Vehicle photo ${idx + 1}`}
+                          alt={isKa ? `ავტომობილის ფოტო ${idx + 1}` : `Vehicle photo ${idx + 1}`}
                           className="w-full h-36 sm:h-44 object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
@@ -221,7 +224,7 @@ const InstructorProfileHeader = ({
 
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">Languages</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">{isKa ? "ენები" : "Languages"}</h3>
               <div className="flex flex-wrap gap-2">
                 {languages.map((lang, idx) => (
                   <span key={idx} className="px-3 py-1 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium">
@@ -232,7 +235,7 @@ const InstructorProfileHeader = ({
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">Availability</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">{isKa ? "ხელმისაწვდომობა" : "Availability"}</h3>
               {isAvailableThisWeek === null ? (
                 <div className="flex items-center gap-3 bg-gray-50 px-5 py-4 rounded-xl border border-gray-100 animate-pulse w-full max-w-sm">
                   <div className="w-8 h-8 rounded-full bg-gray-200" />
@@ -250,10 +253,10 @@ const InstructorProfileHeader = ({
                   </div>
                   <div className="pr-2">
                     <span className="block text-[15px] font-semibold text-gray-900 leading-tight">
-                      Available this week
+                      {isKa ? "ხელმისაწვდომია ამ კვირაში" : "Available this week"}
                     </span>
                     <span className="block text-[13px] text-emerald-600/90 font-medium mt-0.5">
-                      Accepting new students
+                      {isKa ? "იღებს ახალ მოსწავლეებს" : "Accepting new students"}
                     </span>
                   </div>
                 </div>
@@ -264,10 +267,10 @@ const InstructorProfileHeader = ({
                   </div>
                   <div className="pr-2">
                     <span className="block text-[15px] font-medium text-gray-700 leading-tight">
-                      No availability this week
+                      {isKa ? "ამ კვირაში ადგილი არ არის" : "No availability this week"}
                     </span>
                     <span className="block text-[13px] text-gray-500 font-medium mt-0.5">
-                      Check back soon
+                      {isKa ? "შეამოწმე მოგვიანებით" : "Check back soon"}
                     </span>
                   </div>
                 </div>

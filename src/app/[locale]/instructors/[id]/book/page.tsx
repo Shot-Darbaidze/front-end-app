@@ -612,7 +612,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
             <h1 className="text-2xl font-bold text-gray-900 mb-2">{t("booking.somethingWentWrong")}</h1>
             <p className="text-gray-500 mb-6">{error}</p>
             <Link
-              href={`/instructors/${id}`}
+              href={`/${locale}/instructors/${id}`}
               className="inline-flex items-center text-sm text-[#F03D3D] hover:text-[#d62f2f] transition-colors font-medium"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
@@ -630,7 +630,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
         {/* Header */}
         <div className="mb-8 text-center">
           <Link 
-            href={`/instructors/${id}`}
+            href={`/${locale}/instructors/${id}`}
             className="inline-flex items-center text-sm text-[#F03D3D] hover:text-[#d62f2f] transition-colors font-medium mb-4"
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
@@ -670,7 +670,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
               {t("booking.checkBackLater")}
             </p>
             <Link
-              href={`/instructors/${id}`}
+              href={`/${locale}/instructors/${id}`}
               className="inline-flex items-center text-sm text-[#F03D3D] hover:text-[#d62f2f] transition-colors font-medium"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />

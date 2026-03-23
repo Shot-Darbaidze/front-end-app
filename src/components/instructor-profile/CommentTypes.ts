@@ -19,9 +19,16 @@ export interface Comment {
     isOwner?: boolean;
 }
 
-export function formatTimeAgo(dateString: string): string {
+export function formatTimeAgo(dateString: string, locale: "ka" | "en" = "en"): string {
     const date = new Date(dateString);
     const diffInSeconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (locale === "ka") {
+        if (diffInSeconds < 60) return "ახლახან";
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} წთ წინ`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} სთ წინ`;
+        if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} დღე წინ`;
+        return date.toLocaleDateString("ka-GE", { month: "short", day: "numeric" });
+    }
     if (diffInSeconds < 60) return "just now";
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
@@ -31,5 +38,5 @@ export function formatTimeAgo(dateString: string): string {
 
 export function getUserDisplayName(user: CommentUser): string {
     const parts = [user.first_name, user.last_name].filter(Boolean);
-    return parts.length > 0 ? parts.join(" ") : "Anonymous";
+    return parts.length > 0 ? parts.join(" ") : "ანონიმური";
 }

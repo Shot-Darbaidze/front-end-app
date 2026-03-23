@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Find Driving Instructors | Compare Ratings & Prices",
+  title: "იპოვე მართვის ინსტრუქტორი | შეადარე ფასები და შეფასებები",
   description:
-    "Browse and compare driving instructors by rating, price, city, and transmission type. Find the perfect match for your learning journey.",
+    "დაათვალიერე და შეადარე მართვის ინსტრუქტორები შეფასების, ფასის, ქალაქისა და გადაცემათა კოლოფის ტიპის მიხედვით.",
   openGraph: {
-    title: "Find Driving Instructors",
+    title: "იპოვე მართვის ინსტრუქტორი",
     description:
-      "Compare ratings, prices, and reviews to find the best driving instructor for you.",
+      "შეადარე ფასები, შეფასებები და მიმოხილვები, რათა შენთვის სასურველი ინსტრუქტორი იპოვო.",
   },
 };
 

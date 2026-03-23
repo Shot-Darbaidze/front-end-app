@@ -13,18 +13,60 @@ import {
 } from "lucide-react";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 
+export const CITY_EXAM_NAV_ITEMS = [
+  {
+    icon: Activity,
+    href: "/city-exam/monitor",
+    label: {
+      ka: "მონიტორი",
+      en: "Monitor",
+    },
+  },
+  {
+    icon: Target,
+    href: "/city-exam/progress",
+    label: {
+      ka: "პროგრესი",
+      en: "Progress",
+    },
+  },
+  {
+    icon: Car,
+    href: "/city-exam/simulations",
+    label: {
+      ka: "სიმულაციები",
+      en: "Simulations",
+    },
+  },
+  {
+    icon: BookOpen,
+    href: "/city-exam/tips",
+    label: {
+      ka: "რჩევები",
+      en: "Tips",
+    },
+  },
+  {
+    icon: MapPin,
+    href: "/city-exam/routes",
+    label: {
+      ka: "მარშრუტები",
+      en: "Routes",
+    },
+  },
+  {
+    icon: ClipboardCheck,
+    href: "/city-exam/checklist",
+    label: {
+      ka: "ჩეკლისტი",
+      en: "Checklist",
+    },
+  },
+] as const;
+
 export const CityExamNav = () => {
   const pathname = usePathname();
   const localeHref = useLocaleHref();
-
-  const navItems = [
-    { icon: Activity, label: "მონიტორი", href: "/city-exam/monitor" },
-    { icon: Target, label: "პროგრესი", href: "/city-exam/progress" },
-    { icon: Car, label: "სიმულაციები", href: "/city-exam/simulations" },
-    { icon: BookOpen, label: "რჩევები", href: "/city-exam/tips" },
-    { icon: MapPin, label: "მარშრუტები", href: "/city-exam/routes" },
-    { icon: ClipboardCheck, label: "ჩეკლისტი", href: "/city-exam/checklist" },
-  ];
 
   const isActiveLink = (href: string) => {
     const fullHref = localeHref(href);
@@ -36,7 +78,7 @@ export const CityExamNav = () => {
     <div className="bg-white border-b border-gray-200/70 shadow-sm">
       <div className="max-w-7xl mx-auto w-full">
         <div className="flex items-center py-2 px-3 sm:px-6 lg:px-8 sm:justify-center gap-1">
-          {navItems.map((item) => {
+          {CITY_EXAM_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = isActiveLink(item.href);
             return (
@@ -56,7 +98,7 @@ export const CityExamNav = () => {
                   className="w-[18px] h-[18px] shrink-0"
                   strokeWidth={active ? 2 : 1.5}
                 />
-                <span className="hidden sm:inline">{item.label}</span>
+                <span className="hidden sm:inline">{item.label.ka}</span>
               </Link>
             );
           })}

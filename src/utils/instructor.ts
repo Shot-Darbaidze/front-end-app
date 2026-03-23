@@ -13,7 +13,7 @@
 export const buildInstructorName = (
   firstName?: string | null,
   lastName?: string | null,
-  fallback = "Instructor"
+  fallback = "ინსტრუქტორი"
 ): string => {
   const parts = [firstName, lastName]
     .map((part) => (part || "").trim())
@@ -28,7 +28,7 @@ export const buildInstructorName = (
  */
 export const extractCityName = (
   location?: string | null,
-  fallback = "Location unavailable"
+  fallback = "მდებარეობა მიუწვდომელია"
 ): string => {
   if (!location) return fallback;
   return location.split(",")[0].trim() || fallback;
@@ -38,15 +38,15 @@ export const extractCityName = (
  * Formats language codes into readable labels
  */
 const LANGUAGE_LABELS: Record<string, string> = {
-  en: "English",
-  ka: "Georgian",
-  ru: "Russian",
-  fr: "French",
-  de: "German",
-  es: "Spanish",
-  it: "Italian",
-  tr: "Turkish",
-  ar: "Arabic",
+  en: "ინგლისური",
+  ka: "ქართული",
+  ru: "რუსული",
+  fr: "ფრანგული",
+  de: "გერმანული",
+  es: "ესპანური",
+  it: "იტალიური",
+  tr: "თურქული",
+  ar: "არაბული",
 };
 
 /**
@@ -95,6 +95,6 @@ export const buildVehicleInfo = (
   
   if (brandStr && yearStr) return [`${brandStr} (${yearStr})`];
   if (brandStr) return [brandStr];
-  if (yearStr) return [`Vehicle (${yearStr})`];
-  return ["Vehicle info unavailable"];
+  if (yearStr) return [`ავტომობილი (${yearStr})`];
+  return ["ავტომობილის ინფორმაცია მიუწვდომელია"];
 };

@@ -10,8 +10,11 @@ import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { useFindInstructors } from "@/hooks/useFindInstructors";
 import { LIMITS } from "@/config/constants";
 import { trackInstructorClick } from "@/utils/analytics";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function FindInstructorsContent() {
+  const { language } = useLanguage();
+  const isKa = language === "ka";
   const {
     searchTerm,
     sortBy,
@@ -84,11 +87,13 @@ function FindInstructorsContent() {
         {hasSearched && (
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Available Instructors</h2>
+              <h2 className="text-lg font-bold text-gray-900">{isKa ? "ხელმისაწვდომი ინსტრუქტორები" : "Available Instructors"}</h2>
               <p className="text-sm text-gray-500">
                 {totalCount !== null
-                  ? `Found ${totalCount >= LIMITS.MAX_PAGE_SIZE ? `${LIMITS.MAX_PAGE_SIZE}+` : totalCount} instructor${totalCount !== 1 ? 's' : ''} matching your criteria`
-                  : 'Filtering...'
+                  ? isKa
+                    ? `ნაპოვნია ${totalCount >= LIMITS.MAX_PAGE_SIZE ? `${LIMITS.MAX_PAGE_SIZE}+` : totalCount} შედეგი თქვენი ფილტრების მიხედვით`
+                    : `Found ${totalCount >= LIMITS.MAX_PAGE_SIZE ? `${LIMITS.MAX_PAGE_SIZE}+` : totalCount} instructor${totalCount !== 1 ? 's' : ''} matching your criteria`
+                  : isKa ? 'იფილტრება...' : 'Filtering...'
                 }
               </p>
               {errorMessage && (
@@ -98,7 +103,7 @@ function FindInstructorsContent() {
                     onClick={handleSearch}
                     className="text-xs font-medium text-[#F03D3D] hover:text-[#d62f2f] underline"
                   >
-                    Retry
+                    {isKa ? "ხელახლა ცდა" : "Retry"}
                   </button>
                 </div>
               )}
@@ -118,8 +123,8 @@ function FindInstructorsContent() {
         {/* Empty State */}
         {!isLoading && hasSearched && currentInstructors.length === 0 && (
           <EmptyState
-            title="No instructors found"
-            description="Try adjusting your filters or search criteria to find more instructors."
+            title={isKa ? "ინსტრუქტორები ვერ მოიძებნა" : "No instructors found"}
+            description={isKa ? "სცადე ფილტრების ან საძიებო პარამეტრების შეცვლა, რათა მეტი შედეგი ნახო." : "Try adjusting your filters or search criteria to find more instructors."}
             onReset={handleResetFilters}
             showResetButton={hasActiveFilters || searchTerm.length > 0}
           />
@@ -140,9 +145,9 @@ function FindInstructorsContent() {
               onClick={() => goToPage(currentPage - 1)}
               disabled={currentPage <= 1}
               className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Go to previous page"
+              aria-label={isKa ? "წინა გვერდზე გადასვლა" : "Go to previous page"}
             >
-              <span className="hidden sm:inline">Previous</span>
+              <span className="hidden sm:inline">{isKa ? "წინა" : "Previous"}</span>
               <svg className="w-4 h-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
 
@@ -162,7 +167,7 @@ function FindInstructorsContent() {
                       <button
                         onClick={() => goToPage(1)}
                         className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl text-sm font-bold border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
-                        aria-label="Go to page 1"
+                        aria-label={isKa ? "გადასვლა გვერდზე 1" : "Go to page 1"}
                       >
                         1
                       </button>
@@ -175,7 +180,7 @@ function FindInstructorsContent() {
                     <button
                       key={page}
                       onClick={() => goToPage(page)}
-                      aria-label={`Go to page ${page}`}
+                      aria-label={isKa ? `გადასვლა გვერდზე ${page}` : `Go to page ${page}`}
                       aria-current={page === currentPage ? 'page' : undefined}
                       className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl text-sm font-bold transition-colors ${
                         page === currentPage
@@ -194,9 +199,9 @@ function FindInstructorsContent() {
               onClick={() => goToPage(currentPage + 1)}
               disabled={!hasMore}
               className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Go to next page"
+              aria-label={isKa ? "შემდეგ გვერდზე გადასვლა" : "Go to next page"}
             >
-              <span className="hidden sm:inline">Next</span>
+              <span className="hidden sm:inline">{isKa ? "შემდეგი" : "Next"}</span>
               <svg className="w-4 h-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </button>
           </nav>

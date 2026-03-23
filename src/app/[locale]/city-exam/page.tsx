@@ -1,17 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
-
-export default function CityExamRedirect() {
-  const router = useRouter();
-  const pathname = usePathname();
-
-  useEffect(() => {
-    // Extract locale from current path (e.g., /en/city-exam -> en)
-    const locale = pathname.split("/")[1];
-    router.replace(`/${locale}/city-exam/simulations`);
-  }, [router, pathname]);
-
-  return null;
+export default async function CityExamPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  redirect(`/${locale}/city-exam/monitor`);
 }

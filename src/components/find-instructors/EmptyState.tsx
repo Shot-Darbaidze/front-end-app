@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 import { memo } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface EmptyStateProps {
   title: string;
@@ -14,6 +15,9 @@ const EmptyState = memo(({
   onReset, 
   showResetButton = true 
 }: EmptyStateProps) => {
+  const { language } = useLanguage();
+  const isKa = language === "ka";
+
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4">
       <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
@@ -26,7 +30,7 @@ const EmptyState = memo(({
           onClick={onReset}
           className="px-6 py-2.5 bg-[#F03D3D] text-white rounded-xl font-medium hover:bg-[#d62f2f] transition-colors"
         >
-          Clear Filters
+          {isKa ? "ფილტრების გასუფთავება" : "Clear Filters"}
         </button>
       )}
     </div>

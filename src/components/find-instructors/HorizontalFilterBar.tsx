@@ -4,13 +4,22 @@ import { memo, useState, useCallback, useRef, useEffect } from "react";
 import { FilterOptions } from "@/hooks/useInstructorFilters";
 import { PRICING, CITIES, TRANSMISSION_TYPES } from "@/config/constants";
 import { Filter, X, ChevronDown, MapPin, Car, ArrowUpDown, DollarSign, Star, ArrowDown, ArrowUp } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type SortOption = "rating" | "price-asc" | "price-desc";
 
-const SORT_LABELS: Record<SortOption, string> = {
-  rating: "Top Rated",
-  "price-asc": "₾: Low → High",
-  "price-desc": "₾: High → Low",
+const CITY_LABELS: Record<string, { ka: string; en: string }> = {
+  Tbilisi: { ka: "თბილისი", en: "Tbilisi" },
+  Batumi: { ka: "ბათუმი", en: "Batumi" },
+  Kutaisi: { ka: "ქუთაისი", en: "Kutaisi" },
+  Rustavi: { ka: "რუსთავი", en: "Rustavi" },
+  Gori: { ka: "გორი", en: "Gori" },
+  Telavi: { ka: "თელავი", en: "Telavi" },
+  Sachkhere: { ka: "საჩხერე", en: "Sachkhere" },
+  Ozurgeti: { ka: "ოზურგეთი", en: "Ozurgeti" },
+  Zugdidi: { ka: "ზუგდიდი", en: "Zugdidi" },
+  Poti: { ka: "ფოთი", en: "Poti" },
+  Akhaltsikhe: { ka: "ახალციხე", en: "Akhaltsikhe" },
 };
 
 interface HorizontalFilterBarProps {
@@ -32,6 +41,8 @@ const HorizontalFilterBar = memo(({
   onSortChange,
   isLoading = false,
 }: HorizontalFilterBarProps) => {
+  const { language } = useLanguage();
+  const isKa = language === "ka";
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMobileSortOpen, setIsMobileSortOpen] = useState(false);
@@ -129,6 +140,20 @@ const HorizontalFilterBar = memo(({
     filters.budget[0] !== PRICING.MIN_PRICE_FILTER || filters.budget[1] !== PRICING.MAX_PRICE_FILTER,
   ].filter(Boolean).length;
 
+  const sortLabels: Record<SortOption, string> = {
+    rating: isKa ? "რეიტინგით" : "Top Rated",
+    "price-asc": isKa ? "₾: დაბლიდან მაღლისკენ" : "₾: Low → High",
+    "price-desc": isKa ? "₾: მაღლიდან დაბლისკენ" : "₾: High → Low",
+  };
+
+  const transmissionLabels: Record<string, string> = {
+    Manual: isKa ? "მექანიკა" : "Manual",
+    Automatic: isKa ? "ავტომატიკა" : "Automatic",
+  };
+
+  const getCityLabel = (city: string) => CITY_LABELS[city]?.[isKa ? "ka" : "en"] ?? city;
+  const getTransmissionLabel = (type: string) => transmissionLabels[type] ?? type;
+
   return (
     <div ref={filterBarRef} className="relative mb-8">
       {/* ===== DESKTOP: Original horizontal bar (md+) ===== */}
@@ -138,7 +163,7 @@ const HorizontalFilterBar = memo(({
           {/* Label */}
           <div className="flex items-center gap-2 text-gray-900 mr-2">
             <Filter className="w-5 h-5" />
-            <span className="font-bold">Filters:</span>
+            <span className="font-bold">{isKa ? "ფილტრები:" : "Filters:"}</span>
           </div>
 
           {/* City Pill */}
@@ -155,18 +180,18 @@ const HorizontalFilterBar = memo(({
               }`}
             >
               <MapPin className="w-4 h-4" />
-              <span>City</span>
+              <span>{isKa ? "ქალაქი" : "City"}</span>
               {filters.city && (
                 <>
                   <div className="w-px h-3 bg-current opacity-30" />
-                  <span className="font-bold">{filters.city}</span>
+                  <span className="font-bold">{getCityLabel(filters.city)}</span>
                 </>
               )}
               <ChevronDown className="w-4 h-4" />
             </button>
 
             {openDropdown === "city" && (
-              <div role="listbox" aria-label="Select city" className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-20">
+              <div role="listbox" aria-label={isKa ? "აირჩიეთ ქალაქი" : "Select city"} className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-20">
                 {CITIES.map((city) => (
                   <button
                     key={city}
@@ -188,7 +213,7 @@ const HorizontalFilterBar = memo(({
                         : "hover:bg-gray-50 text-gray-700"
                     }`}
                   >
-                    {city}
+                    {getCityLabel(city)}
                   </button>
                 ))}
               </div>
@@ -209,18 +234,18 @@ const HorizontalFilterBar = memo(({
               }`}
             >
               <Car className="w-4 h-4" />
-              <span>Transmission</span>
+              <span>{isKa ? "კოლოფი" : "Transmission"}</span>
               {filters.transmissionType && (
                 <>
                   <div className="w-px h-3 bg-current opacity-30" />
-                  <span className="font-bold">{filters.transmissionType}</span>
+                  <span className="font-bold">{getTransmissionLabel(filters.transmissionType)}</span>
                 </>
               )}
               <ChevronDown className="w-4 h-4" />
             </button>
 
             {openDropdown === "transmission" && (
-              <div role="listbox" aria-label="Select transmission" className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-20">
+              <div role="listbox" aria-label={isKa ? "აირჩიეთ კოლოფი" : "Select transmission"} className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-20">
                 {TRANSMISSION_TYPES.map((type) => (
                   <button
                     key={type}
@@ -242,7 +267,7 @@ const HorizontalFilterBar = memo(({
                         : "hover:bg-gray-50 text-gray-700"
                     }`}
                   >
-                    {type}
+                    {getTransmissionLabel(type)}
                   </button>
                 ))}
               </div>
@@ -262,8 +287,8 @@ const HorizontalFilterBar = memo(({
                 onBlur={commitMinPrice}
                 onKeyDown={(e) => e.key === "Enter" && commitMinPrice()}
                 className="w-[4.5rem] pl-6 pr-2 py-2 border border-gray-200 rounded-lg text-sm font-medium focus:outline-none focus:border-[#F03D3D]"
-                placeholder="Min"
-                aria-label="Minimum price"
+                placeholder={isKa ? "მინ" : "Min"}
+                aria-label={isKa ? "მინიმალური ფასი" : "Minimum price"}
               />
             </div>
             <div className="w-1 h-[2px] bg-gray-300" />
@@ -278,8 +303,8 @@ const HorizontalFilterBar = memo(({
                 onBlur={commitMaxPrice}
                 onKeyDown={(e) => e.key === "Enter" && commitMaxPrice()}
                 className="w-[4.5rem] pl-6 pr-2 py-2 border border-gray-200 rounded-lg text-sm font-medium focus:outline-none focus:border-[#F03D3D]"
-                placeholder="Max"
-                aria-label="Maximum price"
+                placeholder={isKa ? "მაქს" : "Max"}
+                aria-label={isKa ? "მაქსიმალური ფასი" : "Maximum price"}
               />
             </div>
           </div>
@@ -294,13 +319,13 @@ const HorizontalFilterBar = memo(({
               className="flex items-center gap-1.5 px-6 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:border-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ArrowUpDown className="w-4 h-4" />
-              <span>{SORT_LABELS[sortBy]}</span>
+              <span>{sortLabels[sortBy]}</span>
               <ChevronDown className="w-4 h-4" />
             </button>
 
             {openDropdown === "sort" && (
-              <div role="listbox" aria-label="Sort order" className="absolute top-full right-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-20">
-                {(Object.keys(SORT_LABELS) as SortOption[]).map((option) => (
+              <div role="listbox" aria-label={isKa ? "დალაგების წესი" : "Sort order"} className="absolute top-full right-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-20">
+                {(Object.keys(sortLabels) as SortOption[]).map((option) => (
                   <button
                     key={option}
                     role="option"
@@ -310,7 +335,7 @@ const HorizontalFilterBar = memo(({
                       setOpenDropdown(null);
                     }}
                     onKeyDown={(e) =>
-                      handleListboxKeyDown(e, Object.keys(SORT_LABELS), option, (o) => {
+                      handleListboxKeyDown(e, Object.keys(sortLabels), option, (o) => {
                         onSortChange(o as SortOption);
                         setOpenDropdown(null);
                       })
@@ -321,7 +346,7 @@ const HorizontalFilterBar = memo(({
                         : "hover:bg-gray-50 text-gray-700"
                     }`}
                   >
-                    {SORT_LABELS[option]}
+                    {sortLabels[option]}
                   </button>
                 ))}
               </div>
@@ -334,7 +359,7 @@ const HorizontalFilterBar = memo(({
               onClick={resetFilters}
               className="text-sm font-medium text-[#F03D3D] hover:text-[#d62f2f] flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
             >
-              <X className="w-4 h-4" /> Reset Filters
+              <X className="w-4 h-4" /> {isKa ? "ფილტრების გასუფთავება" : "Reset Filters"}
             </button>
           )}
         </div>
@@ -353,7 +378,7 @@ const HorizontalFilterBar = memo(({
             }`}
           >
             <Filter className="w-4 h-4" />
-            <span>Filters</span>
+            <span>{isKa ? "ფილტრები" : "Filters"}</span>
             {activeFilterCount > 0 && (
               <span className="w-5 h-5 rounded-full bg-[#F03D3D] text-white text-xs flex items-center justify-center font-bold">
                 {activeFilterCount}
@@ -376,7 +401,7 @@ const HorizontalFilterBar = memo(({
 
             {isMobileSortOpen && (
               <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-2xl border border-gray-100 shadow-xl p-2 z-30">
-                {(Object.keys(SORT_LABELS) as SortOption[]).map((option) => (
+                {(Object.keys(sortLabels) as SortOption[]).map((option) => (
                   <button
                     key={option}
                     onClick={() => {
@@ -389,7 +414,7 @@ const HorizontalFilterBar = memo(({
                         : "text-gray-700 hover:bg-gray-50"
                     }`}
                   >
-                    {SORT_LABELS[option]}
+                    {sortLabels[option]}
                   </button>
                 ))}
               </div>
@@ -400,7 +425,7 @@ const HorizontalFilterBar = memo(({
             <button
               onClick={resetFilters}
               className="p-2.5 rounded-2xl text-[#F03D3D] hover:bg-red-50 transition-colors flex-shrink-0"
-              aria-label="Reset filters"
+              aria-label={isKa ? "ფილტრების გასუფთავება" : "Reset filters"}
             >
               <X className="w-4 h-4" />
             </button>
@@ -414,7 +439,7 @@ const HorizontalFilterBar = memo(({
             <div className="flex flex-col gap-4 mb-5">
               <div>
                 <label className="flex items-center gap-1.5 text-sm font-bold text-gray-700 mb-2">
-                  <MapPin className="w-4 h-4" /> City
+                  <MapPin className="w-4 h-4" /> {isKa ? "ქალაქი" : "City"}
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {CITIES.map((city) => (
@@ -427,7 +452,7 @@ const HorizontalFilterBar = memo(({
                           : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
                       }`}
                     >
-                      {city}
+                      {getCityLabel(city)}
                     </button>
                   ))}
                 </div>
@@ -435,7 +460,7 @@ const HorizontalFilterBar = memo(({
 
               <div>
                 <label className="flex items-center gap-1.5 text-sm font-bold text-gray-700 mb-2">
-                  <Car className="w-4 h-4" /> Transmission
+                  <Car className="w-4 h-4" /> {isKa ? "კოლოფი" : "Transmission"}
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {TRANSMISSION_TYPES.map((type) => (
@@ -448,7 +473,7 @@ const HorizontalFilterBar = memo(({
                           : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
                       }`}
                     >
-                      {type}
+                      {getTransmissionLabel(type)}
                     </button>
                   ))}
                 </div>
@@ -458,7 +483,7 @@ const HorizontalFilterBar = memo(({
             {/* Row 2: Price Range */}
             <div>
               <label className="flex items-center gap-1.5 text-sm font-bold text-gray-700 mb-2">
-                <DollarSign className="w-4 h-4" /> Price Range
+                <DollarSign className="w-4 h-4" /> {isKa ? "ფასის დიაპაზონი" : "Price Range"}
               </label>
               <div className="flex items-center gap-3">
                 <div className="relative flex-1 max-w-[140px]">
@@ -472,8 +497,8 @@ const HorizontalFilterBar = memo(({
                     onBlur={commitMinPrice}
                     onKeyDown={(e) => e.key === "Enter" && commitMinPrice()}
                     className="w-full pl-7 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:border-[#F03D3D] focus:ring-1 focus:ring-[#F03D3D]/10"
-                    placeholder="Min"
-                    aria-label="Minimum price"
+                    placeholder={isKa ? "მინ" : "Min"}
+                    aria-label={isKa ? "მინიმალური ფასი" : "Minimum price"}
                   />
                 </div>
                 <div className="w-4 h-[2px] bg-gray-300 flex-shrink-0" />
@@ -488,8 +513,8 @@ const HorizontalFilterBar = memo(({
                     onBlur={commitMaxPrice}
                     onKeyDown={(e) => e.key === "Enter" && commitMaxPrice()}
                     className="w-full pl-7 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:border-[#F03D3D] focus:ring-1 focus:ring-[#F03D3D]/10"
-                    placeholder="Max"
-                    aria-label="Maximum price"
+                    placeholder={isKa ? "მაქს" : "Max"}
+                    aria-label={isKa ? "მაქსიმალური ფასი" : "Maximum price"}
                   />
                 </div>
               </div>
