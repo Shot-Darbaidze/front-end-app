@@ -90,11 +90,8 @@ export default function AvailableTimeSlotsCard({
                       : "bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-100"
                   }`}
                 >
-                  {isSelected && effectVariant === "accent" && (
-                    <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#F03D3D]" />
-                  )}
                   <span>{formatTimeRange(slot.time, slot.durationMinutes)}</span>
-                  {isSelected && effectVariant !== "accent" && (
+                  {isSelected && (
                     <span className="absolute right-4 text-[11px] font-semibold leading-none opacity-80">
                       {selectedIndex}
                     </span>
