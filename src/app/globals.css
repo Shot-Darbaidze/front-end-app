@@ -17,8 +17,8 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), Inter, sans-serif;
-  font-weight: 500;
+  font-family: var(--font-app), Inter, sans-serif;
+  font-size: 14px;
 }
 
 /* Hide native date picker indicators when we render our own calendar icon */

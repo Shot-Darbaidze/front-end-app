@@ -98,6 +98,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const hasMountedStepRef = useRef(false);
 
   // Phone requirement gate before reservation
   const [userPhone, setUserPhone] = useState<string>("");
@@ -106,6 +107,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
   const [phoneConfirmed, setPhoneConfirmed] = useState(false);
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const timeSlotsRef = useRef<HTMLDivElement | null>(null);
 
   // Reservation (temporary hold) state
   const [reserving, setReserving] = useState(false);
@@ -263,6 +265,19 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
 
     loadPhone();
   }, [isSignedIn, getToken]);
+
+  useEffect(() => {
+    if (!hasMountedStepRef.current) {
+      hasMountedStepRef.current = true;
+      return;
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
+
+  const scrollToTimeSlots = () => {
+    timeSlotsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   // ── Countdown timer for reservation hold ──────────────────────────
   useEffect(() => {
@@ -756,7 +771,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
             </div>
 
             {/* Time Slots Column */}
-            <div className="lg:col-span-8 bg-white rounded-3xl border border-gray-100 p-6 shadow-sm min-h-[400px] flex flex-col">
+            <div ref={timeSlotsRef} className="lg:col-span-8 bg-white rounded-3xl border border-gray-100 p-6 shadow-sm min-h-[400px] flex flex-col">
               <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-[#F03D3D]" />
                 {t("booking.availableTimes")}
@@ -780,14 +795,13 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
                         <button
                           key={slotInfo.id}
                           onClick={() => handleSlotSelect(viewingDate, slotInfo.id, slotInfo.time, slotInfo.duration_minutes)}
-                          className={`py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 border ${
+                          className={`py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center border ${
                             isSelected
-                              ? "bg-[#F03D3D] text-white border-[#F03D3D] shadow-lg shadow-red-500/20 scale-105"
+                              ? "bg-[#FFEAEA] text-gray-900 border-[#F03D3D]/30 shadow-sm"
                               : "bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-100"
                           }`}
                         >
                           {formatTimeRange(slotInfo.time, slotInfo.duration_minutes)}
-                          {isSelected && <CheckCircle className="w-4 h-4" />}
                         </button>
                       );
                     })}
@@ -975,6 +989,9 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
                   await releaseReservation();
                   setBookingError(null);
                   setStep(1);
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(scrollToTimeSlots);
+                  });
                 }}
                 className="text-gray-500 font-medium hover:text-gray-900 transition-colors ml-4"
               >

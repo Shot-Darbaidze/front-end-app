@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode } from "react";
+import { defaultLocale } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
 
 type Language = Locale;
@@ -11,14 +12,29 @@ interface LanguageContextType {
   t: (key: string) => string;
 }
 
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+const fallbackContext: LanguageContextType = {
+  language: defaultLocale,
+  setLanguage: () => {},
+  t: (key: string) => {
+    const keys = key.split(".");
+    let value: unknown = translationsKa;
+
+    for (const k of keys) {
+      if (value && typeof value === "object" && k in value) {
+        value = (value as Record<string, unknown>)[k];
+      } else {
+        return key;
+      }
+    }
+
+    return typeof value === "string" ? value : key;
+  },
+};
+
+const LanguageContext = createContext<LanguageContextType>(fallbackContext);
 
 export const useLanguage = () => {
-  const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error("useLanguage must be used within LanguageProvider");
-  }
-  return context;
+  return useContext(LanguageContext);
 };
 
 export const LanguageProvider = ({ children, initialLocale = "ka" }: { children: ReactNode; initialLocale?: Language }) => {

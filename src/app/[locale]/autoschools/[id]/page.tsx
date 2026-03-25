@@ -9,18 +9,16 @@ import type { SchoolInstructor } from "@/components/autoschool-profile/Instructo
 import type { CoursePackage } from "@/components/autoschool-profile/CoursePackagesSidebar";
 
 const MOCK_SCHOOL = {
-  name: "თბილისის სამძრაო სკოლა",
+  name: "ავტო სკოლა",
   rating: 4.8,
   reviewCount: 134,
   location: "თბილისი",
   description:
-    "ჩვენი სკოლა 2010 წლიდან ამზადებს მძღოლებს. 8 გამოცდილი ინსტრუქტორი, თანამედროვე ავტოპარკი და ინდივიდუალური მიდგომა თითოეული სტუდენტის მიმართ. ვუზრუნველყოფთ სრულ სწავლებას — თეორიული გამოცდიდან პრაქტიკული ჩაბარებამდე.",
+    "ავტო სკოლა 2010 წლიდან ამზადებს მომავალ მძღოლებს. ჩვენი 8 გამოცდილი ინსტრუქტორი, თანამედროვე ავტოპარკი და ინდივიდუალური მიდგომა თითოეულ მოსწავლეს სრულფასოვან მომზადებას სთავაზობს, თეორიული გამოცდიდან პრაქტიკული მართვის ჩაბარებამდე.",
   languages: ["ქართული", "English", "Русский"],
   fleet: [
-    "Hyundai Accent 2022 (Manual)",
-    "Toyota Corolla 2021 (Automatic)",
-    "Kia Rio 2023 (Manual)",
-    "Chevrolet Cobalt 2022 (Manual)",
+    "Skoda Rapid",
+    "Volkswagen Jetta",
   ],
   instructorCount: 8,
   googleMapsUrl:
@@ -28,14 +26,14 @@ const MOCK_SCHOOL = {
 };
 
 const MOCK_PACKAGES: CoursePackage[] = [
-  { id: "standard", name: "სტანდარტული", lessons: 20, price: 350, description: "დამწყებთათვის" },
-  { id: "intensive", name: "ინტენსიური", lessons: 30, price: 480, popular: true, description: "ყველაზე პოპულარული" },
-  { id: "vip", name: "VIP", lessons: 40, price: 620, description: "ინდივიდუალური გრაფიკი" },
+  { id: "standard", name: "სტანდარტული", lessons: 8, price: 350, description: "დამწყებთათვის" },
+  { id: "intensive", name: "ინტენსიური", lessons: 12, price: 450, originalPrice: 600, popular: true, description: "ყველაზე პოპულარული" },
+  { id: "vip", name: "VIP", lessons: 20, price: 620, description: "ინდივიდუალური გრაფიკი" },
 ];
 
 const MOCK_SCHEDULE = [
-  { days: "ორშ — პარ", hours: "09:00 – 20:00" },
-  { days: "შაბათი", hours: "10:00 – 17:00" },
+  { days: "ორშ - პარ", hours: "09:00 - 20:00" },
+  { days: "შაბათი", hours: "10:00 -17:00" },
   { days: "კვირა", hours: "", closed: true },
 ];
 
@@ -84,7 +82,10 @@ export default async function AutoschoolProfilePage({
 
           {/* 2. Sidebar — sticky, col-span-1, spans multiple rows */}
           <div className="order-2 lg:col-span-1 lg:row-span-3 space-y-6">
-            <CoursePackagesSidebar packages={MOCK_PACKAGES} />
+            <CoursePackagesSidebar
+              packages={MOCK_PACKAGES}
+              bookingHref={`/${locale}/autoschools/${id}/book`}
+            />
             <WorkingHoursCard
               schedule={MOCK_SCHEDULE}
               phone="+995 555 123 456"

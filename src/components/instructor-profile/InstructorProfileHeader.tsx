@@ -222,7 +222,7 @@ const InstructorProfileHeader = ({
             </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="flex flex-col justify-between space-y-6">
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-3">{isKa ? "ენები" : "Languages"}</h3>
               <div className="flex flex-wrap gap-2">
@@ -234,7 +234,7 @@ const InstructorProfileHeader = ({
               </div>
             </div>
 
-            <div>
+            <div className="mt-auto">
               <h3 className="text-lg font-bold text-gray-900 mb-3">{isKa ? "ხელმისაწვდომობა" : "Availability"}</h3>
               {isAvailableThisWeek === null ? (
                 <div className="flex items-center gap-3 bg-gray-50 px-5 py-4 rounded-xl border border-gray-100 animate-pulse w-full max-w-sm">
@@ -254,9 +254,6 @@ const InstructorProfileHeader = ({
                   <div className="pr-2">
                     <span className="block text-[15px] font-semibold text-gray-900 leading-tight">
                       {isKa ? "ხელმისაწვდომია ამ კვირაში" : "Available this week"}
-                    </span>
-                    <span className="block text-[13px] text-emerald-600/90 font-medium mt-0.5">
-                      {isKa ? "იღებს ახალ მოსწავლეებს" : "Accepting new students"}
                     </span>
                   </div>
                 </div>

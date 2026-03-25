@@ -1,35 +1,9 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import VercelAnalytics from "./analytics";
 import { reportWebVitals as webVitalsReporter } from "./web-vitals";
-
-const inter = localFont({
-  src: [
-    {
-      path: "./fonts/Inter-Regular.woff2",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "./fonts/Inter-Medium.woff2",
-      weight: "500",
-      style: "normal",
-    },
-    {
-      path: "./fonts/Inter-SemiBold.woff2",
-      weight: "600",
-      style: "normal",
-    },
-    {
-      path: "./fonts/Inter-Bold.woff2",
-      weight: "700",
-      style: "normal",
-    },
-  ],
-  variable: "--font-inter",
-});
+import { appFont } from "@/lib/fonts";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
@@ -64,7 +38,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html suppressHydrationWarning>
-        <body suppressHydrationWarning className={`${inter.variable} font-sans font-medium antialiased`}>
+        <body suppressHydrationWarning className={`${appFont.variable} ${appFont.className} font-sans antialiased`}>
           {children}
           <VercelAnalytics />
         </body>
