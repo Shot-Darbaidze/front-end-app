@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Languages, Bell, Home, Search, Briefcase, Car, ChevronRight, LogOut, Settings } from "lucide-react";
+import { LayoutDashboard, Languages, Bell, Home, Search, Briefcase, Building2, Car, ChevronRight, ChevronDown, LogOut, Settings, Handshake } from "lucide-react";
 import {
   SignInButton,
   SignUpButton,
@@ -31,7 +31,10 @@ const Navbar = () => {
   const [isMobileMenuVisible, setIsMobileMenuVisible] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isPartnerDropdownOpen, setIsPartnerDropdownOpen] = useState(false);
+  const [isMobilePartnerExpanded, setIsMobilePartnerExpanded] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const partnerDropdownRef = useRef<HTMLDivElement | null>(null);
   const [isBurgerOnLightBg, setIsBurgerOnLightBg] = useState(false);
   const [isMobileCloseIconExpanded, setIsMobileCloseIconExpanded] = useState(false);
   const [isMobileDrawerAnimatedOpen, setIsMobileDrawerAnimatedOpen] = useState(false);
@@ -245,9 +248,16 @@ const Navbar = () => {
   const navLinks = [
     { href: "/", label: language === "ka" ? "მთავარი" : "Home" },
     { href: "/find-instructors", label: language === "ka" ? "ინსტრუქტორების ძებნა" : "Find Instructors" },
-    { href: "/for-instructors", label: language === "ka" ? "ინსტრუქტორებისთვის" : "For Instructors" },
     ...(userType === "student" ? [{ href: "/city-exam/monitor", label: language === "ka" ? "ქალაქის გამოცდა" : "City Exam" }] : []),
   ];
+
+  const partnerLinks = [
+    { href: "/for-instructors", label: language === "ka" ? "ინსტრუქტორებისთვის" : "For Instructors", icon: <Briefcase className="w-4 h-4" /> },
+    { href: "/for-autoschools", label: language === "ka" ? "აუტოსკოლებისთვის" : "For Autoschools", icon: <Building2 className="w-4 h-4" /> },
+  ];
+
+  const partnerDropdownLabel = language === "ka" ? "პარტნიორობა" : "Partners";
+  const isPartnerActive = pathname?.includes("/for-instructors") || pathname?.includes("/for-autoschools");
 
   const mobileNavItems = navLinks.map((link) => {
     const icon =
@@ -255,12 +265,21 @@ const Navbar = () => {
         ? <Home className="w-5 h-5" />
         : link.href === "/find-instructors"
           ? <Search className="w-5 h-5" />
-          : link.href === "/for-instructors"
-            ? <Briefcase className="w-5 h-5" />
-            : <Car className="w-5 h-5" />;
+          : <Car className="w-5 h-5" />;
 
     return { ...link, icon };
   });
+
+  // Close partner dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (partnerDropdownRef.current && !partnerDropdownRef.current.contains(e.target as Node)) {
+        setIsPartnerDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
 
   return (
@@ -292,18 +311,49 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
+          <div className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={localeHref(link.href)}
-                className={`text-sm font-medium transition-colors hover:text-[#F03D3D] ${
+                className={`text-sm font-medium transition-colors hover:text-[#F03D3D] whitespace-nowrap ${
                   pathname === localeHref(link.href) ? "text-[#F03D3D]" : "text-gray-600"
                 }`}
               >
                 {link.label}
               </Link>
             ))}
+
+            {/* Partners Dropdown */}
+            <div ref={partnerDropdownRef} className="relative">
+              <button
+                onClick={() => setIsPartnerDropdownOpen(!isPartnerDropdownOpen)}
+                className={`text-sm font-medium transition-colors hover:text-[#F03D3D] flex items-center gap-1 whitespace-nowrap ${
+                  isPartnerActive ? "text-[#F03D3D]" : "text-gray-600"
+                }`}
+              >
+                {partnerDropdownLabel}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isPartnerDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {isPartnerDropdownOpen && (
+                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-xl border border-gray-100 py-2 min-w-[200px] z-50">
+                  {partnerLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={localeHref(link.href)}
+                      onClick={() => setIsPartnerDropdownOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-gray-50 ${
+                        pathname === localeHref(link.href) ? "text-[#F03D3D] bg-red-50/50" : "text-gray-700"
+                      }`}
+                    >
+                      {link.icon}
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Desktop Auth/User */}
@@ -513,6 +563,44 @@ const Navbar = () => {
                     </Link>
                   );
                 })}
+
+                {/* Partners expandable section in mobile */}
+                <div>
+                  <button
+                    onClick={() => setIsMobilePartnerExpanded(!isMobilePartnerExpanded)}
+                    className={`w-full rounded-xl px-2.5 py-3 flex items-center gap-2.5 transition-colors ${
+                      isPartnerActive
+                        ? "bg-red-50 text-[#F03D3D]"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-[#F03D3D]"
+                    }`}
+                  >
+                    <Handshake className="w-5 h-5" />
+                    <span className="flex-1 text-sm font-medium text-left">{partnerDropdownLabel}</span>
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isMobilePartnerExpanded ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {isMobilePartnerExpanded && (
+                    <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-100 pl-3">
+                      {partnerLinks.map((link) => {
+                        const isActive = pathname === localeHref(link.href);
+                        return (
+                          <Link
+                            key={`partner-${link.href}`}
+                            href={localeHref(link.href)}
+                            className={`w-full rounded-lg px-2.5 py-2.5 flex items-center gap-2.5 transition-colors ${
+                              isActive
+                                ? "bg-red-50 text-[#F03D3D]"
+                                : "text-gray-600 hover:bg-gray-50 hover:text-[#F03D3D]"
+                            }`}
+                          >
+                            {link.icon}
+                            <span className="text-sm font-medium">{link.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="rounded-xl border border-gray-200 p-3">

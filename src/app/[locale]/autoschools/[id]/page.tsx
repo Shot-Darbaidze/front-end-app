@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import AutoschoolProfileHeader from "@/components/autoschool-profile/AutoschoolProfileHeader";
 import InstructorGrid from "@/components/autoschool-profile/InstructorGrid";
 import CoursePackagesSidebar from "@/components/autoschool-profile/CoursePackagesSidebar";
@@ -7,44 +8,27 @@ import CommentSection from "@/components/instructor-profile/CommentSection";
 import BackToInstructorsButton from "@/components/instructor-profile/BackToInstructorsButton";
 import type { SchoolInstructor } from "@/components/autoschool-profile/InstructorGrid";
 import type { CoursePackage } from "@/components/autoschool-profile/CoursePackagesSidebar";
+import type { AutoschoolDetail } from "@/services/autoschoolService";
 
-const MOCK_SCHOOL = {
-  name: "ავტო სკოლა",
-  rating: 4.8,
-  reviewCount: 134,
-  location: "თბილისი",
-  description:
-    "ავტო სკოლა 2010 წლიდან ამზადებს მომავალ მძღოლებს. ჩვენი 8 გამოცდილი ინსტრუქტორი, თანამედროვე ავტოპარკი და ინდივიდუალური მიდგომა თითოეულ მოსწავლეს სრულფასოვან მომზადებას სთავაზობს, თეორიული გამოცდიდან პრაქტიკული მართვის ჩაბარებამდე.",
-  languages: ["ქართული", "English", "Русский"],
-  fleet: [
-    "Skoda Rapid",
-    "Volkswagen Jetta",
-  ],
-  instructorCount: 8,
-  googleMapsUrl:
-    "https://maps.google.com/maps?q=Tbilisi,Georgia&t=&z=13&ie=UTF8&iwloc=&output=embed",
-};
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
-const MOCK_PACKAGES: CoursePackage[] = [
-  { id: "standard", name: "სტანდარტული", lessons: 8, price: 350, description: "დამწყებთათვის" },
-  { id: "intensive", name: "ინტენსიური", lessons: 12, price: 450, originalPrice: 600, popular: true, description: "ყველაზე პოპულარული" },
-  { id: "vip", name: "VIP", lessons: 20, price: 620, description: "ინდივიდუალური გრაფიკი" },
-];
-
-const MOCK_SCHEDULE = [
-  { days: "ორშ - პარ", hours: "09:00 - 20:00" },
-  { days: "შაბათი", hours: "10:00 -17:00" },
-  { days: "კვირა", hours: "", closed: true },
-];
-
-const MOCK_INSTRUCTORS: SchoolInstructor[] = [
-  { id: "1", name: "გიორგი მ.", rating: 4.9, transmission: "Manual", price: 55 },
-  { id: "2", name: "ნინო კ.", rating: 4.7, transmission: "Automatic", price: 60 },
-  { id: "3", name: "დავით ლ.", rating: 4.8, transmission: "Manual / Auto", price: 50 },
-  { id: "4", name: "ანა ბ.", rating: 4.6, transmission: "Automatic", price: 65 },
-  { id: "5", name: "ლუკა თ.", rating: 4.9, transmission: "Manual", price: 55 },
-  { id: "6", name: "მარიამ გ.", rating: 4.7, transmission: "Manual", price: 50 },
-];
+/**
+ * Fetch autoschool data from the backend at build/request time.
+ * Returns null on 404 (school not found or not yet approved).
+ */
+async function fetchAutoschool(id: string): Promise<AutoschoolDetail | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/autoschools/${id}`, {
+      // ISR: revalidate every 60 seconds so edits by the admin appear quickly
+      next: { revalidate: 60 },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    return res.json();
+  } catch {
+    return null;
+  }
+}
 
 export default async function AutoschoolProfilePage({
   params,
@@ -52,6 +36,43 @@ export default async function AutoschoolProfilePage({
   params: Promise<{ locale: string; id: string }>;
 }) {
   const { locale, id } = await params;
+
+  const school = await fetchAutoschool(id);
+
+  // Gracefully 404 if school doesn't exist or isn't approved yet
+  if (!school) {
+    notFound();
+  }
+
+  // ── Transform API data to component-prop shapes ──────────────────────────
+
+  const packages: CoursePackage[] = (school.packages ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    lessons: p.lessons,
+    price: Number(p.price),
+    originalPrice: p.original_price != null ? Number(p.original_price) : undefined,
+    popular: p.popular,
+    description: p.description ?? undefined,
+  }));
+
+  const schedule = (school.working_hours ?? []).map((h) => ({
+    days: h.day_label,
+    hours: h.hours_label ?? "",
+    closed: h.is_closed,
+  }));
+
+  const instructors: SchoolInstructor[] = (school.instructors ?? []).map((i) => ({
+    id: i.id,
+    name: [i.first_name, i.last_name].filter(Boolean).join(" ") || i.title,
+    rating: i.rating != null ? Number(i.rating) : 0,
+    transmission: i.transmission ?? "Manual",
+    price: i.city_price != null ? Number(i.city_price) : (i.yard_price != null ? Number(i.yard_price) : 0),
+  }));
+
+  // Parse CSV helper
+  const csvToArray = (csv: string | null | undefined) =>
+    csv ? csv.split(",").map((s) => s.trim()).filter(Boolean) : [];
 
   return (
     <div className="min-h-screen bg-gray-50/50 pt-28 pb-12">
@@ -69,38 +90,38 @@ export default async function AutoschoolProfilePage({
           {/* 1. School Header — col-span-2 */}
           <div className="order-1 lg:col-span-2">
             <AutoschoolProfileHeader
-              name={MOCK_SCHOOL.name}
-              rating={MOCK_SCHOOL.rating}
-              reviewCount={MOCK_SCHOOL.reviewCount}
-              location={MOCK_SCHOOL.location}
-              description={MOCK_SCHOOL.description}
-              languages={MOCK_SCHOOL.languages}
-              fleet={MOCK_SCHOOL.fleet}
-              instructorCount={MOCK_SCHOOL.instructorCount}
+              name={school.name}
+              rating={4.8}
+              reviewCount={0}
+              location={school.city ?? ""}
+              description={school.description ?? ""}
+              languages={csvToArray(school.languages)}
+              fleet={csvToArray(school.fleet)}
+              instructorCount={instructors.length}
             />
           </div>
 
           {/* 2. Sidebar — sticky, col-span-1, spans multiple rows */}
           <div className="order-2 lg:col-span-1 lg:row-span-3 space-y-6">
             <CoursePackagesSidebar
-              packages={MOCK_PACKAGES}
+              packages={packages}
               bookingHref={`/${locale}/autoschools/${id}/book`}
             />
             <WorkingHoursCard
-              schedule={MOCK_SCHEDULE}
-              phone="+995 555 123 456"
-              email="info@tbilisidrivingschool.ge"
+              schedule={schedule}
+              phone={school.phone ?? ""}
+              email={school.email ?? ""}
             />
             <LocationCard
-              location={MOCK_SCHOOL.location}
-              googleMapsUrl={MOCK_SCHOOL.googleMapsUrl}
+              location={school.city ?? ""}
+              googleMapsUrl={school.google_maps_url ?? ""}
               locale={locale}
             />
           </div>
 
           {/* 3. Instructors Grid — col-span-2 */}
           <div className="order-3 lg:col-span-2">
-            <InstructorGrid instructors={MOCK_INSTRUCTORS} />
+            <InstructorGrid instructors={instructors} />
           </div>
 
           {/* 4. Reviews — col-span-2 */}

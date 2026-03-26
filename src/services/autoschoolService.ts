@@ -1,0 +1,229 @@
+/**
+ * Autoschool API service — typed fetch helpers for the autoschool endpoints.
+ *
+ * All paths are relative to NEXT_PUBLIC_API_URL (or the backend root).
+ * Keeping the base URL configurable means zero-cost swapping between
+ * local dev and production.
+ */
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CoursePackage {
+  id: string;
+  name: string;
+  lessons: number;
+  price: number;
+  original_price?: number | null;
+  popular: boolean;
+  description?: string | null;
+}
+
+export interface WorkingHours {
+  id: string;
+  day_label: string;
+  hours_label?: string | null;
+  is_closed: boolean;
+  sort_order: number;
+}
+
+export interface SchoolInstructor {
+  id: string;
+  instructor_id: string;
+  title: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  image_url?: string | null;
+  rating?: number | null;
+  transmission?: string | null;
+  city_price?: number | null;
+  yard_price?: number | null;
+  instructor_type: "independent" | "employee";
+}
+
+export interface AutoschoolDetail {
+  id: string;
+  name: string;
+  description?: string | null;
+  city?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  google_maps_url?: string | null;
+  /** CSV e.g. "KA,EN,RU" */
+  languages?: string | null;
+  /** CSV e.g. "Skoda Rapid,VW Jetta" */
+  fleet?: string | null;
+  logo_url?: string | null;
+  cover_image_url?: string | null;
+  is_approved: boolean;
+  status: string;
+  packages: CoursePackage[];
+  working_hours: WorkingHours[];
+  instructors: SchoolInstructor[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AutoschoolSummary {
+  id: string;
+  name: string;
+  city?: string | null;
+  logo_url?: string | null;
+  rating?: number | null;
+  instructor_count: number;
+  package_count: number;
+  languages?: string | null;
+}
+
+export interface AutoschoolInvite {
+  id: string;
+  autoschool_id: string;
+  autoschool_name: string;
+  autoschool_city?: string | null;
+  autoschool_logo_url?: string | null;
+  status: "pending" | "accepted" | "declined";
+  invited_at: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fetch helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function apiFetch<T>(
+  path: string,
+  init?: RequestInit,
+  token?: string,
+): Promise<T> {
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string>),
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error ?? body?.detail ?? `API error ${res.status}`);
+  }
+  return res.json();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** List approved autoschools. */
+export async function getAutoschools(params?: {
+  city?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<AutoschoolSummary[]> {
+  const qs = new URLSearchParams();
+  if (params?.city) qs.set("city", params.city);
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  return apiFetch<AutoschoolSummary[]>(`/api/autoschools?${qs}`);
+}
+
+/** Fetch a single autoschool by UUID. Returns null on 404. */
+export async function getAutoschool(id: string): Promise<AutoschoolDetail | null> {
+  try {
+    return await apiFetch<AutoschoolDetail>(`/api/autoschools/${id}`);
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message.includes("404")) return null;
+    throw err;
+  }
+}
+
+/** Submit an autoschool application (multipart form). */
+export async function submitAutoschoolApplication(
+  formData: FormData,
+  token: string,
+): Promise<{ id: string; name: string; is_approved: boolean }> {
+  return apiFetch(
+    "/api/autoschools/apply",
+    { method: "POST", body: formData },
+    token,
+  );
+}
+
+/** Update autoschool details (admin only). */
+export async function updateAutoschool(
+  id: string,
+  data: Record<string, string | null>,
+  token: string,
+): Promise<AutoschoolDetail> {
+  return apiFetch(
+    `/api/autoschools/${id}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    },
+    token,
+  );
+}
+
+/** Send an invite to a user (admin only). */
+export async function inviteInstructor(
+  schoolId: string,
+  targetClerkUserId: string,
+  token: string,
+): Promise<{ id: string; status: string }> {
+  return apiFetch(
+    `/api/autoschools/${schoolId}/invite/${targetClerkUserId}`,
+    { method: "POST" },
+    token,
+  );
+}
+
+/** Get pending autoschool invites for the authenticated user. */
+export async function getMyInvites(token: string): Promise<AutoschoolInvite[]> {
+  return apiFetch<AutoschoolInvite[]>("/api/me/autoschool-invites", {}, token);
+}
+
+/** Accept or decline an invite. */
+export async function respondToInvite(
+  inviteId: string,
+  accept: boolean,
+  token: string,
+): Promise<{ id: string; status: string }> {
+  return apiFetch(
+    `/api/me/autoschool-invites/${inviteId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accept }),
+    },
+    token,
+  );
+}
+
+/** List all instructors for a school (admin view). */
+export async function getSchoolInstructors(
+  schoolId: string,
+  token: string,
+): Promise<SchoolInstructor[]> {
+  return apiFetch<SchoolInstructor[]>(
+    `/api/autoschools/${schoolId}/instructors`,
+    {},
+    token,
+  );
+}
+
+/** Kick (remove) an instructor from the autoschool.
+ *  Returns 400 if the instructor has upcoming booked lessons. */
+export async function kickInstructor(
+  schoolId: string,
+  instructorPostId: string,
+  token: string,
+): Promise<{ detail: string }> {
+  return apiFetch(
+    `/api/autoschools/${schoolId}/instructors/${instructorPostId}`,
+    { method: "DELETE" },
+    token,
+  );
+}
