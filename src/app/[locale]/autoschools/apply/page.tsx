@@ -202,7 +202,7 @@ export default function AutoschoolApplyPage() {
                 </label>
                 <input
                   name={name}
-                  value={(form as Record<string, string>)[name]}
+                  value={form[name as keyof FormState]}
                   onChange={handleChange}
                   required={required}
                   placeholder={placeholder}

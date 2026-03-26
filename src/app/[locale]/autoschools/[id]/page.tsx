@@ -53,7 +53,7 @@ export default async function AutoschoolProfilePage({
     price: Number(p.price),
     originalPrice: p.original_price != null ? Number(p.original_price) : undefined,
     popular: p.popular,
-    description: p.description ?? undefined,
+    description: p.description ?? "",
   }));
 
   const schedule = (school.working_hours ?? []).map((h) => ({
