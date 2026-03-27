@@ -100,7 +100,9 @@ export default async function AutoschoolProfilePage({
               instructorCount={instructors.length}
               imageUrl={resolveMediaUrl(school.logo_url)}
               coverImageUrl={resolveMediaUrl(school.cover_image_url)}
-              galleryImages={(school.image_urls ?? []).map((u: string) => resolveMediaUrl(u))}
+              galleryImages={(school.image_urls ?? [])
+                .map((u: string) => resolveMediaUrl(u))
+                .filter((u): u is string => Boolean(u))}
             />
           </div>
 
