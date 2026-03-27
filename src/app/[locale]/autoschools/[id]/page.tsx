@@ -9,6 +9,7 @@ import BackToInstructorsButton from "@/components/instructor-profile/BackToInstr
 import type { SchoolInstructor } from "@/components/autoschool-profile/InstructorGrid";
 import type { CoursePackage } from "@/components/autoschool-profile/CoursePackagesSidebar";
 import type { AutoschoolDetail } from "@/services/autoschoolService";
+import { resolveMediaUrl } from "@/utils/media";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -98,6 +99,8 @@ export default async function AutoschoolProfilePage({
               languages={csvToArray(school.languages)}
               fleet={csvToArray(school.fleet)}
               instructorCount={instructors.length}
+              imageUrl={resolveMediaUrl(school.logo_url)}
+              coverImageUrl={resolveMediaUrl(school.cover_image_url)}
             />
           </div>
 
@@ -109,7 +112,7 @@ export default async function AutoschoolProfilePage({
             />
             <WorkingHoursCard
               schedule={schedule}
-              phone={school.phone ?? ""}
+              phone=""
               email={school.email ?? ""}
             />
             <LocationCard

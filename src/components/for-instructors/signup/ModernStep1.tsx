@@ -1,6 +1,6 @@
 "use client";
 
-import { User, Calendar, MapPin, Mail, Phone } from "lucide-react";
+import { User, Calendar, MapPin } from "lucide-react";
 import { StepProps, InstructorSignupFormData } from "@/types/instructor-signup";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -29,23 +29,6 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
     if (/^[a-zA-Z\u10A0-\u10FF\s]*$/.test(value)) {
       updateData({ [e.target.name]: value });
     }
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Remove all non-digits
-    const rawValue = e.target.value.replace(/\D/g, '');
-    
-    // Limit to 9 digits
-    const truncatedValue = rawValue.slice(0, 9);
-    
-    // Format as XXX XX XX XX
-    let formattedValue = "";
-    if (truncatedValue.length > 0) formattedValue += truncatedValue.slice(0, 3);
-    if (truncatedValue.length > 3) formattedValue += " " + truncatedValue.slice(3, 5);
-    if (truncatedValue.length > 5) formattedValue += " " + truncatedValue.slice(5, 7);
-    if (truncatedValue.length > 7) formattedValue += " " + truncatedValue.slice(7, 9);
-    
-    updateData({ [e.target.name]: formattedValue });
   };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,21 +107,6 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-900">{t("signup.phone")} <span className="text-red-500">*</span></label>
-          <div className="relative">
-            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="tel"
-              name="phone"
-              value={data.phone}
-              onChange={handlePhoneChange}
-              className={`w-full pl-12 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-[#F03D3D]/20 outline-none transition bg-gray-50 focus:bg-white ${errors.phone ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#F03D3D]"}`}
-              placeholder={t("signup.phonePlaceholder")}
-            />
-          </div>
-          {errors.phone && <p className="text-xs text-red-500 font-medium mt-1">{errors.phone}</p>}
-        </div>
         <div className="space-y-2">
           <label className="text-sm font-bold text-gray-900">{t("signup.dateOfBirth")} <span className="text-red-500">*</span></label>
           <div className="relative">

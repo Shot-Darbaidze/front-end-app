@@ -3,6 +3,7 @@
 import React from "react";
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import { NotificationsList } from "@/components/dashboard/NotificationsList";
+import InviteNotifications from "@/components/autoschool/InviteNotifications";
 import { useDashboardNotifications } from "@/hooks/useDashboardNotifications";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 
@@ -25,6 +26,10 @@ export default function NotificationsPage() {
       <MobileDashboardNav isInstructor={isInstructor} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-6">
+          <InviteNotifications />
+        </div>
+
         <NotificationsList
           notifications={notifications}
           onMarkAsRead={markAsRead}

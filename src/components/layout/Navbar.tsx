@@ -240,8 +240,19 @@ const Navbar = () => {
     };
   }, [pathname, isScrolled, isMobileMenuVisible]);
 
+  // Close partner dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (partnerDropdownRef.current && !partnerDropdownRef.current.contains(e.target as Node)) {
+        setIsPartnerDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Hide navbar on signup pages
-  if (pathname?.endsWith('/for-instructors/signup')) {
+  if (pathname?.endsWith('/for-instructors/signup') || pathname?.endsWith('/for-instructors/invite-signup')) {
     return null;
   }
 
@@ -269,18 +280,6 @@ const Navbar = () => {
 
     return { ...link, icon };
   });
-
-  // Close partner dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (partnerDropdownRef.current && !partnerDropdownRef.current.contains(e.target as Node)) {
-        setIsPartnerDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
 
   return (
     <>

@@ -2,6 +2,8 @@
 
 import React, { useRef, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
+import { API_CONFIG } from "@/config/constants";
 import {
   Bell,
   Check,
@@ -22,6 +24,15 @@ interface NotificationsDropdownProps {
   onRemove: (id: string) => void;
 }
 
+interface Invite {
+  id: string;
+  autoschool_id: string;
+  autoschool_name: string;
+  autoschool_city?: string | null;
+  status: "pending" | "accepted" | "declined";
+  invited_at: string;
+}
+
 export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
   isOpen,
   onClose,
@@ -32,8 +43,70 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
   onMarkAllAsRead,
   onRemove,
 }) => {
+  const { getToken, isSignedIn } = useAuth();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const localeHref = useLocaleHref();
+  const [invites, setInvites] = React.useState<Invite[]>([]);
+  const [responding, setResponding] = React.useState<string | null>(null);
+  const [inviteLoadFailed, setInviteLoadFailed] = React.useState(false);
+  const [withdrawingNotificationId, setWithdrawingNotificationId] = React.useState<string | null>(null);
+  const [withdrawError, setWithdrawError] = React.useState<string | null>(null);
+
+  const isApplicationNotification = (notificationId: string) => notificationId.startsWith("application-");
+  const applicationNotifications = notifications.filter((n) => isApplicationNotification(n.id));
+  const regularNotifications = notifications.filter((n) => !isApplicationNotification(n.id));
+
+  const totalUnreadCount = unreadCount + invites.length;
+
+  const fetchInvites = React.useCallback(async () => {
+    if (!isSignedIn) {
+      setInvites([]);
+      return;
+    }
+
+    try {
+      const token = await getToken();
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/me/autoschool-invites`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        setInviteLoadFailed(true);
+        return;
+      }
+
+      const payload = (await response.json()) as Invite[];
+      setInvites(payload.filter((invite) => invite.status === "pending"));
+      setInviteLoadFailed(false);
+    } catch {
+      setInviteLoadFailed(true);
+    }
+  }, [getToken, isSignedIn]);
+
+  const respondToInvite = React.useCallback(async (inviteId: string, accept: boolean) => {
+    if (accept) {
+      return;
+    }
+
+    setResponding(inviteId);
+    try {
+      const token = await getToken();
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/me/autoschool-invites/${inviteId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ accept: false }),
+      });
+
+      if (response.ok) {
+        setInvites((prev) => prev.filter((invite) => invite.id !== inviteId));
+      }
+    } finally {
+      setResponding(null);
+    }
+  }, [getToken]);
 
   const getSafeActionHref = (actionUrl?: string) => {
     if (!actionUrl) return undefined;
@@ -41,6 +114,43 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
     if (!actionUrl.startsWith("/")) return actionUrl;
     return localeHref(actionUrl);
   };
+
+  const withdrawApplication = React.useCallback(async (notificationId: string) => {
+    setWithdrawError(null);
+    setWithdrawingNotificationId(notificationId);
+    try {
+      const token = await getToken();
+      if (!token) {
+        setWithdrawError("Please sign in again and retry.");
+        return;
+      }
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine/application`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        let detail = "Failed to withdraw application.";
+        try {
+          const data = await response.json();
+          if (typeof data?.detail === "string" && data.detail.trim()) {
+            detail = data.detail;
+          }
+        } catch {
+          // ignore parse errors
+        }
+        setWithdrawError(detail);
+        return;
+      }
+
+      onRemove(notificationId);
+    } catch {
+      setWithdrawError("Failed to withdraw application.");
+    } finally {
+      setWithdrawingNotificationId(null);
+    }
+  }, [getToken, onRemove]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -62,6 +172,22 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
     };
   }, [isOpen, onClose]);
 
+  useEffect(() => {
+    void fetchInvites();
+
+    const timer = window.setInterval(() => {
+      void fetchInvites();
+    }, 15000);
+
+    return () => window.clearInterval(timer);
+  }, [fetchInvites]);
+
+  useEffect(() => {
+    if (isOpen) {
+      void fetchInvites();
+    }
+  }, [isOpen, fetchInvites]);
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Bell Button */}
@@ -73,9 +199,9 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
         aria-haspopup="true"
       >
         <Bell className="w-5 h-5" />
-        {unreadCount > 0 && (
+        {totalUnreadCount > 0 && (
           <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-[#F03D3D] rounded-full text-white text-xs font-bold flex items-center justify-center px-1">
-            {unreadCount > 9 ? "9+" : unreadCount}
+            {totalUnreadCount > 9 ? "9+" : totalUnreadCount}
           </span>
         )}
       </button>
@@ -87,9 +213,9 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-gray-900">Notifications</h3>
-              {unreadCount > 0 && (
+              {totalUnreadCount > 0 && (
                 <span className="px-2 py-0.5 bg-[#F03D3D] text-white text-xs font-medium rounded-full">
-                  {unreadCount} new
+                  {totalUnreadCount} new
                 </span>
               )}
             </div>
@@ -106,7 +232,75 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
 
           {/* Notifications List */}
           <div className="max-h-[400px] overflow-y-auto">
-            {notifications.length === 0 ? (
+            {inviteLoadFailed && (
+              <div className="px-4 py-2 text-xs text-amber-700 bg-amber-50 border-b border-amber-100">
+                Could not refresh autoschool invites. Retrying...
+              </div>
+            )}
+
+            {withdrawError && (
+              <div className="px-4 py-2 text-xs text-red-700 bg-red-50 border-b border-red-100">
+                {withdrawError}
+              </div>
+            )}
+
+            {invites.length > 0 && (
+              <div className="px-4 py-3 border-b border-gray-100 bg-red-50/40 space-y-2">
+                <p className="text-xs font-semibold tracking-wide text-red-700 uppercase">
+                  Autoschool invites
+                </p>
+                {invites.map((invite) => (
+                  <div key={invite.id} className="rounded-lg border border-red-100 bg-white p-3">
+                    <p className="text-sm font-semibold text-gray-900">{invite.autoschool_name}</p>
+                    {invite.autoschool_city && (
+                      <p className="text-xs text-gray-500 mt-0.5">{invite.autoschool_city}</p>
+                    )}
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        onClick={() => void respondToInvite(invite.id, false)}
+                        disabled={responding === invite.id}
+                        className="px-2.5 py-1 rounded-md text-xs font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        Decline
+                      </button>
+                      <Link
+                        href={`${localeHref("/for-instructors/invite-signup")}?inviteId=${encodeURIComponent(invite.id)}`}
+                        onClick={onClose}
+                        className="px-2.5 py-1 rounded-md text-xs font-medium bg-[#F03D3D] text-white hover:bg-red-700"
+                      >
+                        Continue
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {applicationNotifications.length > 0 && (
+              <div className="px-4 py-3 border-b border-gray-100 bg-blue-50/40 space-y-2">
+                <p className="text-xs font-semibold tracking-wide text-blue-700 uppercase">
+                  Instructor application
+                </p>
+                {applicationNotifications.map((notification) => (
+                  <div key={notification.id} className="rounded-lg border border-blue-100 bg-white p-3">
+                    <p className="text-sm font-semibold text-gray-900">{notification.title}</p>
+                    <p className="mt-1 text-xs text-gray-600">{notification.message}</p>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-xs text-gray-400">{getTimeAgo(notification.timestamp)}</span>
+                      <button
+                        onClick={() => void withdrawApplication(notification.id)}
+                        disabled={withdrawingNotificationId === notification.id}
+                        className="px-2.5 py-1 rounded-md text-xs font-semibold text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-60"
+                      >
+                        {withdrawingNotificationId === notification.id ? "Withdrawing..." : "Withdraw application"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {regularNotifications.length === 0 && invites.length === 0 && applicationNotifications.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-gray-500 font-medium">No notifications</p>
@@ -116,7 +310,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
-                {notifications.map((notification) => (
+                {regularNotifications.map((notification) => (
                   <div
                     key={notification.id}
                     className={`px-4 py-3 hover:bg-gray-50 transition-colors relative group ${
@@ -146,17 +340,19 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
                             {notification.title}
                           </p>
                           {/* Remove button */}
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onRemove(notification.id);
-                            }}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded transition-all"
-                            aria-label="Remove notification"
-                          >
-                            <X className="w-3 h-3 text-gray-400" />
-                          </button>
+                          {!isApplicationNotification(notification.id) && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onRemove(notification.id);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded transition-all"
+                              aria-label="Remove notification"
+                            >
+                              <X className="w-3 h-3 text-gray-400" />
+                            </button>
+                          )}
                         </div>
                         <p className="text-sm text-gray-500 line-clamp-2 mt-0.5">
                           {notification.message}
@@ -165,7 +361,15 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
                           <span className="text-xs text-gray-400">
                             {getTimeAgo(notification.timestamp)}
                           </span>
-                          {notification.actionUrl && (
+                          {isApplicationNotification(notification.id) ? (
+                            <button
+                              onClick={() => void withdrawApplication(notification.id)}
+                              disabled={withdrawingNotificationId === notification.id}
+                              className="text-xs text-red-600 hover:text-red-700 font-semibold disabled:opacity-60"
+                            >
+                              {withdrawingNotificationId === notification.id ? "Withdrawing..." : "Withdraw application"}
+                            </button>
+                          ) : notification.actionUrl ? (
                             <Link
                               href={getSafeActionHref(notification.actionUrl) || "#"}
                               onClick={() => {
@@ -176,7 +380,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
                             >
                               View details →
                             </Link>
-                          )}
+                          ) : null}
                         </div>
                       </div>
 
@@ -192,7 +396,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
           </div>
 
           {/* Footer */}
-          {notifications.length > 0 && (
+          {(regularNotifications.length > 0 || invites.length > 0 || applicationNotifications.length > 0) && (
             <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
               <Link
                 href={localeHref("/dashboard/notifications")}

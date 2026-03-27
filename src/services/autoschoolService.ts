@@ -50,7 +50,6 @@ export interface AutoschoolDetail {
   description?: string | null;
   city?: string | null;
   address?: string | null;
-  phone?: string | null;
   email?: string | null;
   google_maps_url?: string | null;
   /** CSV e.g. "KA,EN,RU" */

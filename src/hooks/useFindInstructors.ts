@@ -7,6 +7,7 @@ import { api } from '@/services/api';
 import { LIMITS, ERROR_MESSAGES, PRICING, TIME_CONFIG, API_ENDPOINTS } from '@/config/constants';
 import { trackSearch, trackFilterChange } from '@/utils/analytics';
 import { resolveMediaUrl } from '@/utils/media';
+import type { AutoschoolSummary } from '@/services/autoschoolService';
 
 const PAGE_SIZE = 12;
 const DEBOUNCE_DELAY = TIME_CONFIG.DEBOUNCE_DELAY;
@@ -115,11 +116,12 @@ export const useFindInstructors = () => {
     const urlSearch = searchParams.get('search') || '';
     const urlCity = searchParams.get('city') || '';
     const urlTransmission = searchParams.get('transmission') || '';
+    const urlInstructorType = searchParams.get('instructor_type') as 'solo' | 'school' | null;
     const urlMinPrice = searchParams.get('min_price');
     const urlMaxPrice = searchParams.get('max_price');
     const urlSort = searchParams.get('sort') as 'rating' | 'price-asc' | 'price-desc' | null;
     const urlPage = searchParams.get('page');
-    const hasUrlParams = !!(urlSearch || urlCity || urlTransmission || urlMinPrice || urlMaxPrice || urlSort || urlPage);
+    const hasUrlParams = !!(urlSearch || urlCity || urlTransmission || urlInstructorType || urlMinPrice || urlMaxPrice || urlSort || urlPage);
 
     // 2. Check sessionStorage
     const saved = loadState();
@@ -133,6 +135,9 @@ export const useFindInstructors = () => {
           urlTransmission.toLowerCase() === 'manual' ? 'Manual' :
           urlTransmission.toLowerCase() === 'automatic' ? 'Automatic' :
           urlTransmission.charAt(0).toUpperCase() + urlTransmission.slice(1).toLowerCase();
+      }
+      if (urlInstructorType && ['solo', 'school'].includes(urlInstructorType)) {
+        filterValues.instructorType = urlInstructorType;
       }
       if (urlMinPrice || urlMaxPrice) {
         filterValues.budget = [
@@ -252,9 +257,27 @@ export const useFindInstructors = () => {
   // Fetch function for React Query
   const fetchInstructors = useCallback(async (): Promise<{
     instructors: InstructorCardData[];
+    autoschools: AutoschoolSummary[];
     hasMore: boolean;
     totalCount: number;
   }> => {
+    // ── Autoschool mode: query /api/autoschools ──
+    if (filters.instructorType === 'school') {
+      const params = new URLSearchParams();
+      if (filters.city) params.set('city', filters.city);
+      params.set('limit', String(PAGE_SIZE));
+      params.set('offset', String(((currentPage ?? 1) - 1) * PAGE_SIZE));
+      const endpoint = `/api/autoschools?${params.toString()}`;
+      const results = await api.get<AutoschoolSummary[]>(endpoint);
+      return {
+        instructors: [],
+        autoschools: results,
+        hasMore: results.length >= PAGE_SIZE,
+        totalCount: results.length,
+      };
+    }
+
+    // ── Instructor mode: query /api/posts/search ──
     const params = buildParams({ forAPI: true, page: currentPage });
     const endpoint = `${API_ENDPOINTS.INSTRUCTOR_SEARCH}?${params.toString()}`;
     const results = await api.get<SearchResult[]>(endpoint);
@@ -264,10 +287,11 @@ export const useFindInstructors = () => {
 
     return {
       instructors: sorted,
+      autoschools: [],
       hasMore: results.length >= PAGE_SIZE,
       totalCount: results.length,
     };
-  }, [buildParams, currentPage, sortBy]);
+  }, [buildParams, currentPage, sortBy, filters.instructorType, filters.city]);
 
   // Use React Query for data fetching with caching
   const {
@@ -288,6 +312,8 @@ export const useFindInstructors = () => {
   });
 
   const currentInstructors = data?.instructors ?? [];
+  const currentAutoschools = data?.autoschools ?? [];
+  const isSchoolMode = filters.instructorType === 'school';
   const hasMore = data?.hasMore ?? false;
   const errorMessage = error ? (error instanceof Error ? error.message : ERROR_MESSAGES.GENERIC_ERROR) : null;
 
@@ -385,6 +411,8 @@ export const useFindInstructors = () => {
     searchTerm,
     sortBy,
     currentInstructors,
+    currentAutoschools,
+    isSchoolMode,
     isLoading,
     errorMessage,
     hasMore,

@@ -13,6 +13,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { API_CONFIG } from "@/config/constants";
+import { useRouter } from "next/navigation";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 
 interface Invite {
   id: string;
@@ -24,13 +27,16 @@ interface Invite {
   invited_at: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+const API_BASE = API_CONFIG.BASE_URL;
 
 export default function InviteNotifications() {
   const { getToken, isSignedIn } = useAuth();
+  const router = useRouter();
+  const localeHref = useLocaleHref();
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
   const [responding, setResponding] = useState<string | null>(null); // invite id being responded to
+  const [failed, setFailed] = useState(false);
 
   const fetchInvites = useCallback(async () => {
     if (!isSignedIn) return;
@@ -39,10 +45,14 @@ export default function InviteNotifications() {
       const res = await fetch(`${API_BASE}/api/me/autoschool-invites`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        setFailed(true);
+        return;
+      }
+      setFailed(false);
       setInvites(await res.json());
     } catch {
-      // Silently ignore — not critical UI
+      setFailed(true);
     } finally {
       setLoading(false);
     }
@@ -50,9 +60,24 @@ export default function InviteNotifications() {
 
   useEffect(() => {
     fetchInvites();
+    const id = setInterval(fetchInvites, 15000);
+    const onVisible = () => {
+      if (!document.hidden) fetchInvites();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [fetchInvites]);
 
   async function respond(inviteId: string, accept: boolean) {
+    if (accept) {
+      const signupHref = `${localeHref("/for-instructors/invite-signup")}?inviteId=${encodeURIComponent(inviteId)}`;
+      router.push(signupHref);
+      return;
+    }
+
     setResponding(inviteId);
     try {
       const token = await getToken();
@@ -75,7 +100,17 @@ export default function InviteNotifications() {
     }
   }
 
-  if (!isSignedIn || loading || invites.length === 0) return null;
+  if (!isSignedIn) return null;
+
+  if (!loading && failed) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+        Unable to load autoschool invites right now. Please refresh.
+      </div>
+    );
+  }
+
+  if (loading || invites.length === 0) return null;
 
   return (
     <div className="space-y-3">
@@ -124,7 +159,7 @@ export default function InviteNotifications() {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               ) : null}
-              Accept
+              Continue
             </button>
           </div>
         </div>

@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { API_CONFIG } from "@/config/constants";
 
 interface Instructor {
   id: string;
@@ -27,7 +28,21 @@ interface Instructor {
   instructor_type: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+interface AdminInvite {
+  id: string;
+  autoschool_id: string;
+  invited_first_name?: string | null;
+  invited_last_name?: string | null;
+  invited_email?: string | null;
+  invited_mobile_number?: string | null;
+  invited_image_url?: string | null;
+  invited_name?: string | null;
+  status: "pending" | "accepted" | "declined";
+  invited_at: string;
+  responded_at?: string | null;
+}
+
+const API_BASE = API_CONFIG.BASE_URL;
 
 interface Props {
   schoolId: string;
@@ -42,6 +57,23 @@ export default function ManageInstructors({ schoolId }: Props) {
   const [inviteId, setInviteId] = useState("");
   const [inviting, setInviting] = useState(false);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [sentInvites, setSentInvites] = useState<AdminInvite[]>([]);
+  const [loadingInvites, setLoadingInvites] = useState(true);
+  const [withdrawingInviteId, setWithdrawingInviteId] = useState<string | null>(null);
+
+  async function readApiError(res: Response, fallback: string): Promise<string> {
+    try {
+      const data = await res.json();
+      return data?.detail || data?.error || data?.message || fallback;
+    } catch {
+      try {
+        const text = await res.text();
+        return text || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+  }
 
   const fetchInstructors = useCallback(async () => {
     try {
@@ -49,18 +81,41 @@ export default function ManageInstructors({ schoolId }: Props) {
       const res = await fetch(`${API_BASE}/api/autoschools/${schoolId}/instructors`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        setError(await readApiError(res, "Failed to load instructors."));
+        return;
+      }
       setInstructors(await res.json());
     } catch {
-      // silently ignore
+      setError("Network error while loading instructors.");
     } finally {
       setLoading(false);
     }
   }, [getToken, schoolId]);
 
+  const fetchSentInvites = useCallback(async () => {
+    setLoadingInvites(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/api/autoschools/${schoolId}/invites?include_responded=true`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        setError(await readApiError(res, "Failed to load sent invites."));
+        return;
+      }
+      setSentInvites(await res.json());
+    } catch {
+      setError("Network error while loading sent invites.");
+    } finally {
+      setLoadingInvites(false);
+    }
+  }, [getToken, schoolId]);
+
   useEffect(() => {
     fetchInstructors();
-  }, [fetchInstructors]);
+    fetchSentInvites();
+  }, [fetchInstructors, fetchSentInvites]);
 
   async function handleKick(postId: string) {
     if (!confirm("Are you sure you want to remove this instructor? This cannot be undone.")) return;
@@ -72,12 +127,12 @@ export default function ManageInstructors({ schoolId }: Props) {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
       if (!res.ok) {
-        setError(data?.detail ?? "Failed to remove instructor.");
+        setError(await readApiError(res, "Failed to remove instructor."));
         return;
       }
       setInstructors((prev) => prev.filter((i) => i.id !== postId));
+      setInviteSuccess("Instructor removed successfully.");
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -87,27 +142,59 @@ export default function ManageInstructors({ schoolId }: Props) {
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
-    if (!inviteId.trim()) return;
+    const identifier = inviteId.trim();
+    if (!identifier) return;
+
+    if (identifier.length < 3) {
+      setError("Enter a valid email or phone number.");
+      return;
+    }
+
     setInviting(true);
     setError(null);
     setInviteSuccess(null);
     try {
       const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/autoschools/${schoolId}/invite/${inviteId.trim()}`, {
+      const encoded = encodeURIComponent(identifier);
+      const res = await fetch(`${API_BASE}/api/autoschools/${schoolId}/invite/${encoded}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
       if (!res.ok) {
-        setError(data?.detail ?? "Failed to send invite.");
+        setError(await readApiError(res, "Failed to send invite."));
         return;
       }
-      setInviteSuccess(`Invite sent! ID: ${data.id}`);
+      const data = await res.json().catch(() => ({}));
+      setInviteSuccess(data?.id ? `Invite sent successfully. Invite ID: ${data.id}` : "Invite sent successfully.");
       setInviteId("");
+      await fetchSentInvites();
     } catch {
       setError("Network error. Please try again.");
     } finally {
       setInviting(false);
+    }
+  }
+
+  async function handleWithdrawInvite(inviteId: string) {
+    if (!confirm("Withdraw this pending invite?")) return;
+    setWithdrawingInviteId(inviteId);
+    setError(null);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/api/autoschools/${schoolId}/invites/${inviteId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        setError(await readApiError(res, "Failed to withdraw invite."));
+        return;
+      }
+      setInviteSuccess("Invite withdrawn successfully.");
+      setSentInvites((prev) => prev.map((i) => (i.id === inviteId ? { ...i, status: "declined" } : i)));
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setWithdrawingInviteId(null);
     }
   }
 
@@ -122,9 +209,12 @@ export default function ManageInstructors({ schoolId }: Props) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h3 className="text-base font-bold text-gray-900">Manage Instructors</h3>
-        <span className="text-xs text-gray-400 bg-slate-50 px-2 py-1 rounded-full">
+      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
+        <div>
+          <h3 className="text-base font-bold text-gray-900">Manage Instructors</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Invite by email or phone. Errors show exact failure reason.</p>
+        </div>
+        <span className="text-xs text-gray-500 bg-white border border-slate-200 px-2.5 py-1 rounded-full">
           {instructors.length} total
         </span>
       </div>
@@ -157,8 +247,9 @@ export default function ManageInstructors({ schoolId }: Props) {
       {/* Instructor list */}
       <div className="divide-y divide-slate-100">
         {instructors.length === 0 ? (
-          <div className="px-6 py-8 text-center text-sm text-gray-400">
-            No instructors yet. Invite one below.
+          <div className="px-6 py-10 text-center">
+            <div className="text-sm font-medium text-slate-600">No instructors yet</div>
+            <div className="text-xs text-slate-400 mt-1">Send your first invite from the panel below.</div>
           </div>
         ) : (
           instructors.map((inst) => {
@@ -224,32 +315,118 @@ export default function ManageInstructors({ schoolId }: Props) {
         )}
       </div>
 
+      {/* Sent invites */}
+      <div className="px-6 py-5 border-t border-slate-100 bg-white">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-semibold text-slate-800">Sent Invites</h4>
+          <span className="text-xs text-slate-500">{sentInvites.length} total</span>
+        </div>
+
+        {loadingInvites ? (
+          <p className="text-sm text-slate-400">Loading invites...</p>
+        ) : sentInvites.length === 0 ? (
+          <p className="text-sm text-slate-400">No invites sent yet.</p>
+        ) : (
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            {sentInvites.map((invite) => {
+              const label = invite.invited_name || invite.invited_email || invite.invited_mobile_number || "Unknown user";
+              const isPending = invite.status === "pending";
+              const firstName = invite.invited_first_name || "-";
+              const lastName = invite.invited_last_name || "-";
+              const email = invite.invited_email || "-";
+              const mobile = invite.invited_mobile_number || "-";
+              return (
+                <div key={invite.id} className="border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50/60">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-200 flex items-center justify-center shrink-0">
+                          {invite.invited_image_url ? (
+                            <img src={invite.invited_image_url} alt={label} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xs font-semibold text-slate-600">
+                              {label.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-slate-900 truncate">{label}</p>
+                          <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-slate-600">
+                            <span><strong>Name:</strong> {firstName}</span>
+                            <span><strong>Surname:</strong> {lastName}</span>
+                            <span className="truncate"><strong>Email:</strong> {email}</span>
+                            <span><strong>Phone:</strong> {mobile}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Sent {new Date(invite.invited_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${
+                      invite.status === "pending"
+                        ? "bg-amber-100 text-amber-700"
+                        : invite.status === "accepted"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-200 text-slate-600"
+                    }`}>
+                      {invite.status}
+                    </span>
+                  </div>
+
+                  {isPending && (
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        onClick={() => handleWithdrawInvite(invite.id)}
+                        disabled={withdrawingInviteId === invite.id}
+                        className="text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {withdrawingInviteId === invite.id ? "Withdrawing..." : "Withdraw Invite"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Invite form */}
-      <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
-        <form onSubmit={handleInvite} className="flex gap-3">
-          <input
-            value={inviteId}
-            onChange={(e) => setInviteId(e.target.value)}
-            placeholder="Clerk User ID to invite"
-            className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] text-sm bg-white"
-          />
-          <button
-            type="submit"
-            disabled={inviting || !inviteId.trim()}
-            className="px-4 py-2 rounded-xl bg-[#F03D3D] hover:bg-[#d93333] text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-          >
-            {inviting ? (
-              <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            ) : (
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            )}
-            Invite
-          </button>
+      <div className="px-6 py-5 border-t border-slate-100 bg-slate-50/60">
+        <form onSubmit={handleInvite} className="space-y-2">
+          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide">
+            Invite Instructor
+          </label>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              value={inviteId}
+              onChange={(e) => setInviteId(e.target.value)}
+              placeholder="Email or phone number"
+              className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] text-sm bg-white"
+            />
+            <button
+              type="submit"
+              disabled={inviting || !inviteId.trim()}
+              className="px-4 py-2.5 rounded-xl bg-[#F03D3D] hover:bg-[#d93333] text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-28"
+            >
+              {inviting ? (
+                <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              )}
+              Invite
+            </button>
+          </div>
+          <p className="text-xs text-slate-500">
+            Only registered users can be invited via email or phone. Users with an existing instructor profile cannot be invited again.
+          </p>
         </form>
       </div>
     </div>

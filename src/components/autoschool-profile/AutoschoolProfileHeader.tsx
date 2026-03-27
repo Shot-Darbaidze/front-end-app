@@ -12,6 +12,7 @@ interface AutoschoolProfileHeaderProps {
   fleet: string[];
   instructorCount: number;
   imageUrl?: string;
+  coverImageUrl?: string;
 }
 
 const AutoschoolProfileHeader = ({
@@ -24,11 +25,19 @@ const AutoschoolProfileHeader = ({
   fleet,
   instructorCount,
   imageUrl,
+  coverImageUrl,
 }: AutoschoolProfileHeaderProps) => {
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/50 overflow-hidden">
       {/* Cover Area */}
       <div className="h-32 sm:h-48 bg-gradient-to-r from-gray-900 to-gray-800 relative">
+        {coverImageUrl && (
+          <img
+            src={coverImageUrl}
+            alt={`${name} cover`}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        )}
         <div className="absolute inset-0 bg-[#F03D3D]/10 mix-blend-overlay" />
         <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-black/50 to-transparent" />
       </div>

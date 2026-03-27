@@ -69,6 +69,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'images.clerk.dev',
       },
+      {
+        protocol: 'https',
+        hostname: 'pub-3dfd12c5fa9d40069445cd407dfc0481.r2.dev',
+      },
     ],
     formats: ['image/avif', 'image/webp'],
   },

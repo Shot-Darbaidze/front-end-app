@@ -10,10 +10,12 @@ import ModernStep4 from "@/components/for-instructors/signup/ModernStep4";
 import ModernSuccess from "@/components/for-instructors/signup/ModernSuccess";
 import { ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { UPLOAD_LIMITS } from "@/config/constants";
+import { useLocaleHref } from "@/hooks/useLocaleHref";
 
 // File upload limits (from .env via constants)
 const MAX_VEHICLE_PHOTOS = UPLOAD_LIMITS.MAX_VEHICLE_PHOTOS;
@@ -27,11 +29,16 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const SignupPage = () => {
   const { getToken } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const localeHref = useLocaleHref();
+  const [inviteId, setInviteId] = useState("");
   const { t } = useLanguage();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showPhonePrompt, setShowPhonePrompt] = useState(false);
   const [apiStatus, setApiStatus] = useState<"checking" | "connected" | "degraded">("checking");
   const [apiStatusMessage, setApiStatusMessage] = useState("Checking backend connection...");
   
@@ -83,6 +90,17 @@ const SignupPage = () => {
     connected: t("signup.backendConnected"),
     degraded: t("signup.backendUnreachable"),
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const inviteFromQuery = params.get("inviteId") || "";
+    setInviteId(inviteFromQuery);
+
+    if (inviteFromQuery && pathname?.endsWith("/for-instructors/signup")) {
+      router.replace(`${localeHref("/for-instructors/invite-signup")}?inviteId=${encodeURIComponent(inviteFromQuery)}`);
+    }
+  }, [localeHref, pathname, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,7 +161,6 @@ const SignupPage = () => {
       if (!formData.firstName) newErrors.firstName = t("signup.firstNameRequired");
       if (!formData.lastName) newErrors.lastName = t("signup.lastNameRequired");
       if (!formData.city) newErrors.city = t("signup.cityRequired");
-      if (!formData.phone) newErrors.phone = t("signup.phoneRequired");
       if (formData.dateOfBirth) {
         const year = parseInt(formData.dateOfBirth.split('-')[0]);
         if (year < 1950 || year > 2026) {
@@ -268,13 +285,90 @@ const SignupPage = () => {
     console.log("========================================");
     
     try {
+      const token = await getToken();
+      if (!token) {
+        throw new Error("Please sign in again before submitting your application.");
+      }
+
+      const normalizedPhone = (formData.phone || "").replace(/\s/g, "").trim();
+
+      // Enforce phone only at submit time.
+      const profilePhoneResponse = await fetch(`${API_BASE_URL}/api/users/me/phone`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+
+      let existingProfilePhone = "";
+      if (profilePhoneResponse.ok) {
+        const profilePayload = (await profilePhoneResponse.json()) as { mobile_number?: string | null };
+        existingProfilePhone = (profilePayload.mobile_number || "").trim();
+      }
+
+      if (!existingProfilePhone && !normalizedPhone) {
+        setShowPhonePrompt(true);
+        setSubmitError(null);
+        return;
+      }
+
+      const readErrorMessage = async (response: Response) => {
+        const fallback = `Server error: ${response.status}`;
+
+        try {
+          const contentType = response.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) {
+            const payload = await response.json();
+            const detail = payload?.detail;
+
+            if (typeof detail === "string" && detail.trim()) {
+              return detail;
+            }
+
+            if (Array.isArray(detail) && detail.length > 0) {
+              const first = detail[0];
+              if (typeof first === "string") return first;
+              if (first && typeof first.msg === "string") return first.msg;
+            }
+
+            if (typeof payload?.message === "string" && payload.message.trim()) {
+              return payload.message;
+            }
+          } else {
+            const text = (await response.text()).trim();
+            if (text) return text;
+          }
+        } catch {
+          // Ignore parser errors and return fallback
+        }
+
+        return fallback;
+      };
+
+      // Phone now lives on user profile. Sync it before submitting the application.
+      if (normalizedPhone) {
+        const phoneRes = await fetch(`${API_BASE_URL}/api/users/me/phone`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            mobile_number: normalizedPhone,
+            confirmed: true,
+          }),
+        });
+
+        if (!phoneRes.ok) {
+          const phoneError = await readErrorMessage(phoneRes);
+          throw new Error(phoneError);
+        }
+      }
+
       // Create FormData for multipart/form-data submission
       const submitData = new FormData();
       
       // Personal Info
       submitData.append("firstName", formData.firstName);
       submitData.append("lastName", formData.lastName);
-      submitData.append("phone", formData.phone);
       submitData.append("city", formData.city);
       submitData.append("address", formData.address);
       if (formData.dateOfBirth) {
@@ -286,6 +380,10 @@ const SignupPage = () => {
       submitData.append("vehicleRegistration", formData.vehicleRegistration);
       submitData.append("vehicleYear", formData.vehicleYear.toString());
       submitData.append("transmission", formData.transmission);
+
+      if (inviteId) {
+        submitData.append("inviteId", inviteId);
+      }
       
       // Consents
       submitData.append("backgroundCheckConsent", formData.backgroundCheckConsent.toString());
@@ -313,17 +411,15 @@ const SignupPage = () => {
       
       console.log("[API] Sending application to backend...");
       
-      const token = await getToken();
-
       const response = await fetch(`${API_BASE_URL}/api/instructor/apply`, {
         method: "POST",
         body: submitData,
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: { Authorization: `Bearer ${token}` },
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Server error: ${response.status}`);
+        const errorMessage = await readErrorMessage(response);
+        throw new Error(errorMessage);
       }
       
       const result = await response.json();
@@ -332,7 +428,16 @@ const SignupPage = () => {
       setIsSubmitted(true);
     } catch (error) {
       console.error("[API] Failed to submit application:", error);
-      setSubmitError(error instanceof Error ? error.message : "Failed to submit application. Please try again.");
+      if (error instanceof Error) {
+        const lowered = error.message.toLowerCase();
+        if (lowered.includes("failed to fetch") || lowered.includes("load failed")) {
+          setSubmitError(`Cannot reach backend (${API_BASE_URL}). Check server/CORS and try again.`);
+        } else {
+          setSubmitError(error.message);
+        }
+      } else {
+        setSubmitError("Failed to submit application. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -416,6 +521,12 @@ const SignupPage = () => {
       {/* Right Side - Form */}
       <div className="flex-1 p-6 md:p-12 lg:p-24 overflow-y-auto">
         <div className="max-w-2xl mx-auto w-full">
+          {inviteId && (
+            <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800 shadow-sm">
+              You are accepting an autoschool invite. Complete this application to join as an employee instructor.
+            </div>
+          )}
+
           <div
             className={`mb-6 rounded-2xl border px-5 py-4 text-sm shadow-sm ${statusStyles[apiStatus]}`}
           >
@@ -491,6 +602,32 @@ const SignupPage = () => {
           )}
         </div>
       </div>
+
+      {showPhonePrompt && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900">Phone number required</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Please add your phone number in Profile Settings before submitting this application.
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowPhonePrompt(false)}
+                className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+              >
+                Close
+              </button>
+              <Link
+                href={localeHref("/dashboard/settings")}
+                onClick={() => setShowPhonePrompt(false)}
+                className="rounded-lg bg-[#F03D3D] px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Open profile settings
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

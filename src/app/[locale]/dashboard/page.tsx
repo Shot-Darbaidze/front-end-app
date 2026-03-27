@@ -4,6 +4,8 @@ import React, { useEffect, useState, useRef } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import { API_CONFIG } from "@/config/constants";
 import { useLanguage } from "@/contexts/LanguageContext";
+import InviteNotifications from "@/components/autoschool/InviteNotifications";
+import ManageInstructors from "@/components/autoschool/ManageInstructors";
 
 // Shared
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
@@ -256,6 +258,7 @@ export default function DashboardPage() {
   const [instructorActivities, setInstructorActivities] = useState<InstructorActivityItemData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasResolvedApproval, setHasResolvedApproval] = useState(false);
+  const [mySchoolId, setMySchoolId] = useState<string | null>(null);
 
   const firstName = clerkUser?.firstName || "";
 
@@ -344,6 +347,21 @@ export default function DashboardPage() {
 
         // Cache for stale-while-revalidate on next navigation
         setCachedDashboard(userId, data);
+
+        // Check if this user admin's an autoschool
+        try {
+          const schoolRes = await fetchWithTimeout(
+            `${API_CONFIG.BASE_URL}/api/me/autoschool`,
+            { headers: { Authorization: `Bearer ${token}` } },
+            API_TIMEOUT_MS
+          );
+          if (schoolRes.ok) {
+            const schoolData = await schoolRes.json();
+            if (isMounted) setMySchoolId(schoolData.id);
+          }
+        } catch {
+          // Not an admin — ignore
+        }
       } catch {
         if (isMounted) {
           setIsLoading(false);
@@ -396,7 +414,34 @@ export default function DashboardPage() {
     return <div className="min-h-screen bg-[#f8fafc] pt-20" />;
   }
 
-  if (isApproved) {
+  const isAutoschoolAdmin = Boolean(mySchoolId);
+
+  if (isApproved || isAutoschoolAdmin) {
+    // Dedicated autoschool-admin view when the user manages a school
+    // but is not an approved instructor.
+    if (!isApproved && isAutoschoolAdmin) {
+      return (
+        <div className="min-h-screen bg-slate-50 pt-20 transition-colors duration-500">
+          <MobileDashboardNav />
+
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+            <main className="flex-1 min-w-0 space-y-6">
+              <div className="bg-white rounded-2xl border border-slate-200 p-6">
+                <h2 className="text-xl font-bold text-slate-900">Autoschool Admin Panel</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  Manage instructor invitations and remove instructors from your autoschool.
+                </p>
+              </div>
+
+              <InviteNotifications />
+
+              {mySchoolId && <ManageInstructors schoolId={mySchoolId} />}
+            </main>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-slate-50 pt-20 transition-colors duration-500">
         <MobileDashboardNav isInstructor />
@@ -428,11 +473,21 @@ export default function DashboardPage() {
               </div>
 
               {/* Right Column (Narrower) */}
-              <div className="xl:col-span-1 min-h-[500px]">
+              <div className="xl:col-span-1 min-h-[500px] space-y-6">
+                {/* Autoschool Invites (self-hides if none) */}
+                <InviteNotifications />
+
                 {/* Activity Timeline */}
                 <InstructorActivity activities={instructorActivities} isLoading={isLoading} />
               </div>
             </div>
+
+            {/* Autoschool Admin: Manage Instructors */}
+            {mySchoolId && (
+              <div className="mt-6">
+                <ManageInstructors schoolId={mySchoolId} />
+              </div>
+            )}
           </main>
         </div>
       </div>
@@ -446,6 +501,8 @@ export default function DashboardPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         <main className="flex-1 min-w-0 space-y-6">
+
+          <InviteNotifications />
 
           <StudentStats
             totalCompleted={studentStats.total_completed}

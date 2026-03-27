@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import SearchHeader from "@/components/find-instructors/SearchHeader";
 import HorizontalFilterBar from "@/components/find-instructors/HorizontalFilterBar";
 import InstructorList from "@/components/find-instructors/InstructorList";
+import AutoschoolCard from "@/components/find-instructors/AutoschoolCard";
 import EmptyState from "@/components/find-instructors/EmptyState";
 import InstructorCardSkeleton from "@/components/find-instructors/InstructorCardSkeleton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -19,6 +20,8 @@ function FindInstructorsContent() {
     searchTerm,
     sortBy,
     currentInstructors,
+    currentAutoschools,
+    isSchoolMode,
     isLoading,
     errorMessage,
     hasMore,
@@ -34,6 +37,10 @@ function FindInstructorsContent() {
     handleFilterUpdate,
     goToPage,
   } = useFindInstructors();
+
+  const hasResults = isSchoolMode
+    ? currentAutoschools.length > 0
+    : currentInstructors.length > 0;
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -121,25 +128,40 @@ function FindInstructorsContent() {
         )}
 
         {/* Empty State */}
-        {!isLoading && hasSearched && currentInstructors.length === 0 && (
+        {!isLoading && hasSearched && !hasResults && (
           <EmptyState
-            title={isKa ? "ინსტრუქტორები ვერ მოიძებნა" : "No instructors found"}
-            description={isKa ? "სცადე ფილტრების ან საძიებო პარამეტრების შეცვლა, რათა მეტი შედეგი ნახო." : "Try adjusting your filters or search criteria to find more instructors."}
+            title={isKa
+              ? (isSchoolMode ? "აუტოსკოლები ვერ მოიძებნა" : "ინსტრუქტორები ვერ მოიძებნა")
+              : (isSchoolMode ? "No driving schools found" : "No instructors found")
+            }
+            description={isKa
+              ? "სცადე ფილტრების ან საძიებო პარამეტრების შეცვლა, რათა მეტი შედეგი ნახო."
+              : "Try adjusting your filters or search criteria to find more results."
+            }
             onReset={handleResetFilters}
             showResetButton={hasActiveFilters || searchTerm.length > 0}
           />
         )}
 
-        {/* Results List */}
-        {!isLoading && currentInstructors.length > 0 && (
+        {/* Results List — Instructors */}
+        {!isLoading && !isSchoolMode && currentInstructors.length > 0 && (
           <InstructorList 
             instructors={currentInstructors} 
             onInstructorClick={trackInstructorClick}
           />
         )}
 
+        {/* Results List — Autoschools */}
+        {!isLoading && isSchoolMode && currentAutoschools.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {currentAutoschools.map((school) => (
+              <AutoschoolCard key={school.id} {...school} />
+            ))}
+          </div>
+        )}
+
         {/* Pagination */}
-        {hasSearched && !isLoading && currentInstructors.length > 0 && (
+        {hasSearched && !isLoading && hasResults && (
           <nav aria-label="Pagination" className="mt-10 flex flex-wrap items-center justify-center gap-2">
             <button
               onClick={() => goToPage(currentPage - 1)}

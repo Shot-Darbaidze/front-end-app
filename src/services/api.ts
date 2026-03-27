@@ -5,12 +5,24 @@ import { CacheManager } from '@/lib/cache';
 import { csrfProtection } from '@/utils/csrf';
 import { logger } from '@/utils/secureLogger';
 
-// Error response interface
-interface ErrorResponse {
-  message: string;
-  code?: string;
-  status: number;
-  data?: unknown;
+// API Error class
+export class APIError extends Error {
+  public code?: string;
+  public status: number;
+  public data?: unknown;
+
+  constructor(message: string, status: number = 500, code?: string, data?: unknown) {
+    super(message);
+    this.name = 'APIError';
+    this.status = status;
+    this.code = code;
+    this.data = data;
+    
+    // Maintain proper stack trace in V8
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, APIError);
+    }
+  }
 }
 
 // Request interceptor type
@@ -25,7 +37,7 @@ interface ResponseInterceptor {
 
 // Error interceptor type
 interface ErrorInterceptor {
-  (error: ErrorResponse): Promise<never>;
+  (error: APIError): Promise<never>;
 }
 
 // Request config interface
@@ -140,7 +152,7 @@ class APIService {
   /**
    * Apply error interceptors
    */
-  private async applyErrorInterceptors(error: ErrorResponse): Promise<never> {
+  private async applyErrorInterceptors(error: APIError): Promise<never> {
     for (const interceptor of this.errorInterceptors) {
       try {
         await interceptor(error);
@@ -159,8 +171,8 @@ class APIService {
     status: number = 500,
     code?: string,
     data?: unknown
-  ): ErrorResponse {
-    return { message, status, code, data };
+  ): APIError {
+    return new APIError(message, status, code, data);
   }
 
   /**
@@ -182,10 +194,7 @@ class APIService {
     }
   }
 
-  /**
-   * Handle HTTP error responses
-   */
-  private async handleErrorResponse(response: Response): Promise<ErrorResponse> {
+  private async handleErrorResponse(response: Response): Promise<APIError> {
     let data: unknown;
     try {
       data = await response.json();

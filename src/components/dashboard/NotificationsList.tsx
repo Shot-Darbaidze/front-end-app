@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
 import {
   Bell,
   Check,
@@ -10,6 +11,7 @@ import {
 import { Notification } from "@/hooks/useNotifications";
 import { getNotificationIcon, getNotificationColor, getTimeAgo } from "@/utils/notifications";
 import Button from "@/components/ui/Button";
+import { API_CONFIG } from "@/config/constants";
 
 interface NotificationsListProps {
   notifications: Notification[];
@@ -26,18 +28,63 @@ export const NotificationsList: React.FC<NotificationsListProps> = ({
   onMarkAllAsRead,
   onRemove,
 }) => {
+  const { getToken } = useAuth();
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
 
   const { filteredNotifications, unreadCount } = useMemo(() => {
     const unread = notifications.filter(n => !n.isRead);
+    const application = notifications.filter((n) => n.id.startsWith("application-"));
+    const regular = notifications.filter((n) => !n.id.startsWith("application-"));
+    const filteredRegular = filter === "unread" ? regular.filter((n) => !n.isRead) : regular;
     return {
       unreadCount: unread.length,
-      filteredNotifications: filter === "unread" ? unread : notifications
+      filteredNotifications: [...application, ...filteredRegular]
     };
   }, [notifications, filter]);
 
   const handleFilterAll = useCallback(() => setFilter("all"), []);
   const handleFilterUnread = useCallback(() => setFilter("unread"), []);
+
+  const isApplicationNotification = useCallback((id: string) => id.startsWith("application-"), []);
+
+  const handleWithdrawApplication = useCallback(async (notificationId: string) => {
+    setWithdrawError(null);
+    setWithdrawingId(notificationId);
+    try {
+      const token = await getToken();
+      if (!token) {
+        setWithdrawError("Please sign in again and retry.");
+        return;
+      }
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine/application`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        let detail = "Failed to withdraw application.";
+        try {
+          const data = await response.json();
+          if (typeof data?.detail === "string" && data.detail.trim()) {
+            detail = data.detail;
+          }
+        } catch {
+          // ignore
+        }
+        setWithdrawError(detail);
+        return;
+      }
+
+      onRemove(notificationId);
+    } catch {
+      setWithdrawError("Failed to withdraw application.");
+    } finally {
+      setWithdrawingId(null);
+    }
+  }, [getToken, onRemove]);
 
   return (
     <div className="space-y-6">
@@ -98,6 +145,12 @@ export const NotificationsList: React.FC<NotificationsListProps> = ({
 
       {/* List */}
       <div className="flex flex-col gap-3">
+        {withdrawError && (
+          <div className="px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700">
+            {withdrawError}
+          </div>
+        )}
+
         {filteredNotifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
             <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-gray-100 mb-5 relative rotate-3">
@@ -153,7 +206,15 @@ export const NotificationsList: React.FC<NotificationsListProps> = ({
 
                 {/* Actions Inline */}
                 <div className="flex items-center gap-4 mt-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  {notification.actionUrl && (
+                  {isApplicationNotification(notification.id) ? (
+                    <button
+                      onClick={() => void handleWithdrawApplication(notification.id)}
+                      disabled={withdrawingId === notification.id}
+                      className="text-xs font-bold text-red-600 hover:text-red-700 transition-colors disabled:opacity-60"
+                    >
+                      {withdrawingId === notification.id ? "Withdrawing..." : "Withdraw application"}
+                    </button>
+                  ) : notification.actionUrl && (
                     <Link
                       href={notification.actionUrl}
                       onClick={() => onMarkAsRead(notification.id)}
@@ -162,29 +223,31 @@ export const NotificationsList: React.FC<NotificationsListProps> = ({
                       View details
                     </Link>
                   )}
-                  {notification.actionUrl && <div className="w-1 h-1 rounded-full bg-gray-200" />}
-                  {!notification.isRead ? (
+                  {!isApplicationNotification(notification.id) && notification.actionUrl && <div className="w-1 h-1 rounded-full bg-gray-200" />}
+                  {!isApplicationNotification(notification.id) && !notification.isRead ? (
                     <button
                       onClick={() => onMarkAsRead(notification.id)}
                       className="text-xs font-bold text-[#F03D3D] hover:text-red-700 transition-colors"
                     >
                       Mark as read
                     </button>
-                  ) : (
+                  ) : !isApplicationNotification(notification.id) ? (
                     <button
                       onClick={() => onMarkAsUnread(notification.id)}
                       className="text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors"
                     >
                       Mark as unread
                     </button>
+                  ) : null}
+                  {!isApplicationNotification(notification.id) && <div className="w-1 h-1 rounded-full bg-gray-200" />}
+                  {!isApplicationNotification(notification.id) && (
+                    <button
+                      onClick={() => onRemove(notification.id)}
+                      className="text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      Remove
+                    </button>
                   )}
-                  <div className="w-1 h-1 rounded-full bg-gray-200" />
-                  <button
-                    onClick={() => onRemove(notification.id)}
-                    className="text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    Remove
-                  </button>
                 </div>
               </div>
 

@@ -257,7 +257,11 @@ export function useDashboardNotifications(options?: {
     void fetchNotifications(getToken, false);
   }, [enabled, getToken]);
 
+  const isApplicationNotification = (id: string) => id.startsWith("application-");
+
   const markAsRead = useCallback((id: string) => {
+    if (isApplicationNotification(id)) return;
+
     const current = sharedState ?? state;
     const next: DashboardNotificationState = {
       ...current,
@@ -278,6 +282,8 @@ export function useDashboardNotifications(options?: {
   }, [getToken, state]);
 
   const markAsUnread = useCallback((id: string) => {
+    if (isApplicationNotification(id)) return;
+
     const current = sharedState ?? state;
     const next: DashboardNotificationState = {
       ...current,
@@ -299,10 +305,10 @@ export function useDashboardNotifications(options?: {
 
   const markAllAsRead = useCallback(() => {
     const current = sharedState ?? state;
-    const ids = current.notifications.map((n) => n.id);
+    const ids = current.notifications.filter((n) => !isApplicationNotification(n.id)).map((n) => n.id);
     const next: DashboardNotificationState = {
       ...current,
-      notifications: current.notifications.map((n) => ({ ...n, isRead: true })),
+      notifications: current.notifications.map((n) => (isApplicationNotification(n.id) ? n : { ...n, isRead: true })),
       updatedAt: Date.now(),
     };
     patchState(next);
