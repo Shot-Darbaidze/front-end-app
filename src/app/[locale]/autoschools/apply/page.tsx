@@ -1,33 +1,30 @@
 "use client";
 
-import { useState, useRef, FormEvent } from "react";
+import { useState, useRef, useEffect, FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
+import { X } from "lucide-react";
+import { CITIES, PRIMARY_LANGUAGE_OPTIONS, OTHER_LANGUAGE_OPTIONS, ALL_LANGUAGE_OPTIONS } from "@/config/constants";
+import { normalizePhone, validateGeorgianPhone } from "@/utils/validation/georgianPhone";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const MAX_IMAGES = parseInt(process.env.NEXT_PUBLIC_MAX_AUTOSCHOOL_IMAGES ?? "5", 10);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface FormState {
   name: string;
-  city: string;
-  phone: string;
-  email: string;
   description: string;
   address: string;
   google_maps_url: string;
-  languages: string; // CSV e.g. "KA,EN"
-  fleet: string;     // CSV e.g. "Skoda Rapid,VW Jetta"
 }
 
 const INITIAL: FormState = {
   name: "",
-  city: "",
-  phone: "",
-  email: "",
   description: "",
   address: "",
   google_maps_url: "",
-  languages: "",
-  fleet: "",
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -39,16 +36,54 @@ export default function AutoschoolApplyPage() {
   const locale = params?.locale ?? "ka";
 
   const [form, setForm] = useState<FormState>(INITIAL);
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [showOtherLanguages, setShowOtherLanguages] = useState(false);
+
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+
+  // Gallery images (up to MAX_IMAGES)
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // Phone popup state
+  const [userPhone, setUserPhone] = useState<string>("");
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneConfirmed, setPhoneConfirmed] = useState(false);
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const hasPhone = normalizePhone(userPhone).length > 0;
+
+  // Check user phone on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+        const res = await fetch(`${API_BASE}/api/users/me/phone`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUserPhone(data.mobile_number || "");
+        }
+      } catch { /* ignore */ }
+    })();
+  }, [getToken]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -70,8 +105,40 @@ export default function AutoschoolApplyPage() {
     }
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  function handleImageAdd(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    const remaining = MAX_IMAGES - imageFiles.length;
+    const toAdd = files.slice(0, remaining);
+    if (toAdd.length === 0) return;
+    setImageFiles((prev) => [...prev, ...toAdd]);
+    toAdd.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreviews((prev) => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
+  }
+
+  function handleImageRemove(index: number) {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function toggleCity(city: string) {
+    setSelectedCities((prev) =>
+      prev.includes(city) ? prev.filter((c) => c !== city) : [...prev, city],
+    );
+  }
+
+  function toggleLanguage(code: string) {
+    setSelectedLanguages((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code],
+    );
+  }
+
+  async function doSubmit() {
     setError(null);
     setSubmitting(true);
 
@@ -79,12 +146,18 @@ export default function AutoschoolApplyPage() {
       const token = await getToken();
       if (!token) throw new Error("Please sign in to continue.");
 
+      if (selectedCities.length === 0) throw new Error("Please select at least one city.");
+
       const fd = new FormData();
-      Object.entries(form).forEach(([key, val]) => {
-        if (val) fd.append(key, val);
-      });
+      fd.append("name", form.name);
+      fd.append("city", selectedCities.join(","));
+      if (form.description) fd.append("description", form.description);
+      if (form.address) fd.append("address", form.address);
+      if (form.google_maps_url) fd.append("google_maps_url", form.google_maps_url);
+      if (selectedLanguages.length > 0) fd.append("languages", selectedLanguages.join(","));
       if (logoFile) fd.append("logo", logoFile);
       if (coverFile) fd.append("cover", coverFile);
+      imageFiles.forEach((file) => fd.append("images", file));
 
       const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
       const res = await fetch(`${API_BASE}/api/autoschools/apply`, {
@@ -102,6 +175,70 @@ export default function AutoschoolApplyPage() {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (!hasPhone) {
+      setPhoneInput("");
+      setPhoneConfirmed(false);
+      setPhoneError(null);
+      setShowPhoneModal(true);
+      return;
+    }
+
+    await doSubmit();
+  }
+
+  async function handleSavePhoneAndContinue() {
+    const digits = normalizePhone(phoneInput);
+    const phoneErr = validateGeorgianPhone(digits, { required: true });
+
+    if (phoneErr) {
+      setPhoneError(phoneErr);
+      return;
+    }
+
+    if (!phoneConfirmed) {
+      setPhoneError("Please confirm your number is correct");
+      return;
+    }
+
+    setPhoneSaving(true);
+    setPhoneError(null);
+
+    try {
+      const token = await getToken();
+      if (!token) {
+        setPhoneError("Not authenticated");
+        return;
+      }
+
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+      const res = await fetch(`${API_BASE}/api/users/me/phone`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ mobile_number: digits, confirmed: true }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Failed to save phone" }));
+        throw new Error(err.detail || "Failed to save phone");
+      }
+
+      setUserPhone(digits);
+      setShowPhoneModal(false);
+      await doSubmit();
+    } catch (err) {
+      setPhoneError(err instanceof Error ? err.message : "Failed to save phone");
+    } finally {
+      setPhoneSaving(false);
     }
   }
 
@@ -188,28 +325,45 @@ export default function AutoschoolApplyPage() {
             </div>
           </div>
 
-          {/* Two-column grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[
-              { name: "city", label: "City", required: true, placeholder: "Tbilisi" },
-              { name: "phone", label: "Phone", required: true, placeholder: "+995 555 000 000" },
-              { name: "email", label: "Email", required: false, placeholder: "info@school.ge" },
-              { name: "address", label: "Address", required: false, placeholder: "123 Rustaveli Ave" },
-            ].map(({ name, label, required, placeholder }) => (
-              <div key={name}>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  {label} {required && <span className="text-red-500">*</span>}
-                </label>
-                <input
-                  name={name}
-                  value={form[name as keyof FormState]}
-                  onChange={handleChange}
-                  required={required}
-                  placeholder={placeholder}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/30 focus:border-[#F03D3D] text-sm bg-white"
-                />
-              </div>
-            ))}
+          {/* City multi-select */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              City <span className="text-red-500">*</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {CITIES.map((city) => {
+                const selected = selectedCities.includes(city);
+                return (
+                  <button
+                    key={city}
+                    type="button"
+                    onClick={() => toggleCity(city)}
+                    className={`px-3 py-2 text-sm rounded-lg border transition-all ${
+                      selected
+                        ? "border-[#F03D3D] text-[#F03D3D] bg-[#F03D3D]/5"
+                        : "border-gray-200 text-gray-700 bg-white"
+                    }`}
+                  >
+                    {city}
+                  </button>
+                );
+              })}
+            </div>
+            {selectedCities.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">Selected: {selectedCities.join(", ")}</p>
+            )}
+          </div>
+
+          {/* Address */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
+            <input
+              name="address"
+              value={form.address}
+              onChange={handleChange}
+              placeholder="123 Rustaveli Ave"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/30 focus:border-[#F03D3D] text-sm bg-white"
+            />
           </div>
 
           {/* Description */}
@@ -225,28 +379,105 @@ export default function AutoschoolApplyPage() {
             />
           </div>
 
-          {/* Languages + Fleet */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Languages <span className="text-slate-400 font-normal">(comma-separated)</span></label>
-              <input
-                name="languages"
-                value={form.languages}
-                onChange={handleChange}
-                placeholder="ქართული, English, Русский"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/30 focus:border-[#F03D3D] text-sm bg-white"
-              />
+          {/* Languages toggle buttons */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Languages</label>
+            <div className="flex flex-wrap gap-2">
+              {PRIMARY_LANGUAGE_OPTIONS.map((opt) => {
+                const selected = selectedLanguages.includes(opt.code);
+                return (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    onClick={() => toggleLanguage(opt.code)}
+                    className={`px-3 py-2 text-sm rounded-lg border transition-all ${
+                      selected
+                        ? "border-[#F03D3D] text-[#F03D3D] bg-[#F03D3D]/5"
+                        : "border-gray-200 text-gray-700 bg-white"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setShowOtherLanguages((p) => !p)}
+                className={`px-3 py-2 text-sm rounded-lg border transition-all ${
+                  showOtherLanguages
+                    ? "border-[#F03D3D] text-[#F03D3D] bg-[#F03D3D]/5"
+                    : "border-gray-200 text-gray-700 bg-white"
+                }`}
+              >
+                Other
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Fleet <span className="text-slate-400 font-normal">(comma-separated)</span></label>
-              <input
-                name="fleet"
-                value={form.fleet}
-                onChange={handleChange}
-                placeholder="Skoda Rapid, VW Jetta"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/30 focus:border-[#F03D3D] text-sm bg-white"
-              />
+            {showOtherLanguages && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {OTHER_LANGUAGE_OPTIONS.map((opt) => {
+                  const selected = selectedLanguages.includes(opt.code);
+                  return (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      onClick={() => toggleLanguage(opt.code)}
+                      className={`px-3 py-2 text-sm rounded-lg border transition-all ${
+                        selected
+                          ? "border-[#F03D3D] text-[#F03D3D] bg-[#F03D3D]/5"
+                          : "border-gray-200 text-gray-700 bg-white"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {selectedLanguages.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                Selected: {selectedLanguages.map((c) => ALL_LANGUAGE_OPTIONS.find((o) => o.code === c)?.label ?? c).join(", ")}
+              </p>
+            )}
+          </div>
+
+          {/* Gallery images */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Gallery Images <span className="text-slate-400 font-normal">(up to {MAX_IMAGES})</span>
+            </label>
+            <div className="flex flex-wrap gap-3">
+              {imagePreviews.map((src, idx) => (
+                <div key={idx} className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 group">
+                  <img src={src} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => handleImageRemove(idx)}
+                    className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3 text-white" />
+                  </button>
+                </div>
+              ))}
+              {imageFiles.length < MAX_IMAGES && (
+                <div
+                  onClick={() => imageInputRef.current?.click()}
+                  className="w-24 h-24 rounded-xl border-2 border-dashed border-slate-300 hover:border-[#F03D3D] transition-colors cursor-pointer flex flex-col items-center justify-center text-slate-400 hover:text-[#F03D3D]"
+                >
+                  <svg className="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="text-xs">Add</span>
+                </div>
+              )}
             </div>
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleImageAdd}
+            />
           </div>
 
           {/* Google Maps */}
@@ -291,6 +522,65 @@ export default function AutoschoolApplyPage() {
           </button>
         </form>
       </div>
+
+      {/* ── Phone popup modal ── */}
+      {showPhoneModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowPhoneModal(false)}
+          />
+          <div className="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Phone number required</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Before submitting, add your phone number and confirm it is correct.
+            </p>
+
+            <label className="block text-sm font-medium text-gray-700 mb-2">Phone number</label>
+            <input
+              value={phoneInput}
+              onChange={(e) => setPhoneInput(e.target.value)}
+              placeholder="e.g. 555123456"
+              className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/30 focus:border-[#F03D3D]"
+            />
+
+            <label className="mt-4 flex items-start gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={phoneConfirmed}
+                onChange={(e) => setPhoneConfirmed(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>I confirm this phone number is correct</span>
+            </label>
+
+            {phoneError && (
+              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {phoneError}
+              </div>
+            )}
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPhoneModal(false)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                disabled={phoneSaving}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePhoneAndContinue}
+                disabled={phoneSaving}
+                className="rounded-lg px-4 py-2 text-sm font-semibold text-white bg-[#F03D3D] hover:bg-[#d93333] disabled:opacity-60"
+              >
+                {phoneSaving ? "Saving..." : "Save and continue"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

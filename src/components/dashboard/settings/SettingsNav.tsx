@@ -1,14 +1,15 @@
 "use client";
 
 import { useLanguage } from "@/contexts/LanguageContext";
-import { User, Bell, Settings, Briefcase } from "lucide-react";
+import { User, Bell, Settings, Briefcase, Building2 } from "lucide-react";
 
-export const TAB_IDS = ["profile", "instructorProfile", "account", "notifications"] as const;
+export const TAB_IDS = ["profile", "instructorProfile", "autoschoolSettings", "account", "notifications"] as const;
 export type TabId = (typeof TAB_IDS)[number];
 
 const TAB_ICONS: Record<TabId, typeof User> = {
   profile: User,
   instructorProfile: Briefcase,
+  autoschoolSettings: Building2,
   account: Settings,
   notifications: Bell,
 };
@@ -25,6 +26,9 @@ export const SettingsNav = ({ activeTab, setActiveTab, visibleTabs }: SettingsNa
   const getTabLabel = (id: TabId) => {
     if (id === "instructorProfile") {
       return t("settings.tabs.instructorProfile");
+    }
+    if (id === "autoschoolSettings") {
+      return t("settings.tabs.autoschoolSettings") || "Autoschool";
     }
     return t(`settings.tabs.${id}`);
   };

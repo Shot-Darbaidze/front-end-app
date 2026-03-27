@@ -3,19 +3,7 @@
 import { User, Calendar, MapPin } from "lucide-react";
 import { StepProps, InstructorSignupFormData } from "@/types/instructor-signup";
 import { useLanguage } from "@/contexts/LanguageContext";
-
-const GEORGIAN_CITIES = [
-  "Tbilisi",
-  "Batumi",
-  "Kutaisi",
-  "Rustavi",
-  "Gori",
-  "Zugdidi",
-  "Poti",
-  "Kobuleti",
-  "Khashuri",
-  "Samtredia"
-];
+import { CITIES } from "@/config/constants";
 
 const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSignupFormData>) => {
   const { t } = useLanguage();
@@ -90,7 +78,7 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
               className={`w-full pl-12 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-[#F03D3D]/20 outline-none transition bg-gray-50 focus:bg-white appearance-none ${errors.city ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#F03D3D]"}`}
             >
               <option value="" disabled>{t("signup.selectCity")}</option>
-              {GEORGIAN_CITIES.map((city) => (
+              {CITIES.map((city) => (
                 <option key={city} value={city}>
                   {city}
                 </option>

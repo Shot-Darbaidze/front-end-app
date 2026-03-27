@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import { useAuth } from "@clerk/nextjs";
 import { buildInstructorName, pickFirstValidPrice, extractCityName } from "@/utils/instructor";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { normalizePhone, validateGeorgianPhone } from "@/utils/validation/georgianPhone";
 
 // Types for backend data
 interface AvailableSlot {
@@ -125,7 +126,6 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
     ? pickFirstValidPrice([instructor.automatic_city_price, instructor.manual_city_price]) ?? 0
     : 0;
 
-  const normalizePhone = (value: string) => value.replace(/\D/g, "");
   const hasPhone = normalizePhone(userPhone).length > 0;
 
   // Fetch data on mount — with module-level cache to survive locale switches
@@ -396,12 +396,13 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
 
   const handleSavePhoneAndContinue = async () => {
     const digits = normalizePhone(phoneInput);
+    const phoneErr = validateGeorgianPhone(digits, { required: true });
 
-    if (!(digits.length === 9 && digits.startsWith("5"))) {
+    if (phoneErr) {
       setPhoneError(
         language === "ka"
           ? "შეიყვანეთ სწორი ქართული ნომერი (მაგ: 555123456)"
-          : "Enter a valid Georgian phone number (e.g. 555123456)"
+          : phoneErr
       );
       return;
     }

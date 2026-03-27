@@ -2,25 +2,11 @@
 
 import { memo, useState, useCallback, useRef, useEffect } from "react";
 import { FilterOptions } from "@/hooks/useInstructorFilters";
-import { PRICING, CITIES, TRANSMISSION_TYPES } from "@/config/constants";
+import { PRICING, CITIES, CITY_LABELS, TRANSMISSION_TYPES } from "@/config/constants";
 import { Filter, X, ChevronDown, MapPin, Car, ArrowUpDown, DollarSign, Star, ArrowDown, ArrowUp } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 type SortOption = "rating" | "price-asc" | "price-desc";
-
-const CITY_LABELS: Record<string, { ka: string; en: string }> = {
-  Tbilisi: { ka: "თბილისი", en: "Tbilisi" },
-  Batumi: { ka: "ბათუმი", en: "Batumi" },
-  Kutaisi: { ka: "ქუთაისი", en: "Kutaisi" },
-  Rustavi: { ka: "რუსთავი", en: "Rustavi" },
-  Gori: { ka: "გორი", en: "Gori" },
-  Telavi: { ka: "თელავი", en: "Telavi" },
-  Sachkhere: { ka: "საჩხერე", en: "Sachkhere" },
-  Ozurgeti: { ka: "ოზურგეთი", en: "Ozurgeti" },
-  Zugdidi: { ka: "ზუგდიდი", en: "Zugdidi" },
-  Poti: { ka: "ფოთი", en: "Poti" },
-  Akhaltsikhe: { ka: "ახალციხე", en: "Akhaltsikhe" },
-};
 
 interface HorizontalFilterBarProps {
   filters: FilterOptions;

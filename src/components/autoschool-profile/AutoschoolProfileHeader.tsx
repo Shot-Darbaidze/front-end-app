@@ -1,6 +1,7 @@
 "use client";
 
-import { Star, MapPin, Car, BadgeCheck, Building2, Users } from "lucide-react";
+import { useState } from "react";
+import { Star, MapPin, BadgeCheck, Building2, Users, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 interface AutoschoolProfileHeaderProps {
   name: string;
@@ -9,10 +10,10 @@ interface AutoschoolProfileHeaderProps {
   location: string;
   description: string;
   languages: string[];
-  fleet: string[];
   instructorCount: number;
   imageUrl?: string;
   coverImageUrl?: string;
+  galleryImages?: string[];
 }
 
 const AutoschoolProfileHeader = ({
@@ -22,11 +23,13 @@ const AutoschoolProfileHeader = ({
   location,
   description,
   languages,
-  fleet,
   instructorCount,
   imageUrl,
   coverImageUrl,
+  galleryImages = [],
 }: AutoschoolProfileHeaderProps) => {
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/50 overflow-hidden">
       {/* Cover Area */}
@@ -107,21 +110,24 @@ const AutoschoolProfileHeader = ({
               <p className="text-gray-600 leading-relaxed">{description}</p>
             </div>
 
-            {/* Fleet */}
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">ავტოპარკი</h3>
-              <div className="flex flex-wrap gap-3">
-                {fleet.map((vehicle, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100 text-gray-700 font-medium"
-                  >
-                    <Car className="w-4 h-4 text-gray-400" />
-                    {vehicle}
-                  </div>
-                ))}
+            {/* Gallery Images */}
+            {galleryImages.length > 0 && (
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">ფოტო გალერეა</h3>
+                <div className="flex flex-wrap gap-3">
+                  {galleryImages.map((url, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setLightboxIndex(idx)}
+                      className="w-28 h-28 rounded-xl overflow-hidden border border-gray-100 hover:ring-2 hover:ring-[#F03D3D]/30 transition-all"
+                    >
+                      <img src={url} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Languages */}
@@ -142,6 +148,40 @@ const AutoschoolProfileHeader = ({
           </div>
         </div>
       </div>
+
+      {/* Lightbox */}
+      {lightboxIndex !== null && galleryImages.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => setLightboxIndex(null)}>
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white"
+            onClick={() => setLightboxIndex(null)}
+          >
+            <X className="w-8 h-8" />
+          </button>
+          {galleryImages.length > 1 && (
+            <>
+              <button
+                className="absolute left-4 text-white/80 hover:text-white"
+                onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex - 1 + galleryImages.length) % galleryImages.length); }}
+              >
+                <ChevronLeft className="w-10 h-10" />
+              </button>
+              <button
+                className="absolute right-4 text-white/80 hover:text-white"
+                onClick={(e) => { e.stopPropagation(); setLightboxIndex((lightboxIndex + 1) % galleryImages.length); }}
+              >
+                <ChevronRight className="w-10 h-10" />
+              </button>
+            </>
+          )}
+          <img
+            src={galleryImages[lightboxIndex]}
+            alt={`Gallery ${lightboxIndex + 1}`}
+            className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { Clock, Phone, Mail } from "lucide-react";
+import { Clock, Phone } from "lucide-react";
 
 interface WorkingDay {
   days: string;
@@ -9,10 +9,9 @@ interface WorkingDay {
 interface WorkingHoursCardProps {
   schedule: WorkingDay[];
   phone?: string;
-  email?: string;
 }
 
-const WorkingHoursCard = ({ schedule, phone, email }: WorkingHoursCardProps) => {
+const WorkingHoursCard = ({ schedule, phone }: WorkingHoursCardProps) => {
   const now = new Date();
   const day = now.getDay(); // 0=Sun, 1=Mon...6=Sat
   const isWeekday = day >= 1 && day <= 5;
@@ -60,30 +59,17 @@ const WorkingHoursCard = ({ schedule, phone, email }: WorkingHoursCardProps) => 
         ))}
       </div>
 
-      {(phone || email) && (
+      {phone && (
         <div className="border-t border-gray-100 pt-4 space-y-2">
-          {phone && (
-            <a
-              href={`tel:${phone}`}
-              className="flex items-center gap-2.5 text-sm text-gray-700 hover:text-[#F03D3D] transition-colors group"
-            >
-              <div className="w-8 h-8 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center group-hover:border-[#F03D3D]/30 transition-colors">
-                <Phone className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#F03D3D]" />
-              </div>
-              <span className="font-medium">{phone}</span>
-            </a>
-          )}
-          {email && (
-            <a
-              href={`mailto:${email}`}
-              className="flex items-center gap-2.5 text-sm text-gray-700 hover:text-[#F03D3D] transition-colors group"
-            >
-              <div className="w-8 h-8 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center group-hover:border-[#F03D3D]/30 transition-colors">
-                <Mail className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#F03D3D]" />
-              </div>
-              <span className="font-medium">{email}</span>
-            </a>
-          )}
+          <a
+            href={`tel:${phone}`}
+            className="flex items-center gap-2.5 text-sm text-gray-700 hover:text-[#F03D3D] transition-colors group"
+          >
+            <div className="w-8 h-8 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center group-hover:border-[#F03D3D]/30 transition-colors">
+              <Phone className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#F03D3D]" />
+            </div>
+            <span className="font-medium">{phone}</span>
+          </a>
         </div>
       )}
     </div>

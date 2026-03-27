@@ -10,6 +10,7 @@ import { API_CONFIG } from "@/config/constants";
 import ImageLightbox from "@/components/ui/ImageLightbox";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
+import { validateGeorgianPhone } from "@/utils/validation/georgianPhone";
 import {
     InstructorPost, InstructorAsset, InstructorProfileForm,
     emptyInstructorForm, mapPostToForm, buildUpdatePayload,
@@ -103,14 +104,6 @@ const InputField = ({ label, ...props }: InputFieldProps) => (
 
 type ClerkUser = ReturnType<typeof useUser>["user"];
 
-// Georgian mobile: 9 digits starting with 5 (e.g. 555 123 456)
-function validatePhone(value: string): string | null {
-    if (!value.trim()) return null; // empty is fine — optional field
-    const digits = value.replace(/\D/g, "");
-    if (digits.length === 9 && digits[0] === "5") return null;
-    return "Enter a valid Georgian phone number (e.g. 555 123 456)";
-}
-
 function StudentProfileSettings({ user, getToken }: { user: ClerkUser; getToken: () => Promise<string | null> }) {
     const { t } = useLanguage();
     const [phone, setPhone] = useState<string>("");
@@ -144,13 +137,13 @@ function StudentProfileSettings({ user, getToken }: { user: ClerkUser; getToken:
 
     const handlePhoneChange = (value: string) => {
         setPhone(value);
-        setPhoneError(validatePhone(value));
+        setPhoneError(validateGeorgianPhone(value));
         setSuccessMessage(null);
     };
 
     const handleSave = async () => {
         if (!user) return;
-        const err = validatePhone(phone);
+        const err = validateGeorgianPhone(phone);
         if (err) { setPhoneError(err); return; }
         if (!phone.trim()) {
             setPhoneError(t("booking.phoneRequired") || "Phone number is required");

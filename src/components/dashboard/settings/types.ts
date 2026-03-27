@@ -60,23 +60,11 @@ export const emptyInstructorForm: InstructorProfileForm = {
     applicant_address: "", applicant_date_of_birth: "", status: "inactive",
 };
 
-export const PRIMARY_LANGUAGE_OPTIONS: Array<{ code: string; label: string }> = [
-    { code: "en", label: "English" },
-    { code: "ka", label: "Georgian" },
-    { code: "ru", label: "Russian" },
-];
-
-export const OTHER_LANGUAGE_OPTIONS: Array<{ code: string; label: string }> = [
-    { code: "de", label: "German" },
-    { code: "fr", label: "French" },
-    { code: "es", label: "Spanish" },
-    { code: "it", label: "Italian" },
-    { code: "tr", label: "Turkish" },
-    { code: "ar", label: "Arabic" },
-];
+export { PRIMARY_LANGUAGE_OPTIONS, OTHER_LANGUAGE_OPTIONS, ALL_LANGUAGE_OPTIONS } from "@/config/constants";
+import { ALL_LANGUAGE_OPTIONS } from "@/config/constants";
 
 const LANGUAGE_LABELS = new Map(
-    [...PRIMARY_LANGUAGE_OPTIONS, ...OTHER_LANGUAGE_OPTIONS].map((i) => [i.code, i.label])
+    ALL_LANGUAGE_OPTIONS.map((i) => [i.code, i.label])
 );
 
 export const normalizeLanguageCodes = (value: string) =>

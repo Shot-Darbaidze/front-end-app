@@ -97,10 +97,10 @@ export default async function AutoschoolProfilePage({
               location={school.city ?? ""}
               description={school.description ?? ""}
               languages={csvToArray(school.languages)}
-              fleet={csvToArray(school.fleet)}
               instructorCount={instructors.length}
               imageUrl={resolveMediaUrl(school.logo_url)}
               coverImageUrl={resolveMediaUrl(school.cover_image_url)}
+              galleryImages={(school.image_urls ?? []).map((u: string) => resolveMediaUrl(u))}
             />
           </div>
 
@@ -112,8 +112,6 @@ export default async function AutoschoolProfilePage({
             />
             <WorkingHoursCard
               schedule={schedule}
-              phone=""
-              email={school.email ?? ""}
             />
             <LocationCard
               location={school.city ?? ""}

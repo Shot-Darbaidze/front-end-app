@@ -2,7 +2,7 @@ import { Star, ShieldCheck, Car, MapPin, Route } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCallback, memo } from "react";
-import { PRICING } from "@/config/constants";
+import { PRICING, CITY_LABELS } from "@/config/constants";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -30,20 +30,6 @@ const CityIcon = () => (
     />
   </svg>
 );
-
-const CITY_LABELS: Record<string, string> = {
-  Tbilisi: "თბილისი",
-  Batumi: "ბათუმი",
-  Kutaisi: "ქუთაისი",
-  Rustavi: "რუსთავი",
-  Gori: "გორი",
-  Telavi: "თელავი",
-  Sachkhere: "საჩხერე",
-  Ozurgeti: "ოზურგეთი",
-  Zugdidi: "ზუგდიდი",
-  Poti: "ფოთი",
-  Akhaltsikhe: "ახალციხე",
-};
 
 const transliterateToGeorgian = (value: string) => {
   const multiCharMap: Array<[string, string]> = [
@@ -183,7 +169,7 @@ const InstructorCard = ({
 
     if (tag.startsWith("Location:")) {
       const location = tag.replace("Location:", "").trim();
-      return isKa ? CITY_LABELS[location] ?? location : location;
+      return isKa ? CITY_LABELS[location]?.ka ?? location : location;
     }
 
     if (tag === "Manual") return isKa ? "მექანიკა" : tag;

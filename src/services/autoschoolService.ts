@@ -50,14 +50,12 @@ export interface AutoschoolDetail {
   description?: string | null;
   city?: string | null;
   address?: string | null;
-  email?: string | null;
   google_maps_url?: string | null;
   /** CSV e.g. "KA,EN,RU" */
   languages?: string | null;
-  /** CSV e.g. "Skoda Rapid,VW Jetta" */
-  fleet?: string | null;
   logo_url?: string | null;
   cover_image_url?: string | null;
+  image_urls?: string[];
   is_approved: boolean;
   status: string;
   packages: CoursePackage[];
@@ -147,6 +145,15 @@ export async function submitAutoschoolApplication(
     { method: "POST", body: formData },
     token,
   );
+}
+
+/** Fetch the autoschool the current user administers. Returns null if none. */
+export async function getMyAutoschool(token: string): Promise<AutoschoolSummary | null> {
+  try {
+    return await apiFetch<AutoschoolSummary>("/api/me/autoschool", {}, token);
+  } catch {
+    return null;
+  }
 }
 
 /** Update autoschool details (admin only). */

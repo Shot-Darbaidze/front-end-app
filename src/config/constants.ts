@@ -235,7 +235,48 @@ export const CITIES = [
   'Zugdidi',
   'Poti',
   'Akhaltsikhe',
+  'Kobuleti',
+  'Khashuri',
+  'Samtredia',
 ] as const;
+
+export const CITY_LABELS: Record<string, { ka: string; en: string }> = {
+  Tbilisi: { ka: "თბილისი", en: "Tbilisi" },
+  Batumi: { ka: "ბათუმი", en: "Batumi" },
+  Kutaisi: { ka: "ქუთაისი", en: "Kutaisi" },
+  Rustavi: { ka: "რუსთავი", en: "Rustavi" },
+  Gori: { ka: "გორი", en: "Gori" },
+  Telavi: { ka: "თელავი", en: "Telavi" },
+  Sachkhere: { ka: "საჩხერე", en: "Sachkhere" },
+  Ozurgeti: { ka: "ოზურგეთი", en: "Ozurgeti" },
+  Zugdidi: { ka: "ზუგდიდი", en: "Zugdidi" },
+  Poti: { ka: "ფოთი", en: "Poti" },
+  Akhaltsikhe: { ka: "ახალციხე", en: "Akhaltsikhe" },
+  Kobuleti: { ka: "ქობულეთი", en: "Kobuleti" },
+  Khashuri: { ka: "ხაშური", en: "Khashuri" },
+  Samtredia: { ka: "სამტრედია", en: "Samtredia" },
+};
+
+// ============================================================================
+// LANGUAGE OPTIONS
+// ============================================================================
+
+export const PRIMARY_LANGUAGE_OPTIONS: Array<{ code: string; label: string }> = [
+  { code: "en", label: "English" },
+  { code: "ka", label: "Georgian" },
+  { code: "ru", label: "Russian" },
+];
+
+export const OTHER_LANGUAGE_OPTIONS: Array<{ code: string; label: string }> = [
+  { code: "de", label: "German" },
+  { code: "fr", label: "French" },
+  { code: "es", label: "Spanish" },
+  { code: "it", label: "Italian" },
+  { code: "tr", label: "Turkish" },
+  { code: "ar", label: "Arabic" },
+];
+
+export const ALL_LANGUAGE_OPTIONS = [...PRIMARY_LANGUAGE_OPTIONS, ...OTHER_LANGUAGE_OPTIONS];
 
 export const TRANSMISSION_TYPES = ['Manual', 'Automatic'] as const;
 
