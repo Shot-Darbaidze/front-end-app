@@ -12,6 +12,8 @@ import type { AutoschoolDetail } from "@/services/autoschoolService";
 import { resolveMediaUrl } from "@/utils/media";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /**
  * Fetch autoschool data from the backend at build/request time.
@@ -20,8 +22,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 async function fetchAutoschool(id: string): Promise<AutoschoolDetail | null> {
   try {
     const res = await fetch(`${API_BASE}/api/autoschools/${id}`, {
-      // ISR: revalidate every 60 seconds so edits by the admin appear quickly
-      next: { revalidate: 60 },
+      // Keep profile data fresh for client navigation and avoid stale prefetch payloads.
+      cache: "no-store",
     });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`API error ${res.status}`);
@@ -63,17 +65,28 @@ export default async function AutoschoolProfilePage({
     closed: h.is_closed,
   }));
 
+  // Parse CSV helper
+  const csvToArray = (csv: string | null | undefined) =>
+    csv ? csv.split(",").map((s) => s.trim()).filter(Boolean) : [];
+
   const instructors: SchoolInstructor[] = (school.instructors ?? []).map((i) => ({
     id: i.id,
     name: [i.first_name, i.last_name].filter(Boolean).join(" ") || i.title,
     rating: i.rating != null ? Number(i.rating) : 0,
     transmission: i.transmission ?? "Manual",
     price: i.city_price != null ? Number(i.city_price) : (i.yard_price != null ? Number(i.yard_price) : 0),
+    imageUrl: resolveMediaUrl(i.image_url),
+    languages: csvToArray(i.language_skills),
   }));
 
-  // Parse CSV helper
-  const csvToArray = (csv: string | null | undefined) =>
-    csv ? csv.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const instructorRatings = (school.instructors ?? [])
+    .map((i) => (i.rating != null ? Number(i.rating) : null))
+    .filter((r): r is number => r !== null && !Number.isNaN(r));
+  const overallRating = instructorRatings.length > 0
+    ? Number((instructorRatings.reduce((sum, r) => sum + r, 0) / instructorRatings.length).toFixed(1))
+    : 0;
+  const overallReviewCount = instructorRatings.length;
+  const instructorPostIds = (school.instructors ?? []).map((i) => i.id);
 
   return (
     <div className="min-h-screen bg-gray-50/50 pt-28 pb-12">
@@ -92,8 +105,8 @@ export default async function AutoschoolProfilePage({
           <div className="order-1 lg:col-span-2">
             <AutoschoolProfileHeader
               name={school.name}
-              rating={4.8}
-              reviewCount={0}
+              rating={overallRating}
+              reviewCount={overallReviewCount}
               location={school.city ?? ""}
               description={school.description ?? ""}
               languages={csvToArray(school.languages)}
@@ -129,7 +142,7 @@ export default async function AutoschoolProfilePage({
 
           {/* 4. Reviews — col-span-2 */}
           <div className="order-4 lg:col-span-2">
-            <CommentSection postId={id} />
+            <CommentSection postIds={instructorPostIds} readOnly />
           </div>
         </div>
       </div>

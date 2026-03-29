@@ -11,10 +11,12 @@ import { NewReviewForm } from "./NewReviewForm";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface CommentSectionProps {
-  postId: string;
+  postId?: string;
+  postIds?: string[];
+  readOnly?: boolean;
 }
 
-export default function CommentSection({ postId }: CommentSectionProps) {
+export default function CommentSection({ postId, postIds, readOnly = false }: CommentSectionProps) {
   const { getToken, isSignedIn, isLoaded: isAuthLoaded } = useClerkAuth();
   const { user } = useUser();
   const { t } = useLanguage();
@@ -63,14 +65,57 @@ export default function CommentSection({ postId }: CommentSectionProps) {
 
   const fetchComments = useCallback(async (reset = true) => {
     try {
+      const effectivePostIds = (postIds && postIds.length > 0)
+        ? postIds
+        : (postId ? [postId] : []);
+      if (effectivePostIds.length === 0) {
+        setComments([]);
+        commentsRef.current = [];
+        setHasMore(false);
+        setTotalComments(0);
+        return;
+      }
+
       const offset = reset ? 0 : commentsRef.current.length;
       const headers: HeadersInit = {};
       if (isSignedIn) {
         const token = await getToken();
         if (token) headers.Authorization = `Bearer ${token}`;
       }
+
+      if (effectivePostIds.length > 1) {
+        const requests = effectivePostIds.map((pid) =>
+          fetch(`${API_CONFIG.BASE_URL}/api/comments/post/${pid}?limit=100&offset=0&sort_by=${sortBy}`, { headers })
+        );
+        const responses = await Promise.all(requests);
+        const payloads = await Promise.all(
+          responses.map(async (res) => (res.ok ? res.json() : { comments: [], total: 0 }))
+        );
+
+        const merged = payloads.flatMap((p) => p.comments as Comment[]);
+        const deduped = Array.from(new Map(merged.map((c) => [c.id, c])).values());
+        const sorted = [...deduped].sort((a, b) => {
+          if (sortBy === "oldest") {
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          }
+          if (sortBy === "likes") {
+            const likesA = a.reactions?.like ?? 0;
+            const likesB = b.reactions?.like ?? 0;
+            if (likesA !== likesB) return likesB - likesA;
+          }
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+
+        setComments(sorted);
+        commentsRef.current = sorted;
+        setHasMore(false);
+        setTotalComments(sorted.length);
+        return;
+      }
+
+      const singlePostId = effectivePostIds[0];
       const res = await fetch(
-        `${API_CONFIG.BASE_URL}/api/comments/post/${postId}?limit=20&offset=${offset}&sort_by=${sortBy}`,
+        `${API_CONFIG.BASE_URL}/api/comments/post/${singlePostId}?limit=20&offset=${offset}&sort_by=${sortBy}`,
         { headers }
       );
       if (res.ok) {
@@ -92,13 +137,13 @@ export default function CommentSection({ postId }: CommentSectionProps) {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [postId, sortBy, isSignedIn, getToken]);
+  }, [postId, postIds, sortBy, isSignedIn, getToken]);
 
   useEffect(() => {
     if (!isAuthLoaded) return;
     setIsLoading(true);
     fetchComments(true);
-  }, [sortBy, postId, isAuthLoaded, isSignedIn]);
+  }, [sortBy, postId, postIds, isAuthLoaded, isSignedIn]);
 
   useEffect(() => {
     const targetCommentId = searchParams.get("comment_id");
@@ -130,10 +175,12 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     try {
       const token = await getToken();
       if (!token) return;
+      const targetPostId = postId ?? postIds?.[0];
+      if (!targetPostId) return;
       const res = await fetch(`${API_CONFIG.BASE_URL}/api/comments`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ post_id: postId, comment_text: newComment.trim(), rating }),
+        body: JSON.stringify({ post_id: targetPostId, comment_text: newComment.trim(), rating }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -153,10 +200,12 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     try {
       const token = await getToken();
       if (!token) return;
+      const targetPostId = postId ?? postIds?.[0];
+      if (!targetPostId) return;
       const res = await fetch(`${API_CONFIG.BASE_URL}/api/comments`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ post_id: postId, comment_text: replyText.trim(), parent_id: parentId }),
+        body: JSON.stringify({ post_id: targetPostId, comment_text: replyText.trim(), parent_id: parentId }),
       });
       if (res.ok) {
         const reply = await res.json();
@@ -335,7 +384,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
       </div>
 
       {/* Review form or sign-in prompt */}
-      {isSignedIn ? (
+      {!readOnly && isSignedIn ? (
         <NewReviewForm
           userImageUrl={user?.imageUrl}
           userInitial={user?.firstName?.charAt(0) || "?"}
@@ -343,7 +392,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
           onRatingChange={setRating} onHoverRatingChange={setHoverRating}
           onCommentChange={setNewComment} onSubmit={handleSubmitComment}
         />
-      ) : (
+      ) : !readOnly ? (
         <div className="mb-8 p-5 bg-slate-50 rounded-2xl text-center border border-dashed border-slate-200">
           <p className="text-slate-600 font-medium mb-3">{t("reviews.signInPrompt")}</p>
           <SignInButton mode="modal">
@@ -352,7 +401,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
             </button>
           </SignInButton>
         </div>
-      )}
+      ) : null}
 
       {/* Comments list */}
       {comments.length === 0 ? (
@@ -386,6 +435,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
                 <SingleComment
                   comment={comment} onReply={handleReply} onEdit={handleEdit}
                   onDelete={handleDelete} onReact={handleReact}
+                  readOnly={readOnly}
                   replyingTo={replyingTo} editingId={editingId}
                   editText={editText} setEditText={setEditText}
                   editRating={editRating} setEditRating={setEditRating}
@@ -394,7 +444,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
                 />
 
                 {/* Inline reply form */}
-                {replyingTo === comment.id && isSignedIn && (
+                {replyingTo === comment.id && isSignedIn && !readOnly && (
                   <div className="pb-4">
                     <div className="flex gap-4 ml-6 sm:ml-12 border-l-2 border-slate-100 pl-4 sm:pl-6">
                       <div className="flex-shrink-0">
@@ -431,7 +481,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
             ))}
           </div>
 
-          {hasMore && (
+          {hasMore && !readOnly && (
             <div className="mt-8 text-center">
               <button onClick={loadMoreComments} disabled={isLoadingMore}
                 className="inline-flex items-center gap-2 px-7 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all disabled:opacity-50">

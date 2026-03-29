@@ -9,7 +9,9 @@ import Button from "@/components/ui/Button";
 import { AlertCircle, CalendarClock, CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { useInstructorApproval } from "@/hooks/useInstructorApproval";
+import { useAutoschoolAdmin } from "@/hooks/useAutoschoolAdmin";
 import { API_CONFIG } from "@/config/constants";
+import { getSchoolInstructors } from "@/services/autoschoolService";
 
 import {
   BookingResponse, CancellationResponse, CancellationReason, TabId, TABS,
@@ -19,7 +21,7 @@ import { PastLessons } from "@/components/dashboard/lessons/PastLessons";
 import { CancelledLessons } from "@/components/dashboard/lessons/CancelledLessons";
 import { CancelModal } from "@/components/dashboard/lessons/CancelModal";
 
-const LESSONS_CACHE_KEY_PREFIX = "dashboard-lessons-v1";
+const LESSONS_CACHE_KEY_PREFIX = "dashboard-lessons-v2";
 const LESSONS_CACHE_TTL = 2 * 60 * 1000;
 const CANCELLATION_CONFIRM_TOKENS = ["cancel", "გაუქმება"] as const;
 
@@ -47,9 +49,9 @@ interface InstructorBookingRow {
   } | null;
 }
 
-function getCachedLessons(userId: string): LessonsCachePayload | null {
+function getCachedLessons(userId: string, roleVariant: string): LessonsCachePayload | null {
   if (typeof window === "undefined") return null;
-  const cacheKey = `${LESSONS_CACHE_KEY_PREFIX}:${userId}`;
+  const cacheKey = `${LESSONS_CACHE_KEY_PREFIX}:${userId}:${roleVariant}`;
   try {
     const raw = window.sessionStorage.getItem(cacheKey);
     if (!raw) return null;
@@ -67,9 +69,9 @@ function getCachedLessons(userId: string): LessonsCachePayload | null {
   }
 }
 
-function setCachedLessons(userId: string, data: LessonsCachePayload) {
+function setCachedLessons(userId: string, roleVariant: string, data: LessonsCachePayload) {
   if (typeof window === "undefined") return;
-  const cacheKey = `${LESSONS_CACHE_KEY_PREFIX}:${userId}`;
+  const cacheKey = `${LESSONS_CACHE_KEY_PREFIX}:${userId}:${roleVariant}`;
   try {
     window.sessionStorage.setItem(
       cacheKey,
@@ -87,7 +89,9 @@ export default function LessonsPage() {
   const searchParams = useSearchParams();
   const localeHref = useLocaleHref();
   const { isInstructor, isLoading: isRoleLoading } = useInstructorApproval();
+  const { schoolId, isAutoschoolAdmin, isLoading: isAutoschoolLoading } = useAutoschoolAdmin();
   const userId = user?.id;
+  const roleVariant = isAutoschoolAdmin ? "autoschool-admin" : (isInstructor ? "instructor" : "student");
   const locale = pathname?.split("/")[1] ?? "ka";
   const confirmationPrimary = locale === "ka" ? "გაუქმება" : "cancel";
   const confirmationSecondary = locale === "ka" ? "cancel" : "გაუქმება";
@@ -156,6 +160,147 @@ export default function LessonsPage() {
         return;
       }
 
+      if (isAutoschoolAdmin && schoolId) {
+        const instructors = await getSchoolInstructors(schoolId, token);
+        const postMeta = new Map(
+          instructors.map((inst) => [
+            inst.id,
+            {
+              name: `${inst.first_name ?? ""} ${inst.last_name ?? ""}`.trim() || inst.title || "Instructor",
+              image: inst.image_url ?? null,
+            },
+          ])
+        );
+
+        const postIds = instructors.map((inst) => inst.id);
+
+        if (postIds.length === 0) {
+          if (currentTab === "cancelled") setCancelledLessons([]);
+          if (currentTab === "upcoming") setUpcomingLessons([]);
+          if (currentTab === "past") setPastLessons([]);
+          return;
+        }
+
+        if (currentTab === "cancelled") {
+          const cancelledResponses = await Promise.all(
+            postIds.map(async (postId) => {
+              const res = await fetch(
+                `${API_CONFIG.BASE_URL}/api/bookings/by-post/${postId}?status=cancelled`,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              if (!res.ok) return [] as BookingResponse[];
+              const rows = (await res.json()) as BookingResponse[];
+              return rows;
+            })
+          );
+
+          const syntheticCancellations: CancellationResponse[] = cancelledResponses
+            .flat()
+            .map((row) => {
+              const meta = postMeta.get(row.post_id);
+              return {
+                id: `booking-cancel-${row.id}`,
+                booking_id: row.id,
+                cancelled_by_user_id: null,
+                reason: "other" as const,
+                description: null,
+                original_start_time_utc: row.start_time_utc,
+                original_duration_minutes: row.duration_minutes,
+                original_mode: row.mode,
+                original_price: row.price ?? null,
+                original_post_id: row.post_id,
+                cancelled_at: row.start_time_utc,
+                instructor_name: meta?.name ?? row.instructor_name ?? "Instructor",
+                instructor_image: meta?.image ?? row.instructor_image ?? null,
+              };
+            })
+            .sort((a, b) => new Date(b.cancelled_at).getTime() - new Date(a.cancelled_at).getTime());
+
+          const cached = userId ? getCachedLessons(userId, roleVariant) : null;
+          if (userId) {
+            setCachedLessons(userId, roleVariant, {
+              upcomingLessons: cached?.upcomingLessons ?? [],
+              pastLessons: cached?.pastLessons ?? [],
+              cancelledLessons: syntheticCancellations,
+              fetchedTabs: {
+                upcoming: cached?.fetchedTabs.upcoming ?? false,
+                past: cached?.fetchedTabs.past ?? false,
+                cancelled: true,
+              },
+            });
+          }
+
+          setCancelledLessons(syntheticCancellations);
+          return;
+        }
+
+        const bookingResponses = await Promise.all(
+          postIds.map(async (postId) => {
+            const res = await fetch(
+              `${API_CONFIG.BASE_URL}/api/bookings/by-post/${postId}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (!res.ok) return [] as BookingResponse[];
+            const rows = (await res.json()) as BookingResponse[];
+            return rows.map((row) => {
+              const meta = postMeta.get(row.post_id);
+              return {
+                ...row,
+                instructor_name: meta?.name ?? row.instructor_name ?? "Instructor",
+                instructor_image: meta?.image ?? row.instructor_image ?? null,
+              };
+            });
+          })
+        );
+
+        const allBookings = bookingResponses.flat();
+        const now = new Date();
+
+        if (currentTab === "upcoming") {
+          const upcoming = allBookings
+            .filter((b) => b.status === "booked" && new Date(b.start_time_utc) > now)
+            .sort((a, b) => new Date(a.start_time_utc).getTime() - new Date(b.start_time_utc).getTime());
+          setUpcomingLessons(upcoming);
+
+          const cached = userId ? getCachedLessons(userId, roleVariant) : null;
+          if (userId) {
+            setCachedLessons(userId, roleVariant, {
+              upcomingLessons: upcoming,
+              pastLessons: cached?.pastLessons ?? [],
+              cancelledLessons: cached?.cancelledLessons ?? [],
+              fetchedTabs: {
+                upcoming: true,
+                past: cached?.fetchedTabs.past ?? false,
+                cancelled: cached?.fetchedTabs.cancelled ?? false,
+              },
+            });
+          }
+        } else {
+          const past = allBookings
+            .filter(
+              (b) => b.status === "completed" || (b.status === "booked" && new Date(b.start_time_utc) <= now)
+            )
+            .sort((a, b) => new Date(b.start_time_utc).getTime() - new Date(a.start_time_utc).getTime());
+          setPastLessons(past);
+
+          const cached = userId ? getCachedLessons(userId, roleVariant) : null;
+          if (userId) {
+            setCachedLessons(userId, roleVariant, {
+              upcomingLessons: cached?.upcomingLessons ?? [],
+              pastLessons: past,
+              cancelledLessons: cached?.cancelledLessons ?? [],
+              fetchedTabs: {
+                upcoming: cached?.fetchedTabs.upcoming ?? false,
+                past: true,
+                cancelled: cached?.fetchedTabs.cancelled ?? false,
+              },
+            });
+          }
+        }
+
+        return;
+      }
+
       if (currentTab === "cancelled") {
         // Only fetch cancellations for the cancelled tab
         const cancellationsUrl = isInstructor
@@ -167,9 +312,9 @@ export default function LessonsPage() {
         );
         const allCancellations: CancellationResponse[] = cancellationsRes.ok ? await cancellationsRes.json() : [];
 
-        const cached = userId ? getCachedLessons(userId) : null;
+        const cached = userId ? getCachedLessons(userId, roleVariant) : null;
         if (userId) {
-          setCachedLessons(userId, {
+          setCachedLessons(userId, roleVariant, {
             upcomingLessons: cached?.upcomingLessons ?? [],
             pastLessons: cached?.pastLessons ?? [],
             cancelledLessons: allCancellations,
@@ -222,9 +367,9 @@ export default function LessonsPage() {
           const upcoming = allBookings.filter((b) => new Date(b.start_time_utc) > now);
           setUpcomingLessons(upcoming);
 
-          const cached = userId ? getCachedLessons(userId) : null;
+          const cached = userId ? getCachedLessons(userId, roleVariant) : null;
           if (userId) {
-            setCachedLessons(userId, {
+            setCachedLessons(userId, roleVariant, {
               upcomingLessons: upcoming,
               pastLessons: cached?.pastLessons ?? [],
               cancelledLessons: cached?.cancelledLessons ?? [],
@@ -242,9 +387,9 @@ export default function LessonsPage() {
           );
           setPastLessons(past);
 
-          const cached = userId ? getCachedLessons(userId) : null;
+          const cached = userId ? getCachedLessons(userId, roleVariant) : null;
           if (userId) {
-            setCachedLessons(userId, {
+            setCachedLessons(userId, roleVariant, {
               upcomingLessons: cached?.upcomingLessons ?? [],
               pastLessons: past,
               cancelledLessons: cached?.cancelledLessons ?? [],
@@ -266,11 +411,19 @@ export default function LessonsPage() {
         setIsLoading(false);
       }
     }
-  }, [getToken, activeTab, userId, isInstructor]);
+  }, [
+    getToken,
+    activeTab,
+    userId,
+    isInstructor,
+    isAutoschoolAdmin,
+    schoolId,
+    roleVariant,
+  ]);
 
   // Fetch data when tab changes
   useEffect(() => {
-    if (isRoleLoading) {
+    if (isRoleLoading || isAutoschoolLoading) {
       setIsLoading(true);
       return;
     }
@@ -283,7 +436,7 @@ export default function LessonsPage() {
       return;
     }
 
-    const cached = getCachedLessons(userId);
+    const cached = getCachedLessons(userId, roleVariant);
     if (cached) {
       setUpcomingLessons(cached.upcomingLessons);
       setPastLessons(cached.pastLessons);
@@ -298,7 +451,7 @@ export default function LessonsPage() {
     }
 
     void fetchLessons(activeTab, true);
-  }, [activeTab, fetchLessons, userId, isRoleLoading]);
+  }, [activeTab, fetchLessons, userId, isRoleLoading, isAutoschoolLoading, roleVariant]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -384,7 +537,7 @@ export default function LessonsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20">
-      {!isRoleLoading && <MobileDashboardNav isInstructor={isInstructor} />}
+      {!isRoleLoading && !isAutoschoolLoading && <MobileDashboardNav isInstructor={isInstructor} />}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tabs + Book New Lesson */}
@@ -446,21 +599,21 @@ export default function LessonsPage() {
                   lessonCodes={{}}
                   isLoadingCodes={false}
                   minCancelHours={minCancelHours}
-                  isInstructor={isInstructor}
+                  isInstructor={isAutoschoolAdmin ? false : isInstructor}
                   highlightedBookingId={highlightedBookingId}
                 />
               )}
               {activeTab === "past" && (
                 <PastLessons
                   lessons={pastLessons}
-                  isInstructor={isInstructor}
+                  isInstructor={isAutoschoolAdmin ? false : isInstructor}
                   highlightedBookingId={highlightedBookingId}
                 />
               )}
               {activeTab === "cancelled" && (
                 <CancelledLessons
                   lessons={cancelledLessons}
-                  isInstructor={isInstructor}
+                  isInstructor={isAutoschoolAdmin ? false : isInstructor}
                   highlightedCancellationId={highlightedCancellationId}
                 />
               )}

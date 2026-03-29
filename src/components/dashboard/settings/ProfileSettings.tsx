@@ -5,9 +5,10 @@ import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import Button from "@/components/ui/Button";
 import Link from "next/link";
 import { UPLOAD_LIMITS } from "@/config/constants";
-import { Camera, Trash2, Expand, CheckCircle } from "lucide-react";
+import { Camera, Trash2, Expand, CheckCircle, FileText } from "lucide-react";
 import { API_CONFIG } from "@/config/constants";
 import ImageLightbox from "@/components/ui/ImageLightbox";
+import AutoResizeTextarea from "@/components/ui/AutoResizeTextarea";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { validateGeorgianPhone } from "@/utils/validation/georgianPhone";
@@ -22,36 +23,49 @@ import React from "react";
 // ── SessionStorage cache for settings data (survives locale switches) ──
 const PROFILE_CACHE_KEY = "settings-profile-v1";
 const ASSETS_CACHE_KEY = "settings-assets-v1";
+const LICENSE_CACHE_KEY = "settings-license-v1";
+const CERT_CACHE_KEY = "settings-cert-v1";
 const SETTINGS_CACHE_TTL = 3 * 60 * 1000; // 3 minutes
 
-function getCached<T>(key: string): T | null {
+function scopedKey(baseKey: string, userId: string) {
+    return `${baseKey}:${userId}`;
+}
+
+function getCached<T>(key: string, userId: string | null | undefined): T | null {
     if (typeof window === "undefined") return null;
+    if (!userId) return null;
+    const cacheKey = scopedKey(key, userId);
     try {
-        const raw = sessionStorage.getItem(key);
+        const raw = sessionStorage.getItem(cacheKey);
         if (!raw) return null;
         const parsed = JSON.parse(raw) as { data: T; timestamp: number };
         if (!parsed.timestamp || Date.now() - parsed.timestamp > SETTINGS_CACHE_TTL) {
-            sessionStorage.removeItem(key);
+            sessionStorage.removeItem(cacheKey);
             return null;
         }
         return parsed.data;
     } catch {
-        sessionStorage.removeItem(key);
+        sessionStorage.removeItem(cacheKey);
         return null;
     }
 }
 
-function setCache<T>(key: string, data: T) {
+function setCache<T>(key: string, userId: string | null | undefined, data: T) {
     if (typeof window === "undefined") return;
+    if (!userId) return;
+    const cacheKey = scopedKey(key, userId);
     try {
-        sessionStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+        sessionStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
     } catch { /* storage full — ignore */ }
 }
 
-function clearSettingsCache() {
+function clearSettingsCache(userId: string | null | undefined) {
     if (typeof window === "undefined") return;
-    sessionStorage.removeItem(PROFILE_CACHE_KEY);
-    sessionStorage.removeItem(ASSETS_CACHE_KEY);
+    if (!userId) return;
+    sessionStorage.removeItem(scopedKey(PROFILE_CACHE_KEY, userId));
+    sessionStorage.removeItem(scopedKey(ASSETS_CACHE_KEY, userId));
+    sessionStorage.removeItem(scopedKey(LICENSE_CACHE_KEY, userId));
+    sessionStorage.removeItem(scopedKey(CERT_CACHE_KEY, userId));
 }
 
 async function extractApiErrorMessage(res: Response, fallback: string): Promise<string> {
@@ -244,6 +258,8 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
     const { t, language } = useLanguage();
     const localeHref = useLocaleHref();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const licenseInputRef = useRef<HTMLInputElement | null>(null);
+    const certInputRef = useRef<HTMLInputElement | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isStatusSaving, setIsStatusSaving] = useState(false);
@@ -258,7 +274,15 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
     const [assetError, setAssetError] = useState<string | null>(null);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
+    const [licenseAssets, setLicenseAssets] = useState<InstructorAsset[]>([]);
+    const [certAssets, setCertAssets] = useState<InstructorAsset[]>([]);
+    const [isLicenseLoading, setIsLicenseLoading] = useState(false);
+    const [isCertLoading, setIsCertLoading] = useState(false);
+    const [isLicenseUploading, setIsLicenseUploading] = useState(false);
+    const [isCertUploading, setIsCertUploading] = useState(false);
     const [showOtherLanguages, setShowOtherLanguages] = useState(false);
+
+    const cacheUserId = user?.id ?? null;
 
     const isEditable = Boolean(instructorPost?.is_approved);
     const showNotInstructorMessage = !isLoading && (!instructorPost || !instructorPost.is_approved);
@@ -272,7 +296,7 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
         const load = async () => {
             if (!user) return;
             // Check sessionStorage cache first
-            const cached = getCached<InstructorPost>(PROFILE_CACHE_KEY);
+            const cached = getCached<InstructorPost>(PROFILE_CACHE_KEY, cacheUserId);
             if (cached) {
                 if (isMounted) { setInstructorPost(cached); setFormData(mapPostToForm(cached)); setIsLoading(false); }
                 return;
@@ -285,21 +309,21 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                 if (res.status === 404) { if (isMounted) { setInstructorPost(null); setFormData(emptyInstructorForm); } return; }
                 if (!res.ok) throw new Error("Failed to load instructor profile");
                 const data: InstructorPost = await res.json();
-                setCache(PROFILE_CACHE_KEY, data);
+                setCache(PROFILE_CACHE_KEY, cacheUserId, data);
                 if (isMounted) { setInstructorPost(data); setFormData(mapPostToForm(data)); }
             } catch { if (isMounted) { setInstructorPost(null); setFormData(emptyInstructorForm); } }
             finally { if (isMounted) setIsLoading(false); }
         };
         load();
         return () => { isMounted = false; };
-    }, [getToken, user]);
+    }, [getToken, user, cacheUserId]);
 
     useEffect(() => {
         let isMounted = true;
         const loadAssets = async () => {
             if (!user || !instructorPost) return;
             // Check sessionStorage cache first
-            const cached = getCached<InstructorAsset[]>(ASSETS_CACHE_KEY);
+            const cached = getCached<InstructorAsset[]>(ASSETS_CACHE_KEY, cacheUserId);
             if (cached) {
                 if (isMounted) { setVehiclePhotos(cached); setIsAssetLoading(false); }
                 return;
@@ -311,14 +335,44 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                 const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine/assets?asset_type=vehicle_photos`, { headers: { Authorization: `Bearer ${token}` } });
                 if (!res.ok) throw new Error("Failed to load assets");
                 const data: InstructorAsset[] = await res.json();
-                setCache(ASSETS_CACHE_KEY, data);
+                setCache(ASSETS_CACHE_KEY, cacheUserId, data);
                 if (isMounted) setVehiclePhotos(data);
             } catch { if (isMounted) setVehiclePhotos([]); }
             finally { if (isMounted) setIsAssetLoading(false); }
         };
         loadAssets();
         return () => { isMounted = false; };
-    }, [getToken, instructorPost, user]);
+    }, [getToken, instructorPost, user, cacheUserId]);
+
+    useEffect(() => {
+        let isMounted = true;
+        const loadDocAssets = async () => {
+            if (!user || !instructorPost) return;
+            const cachedLicense = getCached<InstructorAsset[]>(LICENSE_CACHE_KEY, cacheUserId);
+            const cachedCert = getCached<InstructorAsset[]>(CERT_CACHE_KEY, cacheUserId);
+            if (cachedLicense && isMounted) setLicenseAssets(cachedLicense);
+            if (cachedCert && isMounted) setCertAssets(cachedCert);
+            if (cachedLicense && cachedCert) return;
+            try {
+                const token = await getToken();
+                if (!token) return;
+                if (!cachedLicense) {
+                    if (isMounted) setIsLicenseLoading(true);
+                    const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine/assets?asset_type=instructor_license`, { headers: { Authorization: `Bearer ${token}` } });
+                    if (res.ok) { const data: InstructorAsset[] = await res.json(); setCache(LICENSE_CACHE_KEY, cacheUserId, data); if (isMounted) setLicenseAssets(data); }
+                    if (isMounted) setIsLicenseLoading(false);
+                }
+                if (!cachedCert) {
+                    if (isMounted) setIsCertLoading(true);
+                    const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine/assets?asset_type=professional_certificate`, { headers: { Authorization: `Bearer ${token}` } });
+                    if (res.ok) { const data: InstructorAsset[] = await res.json(); setCache(CERT_CACHE_KEY, cacheUserId, data); if (isMounted) setCertAssets(data); }
+                    if (isMounted) setIsCertLoading(false);
+                }
+            } catch { /* silent */ }
+        };
+        loadDocAssets();
+        return () => { isMounted = false; };
+    }, [getToken, instructorPost, user, cacheUserId]);
 
     const handleTextChange = (field: keyof InstructorProfileForm) => (value: string) =>
         setFormData((prev) => ({ ...prev, [field]: value }));
@@ -357,8 +411,8 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                 throw new Error(message);
             }
             const updated: InstructorPost = await res.json();
-            clearSettingsCache();
-            setCache(PROFILE_CACHE_KEY, updated);
+            clearSettingsCache(cacheUserId);
+            setCache(PROFILE_CACHE_KEY, cacheUserId, updated);
             setInstructorPost(updated);
             setFormData(mapPostToForm(updated));
             setSuccessMessage(language === "ka" ? "ცვლილებები წარმატებით შეინახა." : "Changes saved successfully.");
@@ -400,8 +454,8 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
             }
 
             const updated: InstructorPost = await res.json();
-            clearSettingsCache();
-            setCache(PROFILE_CACHE_KEY, updated);
+            clearSettingsCache(cacheUserId);
+            setCache(PROFILE_CACHE_KEY, cacheUserId, updated);
             setInstructorPost(updated);
             setFormData((prev) => ({ ...prev, status: mapPostToForm(updated).status }));
             setSuccessMessage(
@@ -430,6 +484,8 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
 
     const MAX_VEHICLE_PHOTOS = UPLOAD_LIMITS.MAX_VEHICLE_PHOTOS;
     const MAX_FILE_SIZE_BYTES = UPLOAD_LIMITS.MAX_FILE_SIZE_BYTES;
+    const MAX_LICENSE_FILES = UPLOAD_LIMITS.MAX_LICENSE_FILES;
+    const MAX_CERT_FILES = UPLOAD_LIMITS.MAX_CERTIFICATE_FILES;
     const isAtPhotoLimit = vehiclePhotos.length >= MAX_VEHICLE_PHOTOS;
 
     const placeholders = language === "ka"
@@ -498,7 +554,7 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
             const uploaded: InstructorAsset[] = await res.json();
             setVehiclePhotos((prev) => {
                 const next = [...uploaded, ...prev];
-                setCache(ASSETS_CACHE_KEY, next);
+                setCache(ASSETS_CACHE_KEY, cacheUserId, next);
                 return next;
             });
             setSuccessMessage(t("settings.profile.photosUpdated"));
@@ -520,12 +576,96 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
             if (!res.ok) throw new Error("Remove failed");
             setVehiclePhotos((prev) => {
                 const next = prev.filter((a) => a.id !== assetId);
-                setCache(ASSETS_CACHE_KEY, next);
+                setCache(ASSETS_CACHE_KEY, cacheUserId, next);
                 return next;
             });
             setSuccessMessage(t("settings.profile.photoRemoved"));
         } catch (error) {
             setAssetError(error instanceof Error ? error.message : "Failed to remove photo");
+        }
+    };
+
+    const handleUploadLicense = async (files: FileList | null) => {
+        if (!files || !isEditable) return;
+        setAssetError(null);
+        const remaining = MAX_LICENSE_FILES - licenseAssets.length;
+        if (remaining <= 0) { setAssetError(`Maximum ${MAX_LICENSE_FILES} license files allowed.`); return; }
+        const selected = Array.from(files).slice(0, remaining);
+        const oversized = selected.filter((f) => f.size > MAX_FILE_SIZE_BYTES);
+        if (oversized.length > 0) { setAssetError(`Some files exceed ${UPLOAD_LIMITS.MAX_FILE_SIZE_MB}MB.`); return; }
+        setIsLicenseUploading(true);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const fd = new FormData();
+            fd.append("asset_type", "instructor_license");
+            selected.forEach((f) => fd.append("files", f));
+            const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine/assets`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+            if (!res.ok) { const p = await res.json().catch(() => ({ detail: "Upload failed" })); throw new Error(p.detail || "Upload failed"); }
+            const uploaded: InstructorAsset[] = await res.json();
+            setLicenseAssets((prev) => { const next = [...uploaded, ...prev]; setCache(LICENSE_CACHE_KEY, cacheUserId, next); return next; });
+            setSuccessMessage("License file uploaded.");
+        } catch (error) {
+            setAssetError(error instanceof Error ? error.message : "Upload failed");
+        } finally {
+            setIsLicenseUploading(false);
+            if (licenseInputRef.current) licenseInputRef.current.value = "";
+        }
+    };
+
+    const handleRemoveLicense = async (assetId: string) => {
+        if (!isEditable) return;
+        setAssetError(null);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine/assets/${assetId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+            if (!res.ok) throw new Error("Remove failed");
+            setLicenseAssets((prev) => { const next = prev.filter((a) => a.id !== assetId); setCache(LICENSE_CACHE_KEY, cacheUserId, next); return next; });
+            setSuccessMessage("License file removed.");
+        } catch (error) {
+            setAssetError(error instanceof Error ? error.message : "Failed to remove file");
+        }
+    };
+
+    const handleUploadCert = async (files: FileList | null) => {
+        if (!files || !isEditable) return;
+        setAssetError(null);
+        if (certAssets.length >= MAX_CERT_FILES) { setAssetError(`Maximum ${MAX_CERT_FILES} certificate file allowed.`); return; }
+        const file = files[0];
+        if (file.size > MAX_FILE_SIZE_BYTES) { setAssetError(`File exceeds ${UPLOAD_LIMITS.MAX_FILE_SIZE_MB}MB.`); return; }
+        setIsCertUploading(true);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const fd = new FormData();
+            fd.append("asset_type", "professional_certificate");
+            fd.append("files", file);
+            const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine/assets`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+            if (!res.ok) { const p = await res.json().catch(() => ({ detail: "Upload failed" })); throw new Error(p.detail || "Upload failed"); }
+            const uploaded: InstructorAsset[] = await res.json();
+            setCertAssets((prev) => { const next = [...uploaded, ...prev]; setCache(CERT_CACHE_KEY, cacheUserId, next); return next; });
+            setSuccessMessage("Certificate uploaded.");
+        } catch (error) {
+            setAssetError(error instanceof Error ? error.message : "Upload failed");
+        } finally {
+            setIsCertUploading(false);
+            if (certInputRef.current) certInputRef.current.value = "";
+        }
+    };
+
+    const handleRemoveCert = async (assetId: string) => {
+        if (!isEditable) return;
+        setAssetError(null);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine/assets/${assetId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+            if (!res.ok) throw new Error("Remove failed");
+            setCertAssets((prev) => { const next = prev.filter((a) => a.id !== assetId); setCache(CERT_CACHE_KEY, cacheUserId, next); return next; });
+            setSuccessMessage("Certificate removed.");
+        } catch (error) {
+            setAssetError(error instanceof Error ? error.message : "Failed to remove file");
         }
     };
 
@@ -678,9 +818,11 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                     <InputField label={t("settings.profile.dateOfBirth")} type="date" value={formData.applicant_date_of_birth} onChange={(e) => handleTextChange("applicant_date_of_birth")(e.target.value)} disabled={!isEditable} />
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("settings.profile.description")}</label>
-                        <textarea className="w-full px-4 py-2.5 bg-gray-50 border-transparent focus:bg-white focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] rounded-xl transition-all outline-none text-sm min-h-[100px] disabled:opacity-60 disabled:cursor-not-allowed"
+                        <AutoResizeTextarea
+                            className="w-full px-4 py-2.5 bg-gray-50 border-transparent focus:bg-white focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] rounded-xl transition-all outline-none text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                             placeholder={placeholders.description}
                             value={formData.description} onChange={(e) => handleTextChange("description")(e.target.value)} disabled={!isEditable} />
+                        <p className="text-xs text-gray-400 mt-1">*bold* · _italic_ · ~strikethrough~ · Enter for new line</p>
                     </div>
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("settings.profile.address")}</label>
@@ -757,6 +899,120 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                             onClose={() => setLightboxOpen(false)}
                         />
                     </>
+                )}
+            </div>
+
+            {/* Instructor License */}
+            <div className="bg-white p-6 sm:p-7 rounded-3xl border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-lg text-gray-900">
+                        {language === "ka" ? "ინსტრუქტორის ლიცენზია" : "Instructor License"}
+                        <span className="text-sm font-normal text-gray-500 ml-2">({licenseAssets.length}/{MAX_LICENSE_FILES})</span>
+                    </h3>
+                    <div className="flex items-center gap-2">
+                        <input ref={licenseInputRef} type="file" multiple accept="image/*,.pdf" className="hidden"
+                            onChange={(e) => handleUploadLicense(e.target.files)}
+                            disabled={!isEditable || licenseAssets.length >= MAX_LICENSE_FILES} />
+                        <Button size="sm" variant="outline"
+                            disabled={!isEditable || isLicenseUploading || licenseAssets.length >= MAX_LICENSE_FILES}
+                            onClick={() => licenseInputRef.current?.click()}>
+                            {licenseAssets.length >= MAX_LICENSE_FILES
+                                ? (language === "ka" ? "ლიმიტი" : "Limit reached")
+                                : (language === "ka" ? "ატვირთვა" : "Upload")}
+                        </Button>
+                    </div>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">Max {MAX_LICENSE_FILES} files, up to {UPLOAD_LIMITS.MAX_FILE_SIZE_MB}MB each. Images or PDF.</p>
+                {showNotInstructorMessage && <p className="text-sm text-gray-500">{t("settings.profile.notInstructor")}</p>}
+                {isLicenseLoading ? (
+                    <p className="text-sm text-gray-500">{language === "ka" ? "იტვირთება..." : "Loading..."}</p>
+                ) : licenseAssets.length === 0 ? (
+                    <p className="text-sm text-gray-500">{language === "ka" ? "ლიცენზია არ არის ატვირთული." : "No license files uploaded."}</p>
+                ) : (
+                    <div className="space-y-2">
+                        {licenseAssets.map((asset) => {
+                            const isImage = asset.content_type?.startsWith("image/");
+                            return (
+                                <div key={asset.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                    {isImage ? (
+                                        <img src={asset.url} alt={asset.original_filename || "License"} className="w-12 h-12 object-cover rounded-lg flex-shrink-0" />
+                                    ) : (
+                                        <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                            <FileText className="w-5 h-5 text-gray-500" />
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-gray-900 truncate">{asset.original_filename || "License file"}</p>
+                                        <a href={asset.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">
+                                            {language === "ka" ? "ნახვა" : "View"}
+                                        </a>
+                                    </div>
+                                    <button type="button" onClick={() => handleRemoveLicense(asset.id)} disabled={!isEditable}
+                                        className="p-1.5 rounded-full bg-gray-200 text-gray-600 hover:bg-red-500 hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                        aria-label="Remove license file">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* Professional Certificate */}
+            <div className="bg-white p-6 sm:p-7 rounded-3xl border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-lg text-gray-900">
+                        {language === "ka" ? "პროფესიული სერტიფიკატი" : "Professional Certificate"}
+                        <span className="text-sm font-normal text-gray-500 ml-2">({certAssets.length}/{MAX_CERT_FILES})</span>
+                    </h3>
+                    <div className="flex items-center gap-2">
+                        <input ref={certInputRef} type="file" accept="image/*,.pdf" className="hidden"
+                            onChange={(e) => handleUploadCert(e.target.files)}
+                            disabled={!isEditable || certAssets.length >= MAX_CERT_FILES} />
+                        <Button size="sm" variant="outline"
+                            disabled={!isEditable || isCertUploading || certAssets.length >= MAX_CERT_FILES}
+                            onClick={() => certInputRef.current?.click()}>
+                            {certAssets.length >= MAX_CERT_FILES
+                                ? (language === "ka" ? "ლიმიტი" : "Limit reached")
+                                : (language === "ka" ? "ატვირთვა" : "Upload")}
+                        </Button>
+                    </div>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">Max {MAX_CERT_FILES} file, up to {UPLOAD_LIMITS.MAX_FILE_SIZE_MB}MB. Image or PDF.</p>
+                {showNotInstructorMessage && <p className="text-sm text-gray-500">{t("settings.profile.notInstructor")}</p>}
+                {isCertLoading ? (
+                    <p className="text-sm text-gray-500">{language === "ka" ? "იტვირთება..." : "Loading..."}</p>
+                ) : certAssets.length === 0 ? (
+                    <p className="text-sm text-gray-500">{language === "ka" ? "სერტიფიკატი არ არის ატვირთული." : "No certificate uploaded."}</p>
+                ) : (
+                    <div className="space-y-2">
+                        {certAssets.map((asset) => {
+                            const isImage = asset.content_type?.startsWith("image/");
+                            return (
+                                <div key={asset.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                    {isImage ? (
+                                        <img src={asset.url} alt={asset.original_filename || "Certificate"} className="w-12 h-12 object-cover rounded-lg flex-shrink-0" />
+                                    ) : (
+                                        <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                            <FileText className="w-5 h-5 text-gray-500" />
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-gray-900 truncate">{asset.original_filename || "Certificate file"}</p>
+                                        <a href={asset.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">
+                                            {language === "ka" ? "ნახვა" : "View"}
+                                        </a>
+                                    </div>
+                                    <button type="button" onClick={() => handleRemoveCert(asset.id)} disabled={!isEditable}
+                                        className="p-1.5 rounded-full bg-gray-200 text-gray-600 hover:bg-red-500 hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                        aria-label="Remove certificate">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
                 )}
             </div>
         </div>

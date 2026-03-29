@@ -527,6 +527,7 @@ const translationsEn = {
     tabs: {
       profile: "Profile",
       instructorProfile: "Instructor Profile",
+      autoschoolSettings: "Autoschool Profile",
       account: "Account",
       notifications: "Notifications",
     },
@@ -1051,6 +1052,7 @@ const translationsKa = {
     tabs: {
       profile: "პროფილი",
       instructorProfile: "ინსტრუქტორის პროფილი",
+      autoschoolSettings: "აუტოსკოლის პროფილი",
       account: "ანგარიში",
       notifications: "შეტყობინებები",
     },

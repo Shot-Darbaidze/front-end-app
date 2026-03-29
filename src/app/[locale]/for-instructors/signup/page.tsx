@@ -12,7 +12,7 @@ import { ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useClerk } from "@clerk/nextjs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { UPLOAD_LIMITS } from "@/config/constants";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
@@ -28,7 +28,8 @@ const MAX_FILE_SIZE_BYTES = UPLOAD_LIMITS.MAX_FILE_SIZE_BYTES;
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const SignupPage = () => {
-  const { getToken } = useAuth();
+  const { getToken, isSignedIn } = useAuth();
+  const { redirectToSignIn } = useClerk();
   const router = useRouter();
   const pathname = usePathname();
   const localeHref = useLocaleHref();
@@ -285,9 +286,15 @@ const SignupPage = () => {
     console.log("========================================");
     
     try {
+      if (!isSignedIn) {
+        redirectToSignIn({ redirectUrl: pathname ?? undefined });
+        return;
+      }
+
       const token = await getToken();
       if (!token) {
-        throw new Error("Please sign in again before submitting your application.");
+        setSubmitError("Session expired. Please refresh the page and try again.");
+        return;
       }
 
       const normalizedPhone = (formData.phone || "").replace(/\s/g, "").trim();
@@ -524,6 +531,19 @@ const SignupPage = () => {
           {inviteId && (
             <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800 shadow-sm">
               You are accepting an autoschool invite. Complete this application to join as an employee instructor.
+            </div>
+          )}
+
+          {!isSignedIn && (
+            <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 shadow-sm">
+              <span className="font-semibold">Sign in required.</span> You must be signed in to submit this application.{" "}
+              <button
+                type="button"
+                onClick={() => redirectToSignIn({ redirectUrl: pathname ?? undefined })}
+                className="underline font-semibold hover:text-amber-900"
+              >
+                Sign in now
+              </button>
             </div>
           )}
 

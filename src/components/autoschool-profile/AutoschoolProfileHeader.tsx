@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Star, MapPin, BadgeCheck, Building2, Users, ChevronLeft, ChevronRight, X } from "lucide-react";
+import RichTextContent from "@/components/ui/RichTextContent";
 
 interface AutoschoolProfileHeaderProps {
   name: string;
@@ -107,7 +108,7 @@ const AutoschoolProfileHeader = ({
             {/* About the School */}
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-3">სკოლის შესახებ</h3>
-              <p className="text-gray-600 leading-relaxed">{description}</p>
+              <p className="text-gray-600 leading-relaxed"><RichTextContent text={description} /></p>
             </div>
 
             {/* Gallery Images */}

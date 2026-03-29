@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Shield } from "lucide-react";
+import { FileText, Shield, X } from "lucide-react";
 import { useRef } from "react";
 import { StepProps, InstructorSignupFormData } from "@/types/instructor-signup";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -14,8 +14,9 @@ const FileUploadBox = ({
   label, 
   icon: Icon, 
   subtext, 
-  files, 
+  files,
   onFileSelect,
+  onFileRemove,
   multiple = false,
   error,
   maxFiles = 1,
@@ -28,6 +29,7 @@ const FileUploadBox = ({
   subtext: string;
   files: File | File[] | null;
   onFileSelect: (files: File[]) => void;
+  onFileRemove?: (index: number) => void;
   multiple?: boolean;
   error?: string;
   maxFiles?: number;
@@ -72,8 +74,18 @@ const FileUploadBox = ({
         {fileList.length > 0 ? (
           <div className="flex flex-wrap justify-center gap-2">
             {fileList.map((f, i) => (
-              <div key={i} className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium border border-green-200">
+              <div key={i} className="inline-flex items-center gap-2 pl-3 pr-1 py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium border border-green-200">
                 <span className="truncate max-w-[150px]">{f.name}</span>
+                {onFileRemove && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onFileRemove(i); }}
+                    className="flex-shrink-0 p-0.5 rounded-full hover:bg-red-500 hover:text-white text-green-600 transition"
+                    aria-label="Remove file"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             ))}
             <button 
@@ -127,6 +139,10 @@ const ModernStep3 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
             const combined = [...current, ...files].slice(0, MAX_LICENSE_FILES);
             updateData({ instructorLicense: combined });
           }}
+          onFileRemove={(index) => {
+            const current = Array.isArray(data.instructorLicense) ? data.instructorLicense : [];
+            updateData({ instructorLicense: current.filter((_, i) => i !== index) });
+          }}
         />
 
         <FileUploadBox 
@@ -140,6 +156,7 @@ const ModernStep3 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
           changeText={t("signup.change")}
           selectFileText={t("signup.selectFile")}
           onFileSelect={(files) => updateData({ professionalCertificate: files[0] })}
+          onFileRemove={() => updateData({ professionalCertificate: null })}
         />
       </div>
     </div>

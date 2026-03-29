@@ -1,47 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useUser, useAuth } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import { useInstructorApproval } from "@/hooks/useInstructorApproval";
+import { useAutoschoolAdmin } from "@/hooks/useAutoschoolAdmin";
 
 import { ProfileSettings } from "@/components/dashboard/settings/ProfileSettings";
 import { AccountSettings } from "@/components/dashboard/settings/AccountSettings";
 import { NotificationSettings } from "@/components/dashboard/settings/NotificationSettings";
 import { AutoschoolSettings } from "@/components/dashboard/settings/AutoschoolSettings";
 import { SettingsNav, TAB_IDS, TabId } from "@/components/dashboard/settings/SettingsNav";
-import { getMyAutoschool } from "@/services/autoschoolService";
 
 export default function SettingsPage() {
   const { user } = useUser();
-  const { getToken } = useAuth();
   const { t } = useLanguage();
   const { isInstructor, isLoading: isRoleLoading } = useInstructorApproval();
+  const { schoolId: mySchoolId, isAutoschoolAdmin, isLoading: isSchoolRoleLoading } = useAutoschoolAdmin();
   const [activeTab, setActiveTab] = useState<TabId>(isInstructor ? "instructorProfile" : "profile");
-
-  // Autoschool admin detection
-  const [mySchoolId, setMySchoolId] = useState<string | null>(null);
-  const [schoolLoading, setSchoolLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const token = await getToken();
-        if (!token || cancelled) { setSchoolLoading(false); return; }
-        const school = await getMyAutoschool(token);
-        if (!cancelled) setMySchoolId(school?.id ?? null);
-      } catch {
-        // not an admin
-      } finally {
-        if (!cancelled) setSchoolLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [getToken]);
-
-  const isAutoschoolAdmin = Boolean(mySchoolId);
 
   // Update visible tabs based on role
   const visibleTabs = TAB_IDS.filter((id) => {
@@ -51,18 +28,18 @@ export default function SettingsPage() {
   }) as TabId[];
 
   useEffect(() => {
-    if (isRoleLoading || schoolLoading) return;
+    if (isRoleLoading || isSchoolRoleLoading) return;
     if (!isInstructor && activeTab === "instructorProfile") {
       setActiveTab("profile");
     }
     if (!isAutoschoolAdmin && activeTab === "autoschoolSettings") {
       setActiveTab("profile");
     }
-  }, [isInstructor, isAutoschoolAdmin, isRoleLoading, schoolLoading, activeTab]);
+  }, [isInstructor, isAutoschoolAdmin, isRoleLoading, isSchoolRoleLoading, activeTab]);
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20">
-      {!isRoleLoading && !schoolLoading && <MobileDashboardNav isInstructor={isInstructor} />}
+      {!isRoleLoading && !isSchoolRoleLoading && <MobileDashboardNav isInstructor={isInstructor} />}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">

@@ -11,6 +11,7 @@ export interface SchoolInstructor {
   transmission: string;
   price: number;
   imageUrl?: string;
+  languages?: string[];
 }
 
 interface InstructorGridProps {
@@ -65,6 +66,14 @@ const InstructorGrid = ({ instructors }: InstructorGridProps) => {
               <span className="px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-900">
                 ₾{instructor.price} / სთ
               </span>
+              {(instructor.languages ?? []).slice(0, 3).map((lang) => (
+                <span
+                  key={`${instructor.id}-${lang}`}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-xs font-medium text-gray-600 uppercase"
+                >
+                  {lang}
+                </span>
+              ))}
             </div>
 
             {/* View Profile */}

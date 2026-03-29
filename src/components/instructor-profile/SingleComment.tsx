@@ -21,6 +21,7 @@ interface SingleCommentProps {
     setEditHoverRating: (rating: number) => void;
     onCancelEdit: () => void;
     onSaveEdit: () => void;
+    readOnly?: boolean;
     depth?: number;
 }
 
@@ -28,7 +29,7 @@ export function SingleComment({
     comment, onReply, onEdit, onDelete, onReact,
     replyingTo, editingId, editText, setEditText,
     editRating, setEditRating, editHoverRating, setEditHoverRating,
-    onCancelEdit, onSaveEdit, depth = 0,
+    onCancelEdit, onSaveEdit, readOnly = false, depth = 0,
 }: SingleCommentProps) {
     const isOwner = comment.isOwner ?? false;
     const isEditing = editingId === comment.id;
@@ -100,7 +101,7 @@ export function SingleComment({
                     )}
 
                     {/* Actions */}
-                    {!isEditing && (
+                    {!isEditing && !readOnly && (
                         <div className="flex items-center gap-4 mt-2">
                             <button onClick={() => onReact(comment.id, "like")}
                                 className={`flex items-center gap-1 text-xs transition-colors ${comment.userReaction === "like" ? "text-[#F03D3D]" : "text-slate-500 hover:text-[#F03D3D]"}`}>
@@ -148,6 +149,7 @@ export function SingleComment({
                             {comment.replies.map((reply) => (
                                 <SingleComment key={reply.id} comment={reply} onReply={onReply} onEdit={onEdit}
                                     onDelete={onDelete} onReact={onReact} replyingTo={replyingTo}
+                                    readOnly={readOnly}
                                     editingId={editingId} editText={editText} setEditText={setEditText}
                                     editRating={editRating} setEditRating={setEditRating}
                                     editHoverRating={editHoverRating} setEditHoverRating={setEditHoverRating}

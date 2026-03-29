@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Star, MapPin, Clock, Car, BadgeCheck, Expand } from "lucide-react";
 import ImageLightbox from "@/components/ui/ImageLightbox";
+import RichTextContent from "@/components/ui/RichTextContent";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface InstructorProfileHeaderProps {
@@ -173,7 +174,7 @@ const InstructorProfileHeader = ({
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-3">{isKa ? "ჩემ შესახებ" : "About Me"}</h3>
               <p className="text-gray-600 leading-relaxed">
-                {bio}
+                <RichTextContent text={bio} />
               </p>
             </div>
             

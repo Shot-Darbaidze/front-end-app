@@ -3,6 +3,7 @@ import BookingSidebar from "@/components/instructor-profile/BookingSidebar";
 import LocationCard from "@/components/instructor-profile/LocationCard";
 import CommentSection from "@/components/instructor-profile/CommentSection";
 import BackToInstructorsButton from "@/components/instructor-profile/BackToInstructorsButton";
+import Link from "next/link";
 import {
   buildInstructorName,
   extractCityName,
@@ -31,6 +32,7 @@ type InstructorPost = {
   applicant_last_name?: string | null;
   vehicle_brand?: string | null;
   vehicle_year?: number | null;
+  autoschool_id?: string | null;
 };
 
 type InstructorAsset = {
@@ -88,6 +90,18 @@ export default async function InstructorProfilePage({ params }: { params: Promis
             className="inline-flex items-center text-sm text-gray-500 hover:text-[#F03D3D] transition-colors font-medium"
           />
         </div>
+
+        {post.title && post.autoschool_id && (
+          <div className="mb-4 inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-100 rounded-2xl shadow-sm text-sm">
+            <span className="text-gray-500">{locale === "ka" ? "ავტოსკოლა:" : "Autoschool:"}</span>
+            <Link
+              href={`/${locale}/autoschools/${post.autoschool_id}`}
+              className="font-semibold text-[#F03D3D] hover:underline"
+            >
+              {post.title}
+            </Link>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* 1. Profile Card — mobile: 1st, desktop: main column */}

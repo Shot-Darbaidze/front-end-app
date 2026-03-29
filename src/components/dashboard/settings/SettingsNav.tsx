@@ -28,7 +28,8 @@ export const SettingsNav = ({ activeTab, setActiveTab, visibleTabs }: SettingsNa
       return t("settings.tabs.instructorProfile");
     }
     if (id === "autoschoolSettings") {
-      return t("settings.tabs.autoschoolSettings") || "Autoschool";
+      const label = t("settings.tabs.autoschoolSettings");
+      return label === "settings.tabs.autoschoolSettings" ? "აუტოსკოლის პროფილი" : label;
     }
     return t(`settings.tabs.${id}`);
   };

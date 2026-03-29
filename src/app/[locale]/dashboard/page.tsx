@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import { API_CONFIG } from "@/config/constants";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAutoschoolAdmin } from "@/hooks/useAutoschoolAdmin";
 import InviteNotifications from "@/components/autoschool/InviteNotifications";
 import ManageInstructors from "@/components/autoschool/ManageInstructors";
 
@@ -239,6 +240,7 @@ export default function DashboardPage() {
   const { getToken } = useClerkAuth();
   const { user: clerkUser, isLoaded: isUserLoaded } = useUser();
   const { t } = useLanguage();
+  const { schoolId: mySchoolId, isAutoschoolAdmin, isLoading: isAutoschoolRoleLoading } = useAutoschoolAdmin();
   const userId = clerkUser?.id;
 
   // Always start with loading/empty state to match SSR (avoids hydration mismatch).
@@ -258,7 +260,6 @@ export default function DashboardPage() {
   const [instructorActivities, setInstructorActivities] = useState<InstructorActivityItemData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasResolvedApproval, setHasResolvedApproval] = useState(false);
-  const [mySchoolId, setMySchoolId] = useState<string | null>(null);
 
   const firstName = clerkUser?.firstName || "";
 
@@ -348,20 +349,6 @@ export default function DashboardPage() {
         // Cache for stale-while-revalidate on next navigation
         setCachedDashboard(userId, data);
 
-        // Check if this user admin's an autoschool
-        try {
-          const schoolRes = await fetchWithTimeout(
-            `${API_CONFIG.BASE_URL}/api/me/autoschool`,
-            { headers: { Authorization: `Bearer ${token}` } },
-            API_TIMEOUT_MS
-          );
-          if (schoolRes.ok) {
-            const schoolData = await schoolRes.json();
-            if (isMounted) setMySchoolId(schoolData.id);
-          }
-        } catch {
-          // Not an admin — ignore
-        }
       } catch {
         if (isMounted) {
           setIsLoading(false);
@@ -410,11 +397,9 @@ export default function DashboardPage() {
     };
   }, [getToken, userId, isUserLoaded]);
 
-  if (!hasResolvedApproval) {
+  if (!hasResolvedApproval || isAutoschoolRoleLoading) {
     return <div className="min-h-screen bg-[#f8fafc] pt-20" />;
   }
-
-  const isAutoschoolAdmin = Boolean(mySchoolId);
 
   if (isApproved || isAutoschoolAdmin) {
     // Dedicated autoschool-admin view when the user manages a school

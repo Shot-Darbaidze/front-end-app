@@ -30,6 +30,12 @@ export interface WorkingHours {
   sort_order: number;
 }
 
+export interface WorkingHoursInput {
+  day_label: string;
+  hours_label?: string | null;
+  is_closed: boolean;
+}
+
 export interface SchoolInstructor {
   id: string;
   instructor_id: string;
@@ -39,6 +45,7 @@ export interface SchoolInstructor {
   image_url?: string | null;
   rating?: number | null;
   transmission?: string | null;
+  language_skills?: string | null;
   city_price?: number | null;
   yard_price?: number | null;
   instructor_type: "independent" | "employee";
@@ -168,6 +175,41 @@ export async function updateAutoschool(
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+    },
+    token,
+  );
+}
+
+/** Upload/remove logo, cover, and gallery images (admin only). */
+export async function updateAutoschoolMedia(
+  schoolId: string,
+  formData: FormData,
+  token: string,
+): Promise<AutoschoolDetail> {
+  const res = await fetch(`${API_BASE}/api/autoschools/${schoolId}/media`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error ?? body?.detail ?? `API error ${res.status}`);
+  }
+  return res.json();
+}
+
+/** Replace autoschool working hours rows (admin only). */
+export async function updateAutoschoolWorkingHours(
+  schoolId: string,
+  hours: WorkingHoursInput[],
+  token: string,
+): Promise<Array<{ id: string; day_label: string }>> {
+  return apiFetch(
+    `/api/autoschools/${schoolId}/hours`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(hours),
     },
     token,
   );
