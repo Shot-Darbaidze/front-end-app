@@ -49,15 +49,22 @@ export default async function AutoschoolProfilePage({
 
   // ── Transform API data to component-prop shapes ──────────────────────────
 
-  const packages: CoursePackage[] = (school.packages ?? []).map((p) => ({
-    id: p.id,
-    name: p.name,
-    lessons: p.lessons,
-    price: Number(p.price),
-    originalPrice: p.original_price != null ? Number(p.original_price) : undefined,
-    popular: p.popular,
-    description: p.description ?? "",
-  }));
+  const rawPackages = school.packages ?? [];
+  const packages: CoursePackage[] = rawPackages.length > 0
+    ? rawPackages.map((p) => ({
+        id: p.id,
+        name: p.name,
+        lessons: p.lessons,
+        price: Number(p.price),
+        originalPrice: p.original_price != null ? Number(p.original_price) : undefined,
+        popular: p.popular,
+        description: p.description ?? "",
+      }))
+    : [
+        { id: "std", name: "სტანდარტული", lessons: 8, price: 350, description: "საბაზისო კურსი" },
+        { id: "int", name: "ინტენსიური", lessons: 12, price: 450, originalPrice: 600, popular: true, description: "დაჩქარებული კურსი" },
+        { id: "vip", name: "VIP", lessons: 20, price: 620, description: "პრემიუმ კურსი" },
+      ];
 
   const schedule = (school.working_hours ?? []).map((h) => ({
     days: h.day_label,
@@ -110,6 +117,7 @@ export default async function AutoschoolProfilePage({
               location={school.city ?? ""}
               description={school.description ?? ""}
               languages={csvToArray(school.languages)}
+              fleet={csvToArray(school.fleet).length > 0 ? csvToArray(school.fleet) : ["Skoda Rapid", "Volkswagen Jetta"]}
               instructorCount={instructors.length}
               imageUrl={resolveMediaUrl(school.logo_url)}
               coverImageUrl={resolveMediaUrl(school.cover_image_url)}

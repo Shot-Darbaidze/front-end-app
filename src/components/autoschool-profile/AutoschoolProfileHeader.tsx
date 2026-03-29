@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Star, MapPin, BadgeCheck, Building2, Users, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Star, MapPin, BadgeCheck, Building2, Users, ChevronLeft, ChevronRight, X, Car } from "lucide-react";
 import RichTextContent from "@/components/ui/RichTextContent";
 
 interface AutoschoolProfileHeaderProps {
@@ -11,6 +11,7 @@ interface AutoschoolProfileHeaderProps {
   location: string;
   description: string;
   languages: string[];
+  fleet?: string[];
   instructorCount: number;
   imageUrl?: string;
   coverImageUrl?: string;
@@ -24,6 +25,7 @@ const AutoschoolProfileHeader = ({
   location,
   description,
   languages,
+  fleet = [],
   instructorCount,
   imageUrl,
   coverImageUrl,
@@ -131,21 +133,31 @@ const AutoschoolProfileHeader = ({
             )}
           </div>
 
-          {/* Languages */}
+          {/* Languages + Fleet */}
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-3">სწავლების ენები</h3>
               <div className="flex flex-wrap gap-2">
                 {languages.map((lang, idx) => (
-                  <span
-                    key={idx}
-                    className="px-3 py-1 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium"
-                  >
+                  <span key={idx} className="px-3 py-1 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium">
                     {lang}
                   </span>
                 ))}
               </div>
             </div>
+            {fleet.length > 0 && (
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">ავტოპარკი</h3>
+                <div className="flex flex-wrap gap-2">
+                  {fleet.map((vehicle, idx) => (
+                    <div key={idx} className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100 text-gray-700 font-medium">
+                      <Car className="w-4 h-4 text-gray-400" />
+                      {vehicle}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

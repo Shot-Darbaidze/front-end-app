@@ -60,6 +60,8 @@ export interface AutoschoolDetail {
   google_maps_url?: string | null;
   /** CSV e.g. "KA,EN,RU" */
   languages?: string | null;
+  /** CSV e.g. "Skoda Rapid,Volkswagen Jetta" */
+  fleet?: string | null;
   logo_url?: string | null;
   cover_image_url?: string | null;
   image_urls?: string[];

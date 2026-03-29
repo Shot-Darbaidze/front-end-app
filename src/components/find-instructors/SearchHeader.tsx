@@ -71,16 +71,16 @@ const SearchHeader = ({ value, onChange, onSearch, isLoading = false, instructor
         </div>
 
         {/* Instructor Type Toggle */}
-        <div className="flex items-center justify-center gap-1 mt-5 p-1 bg-white/10 backdrop-blur-sm rounded-2xl w-fit mx-auto">
+        <div className="flex items-center justify-center gap-1 mt-5 p-1 bg-white/10 backdrop-blur-sm rounded-2xl w-full md:w-fit mx-auto">
           {([
             { value: 'all', label: isKa ? 'ყველა' : 'All' },
-            { value: 'solo', label: isKa ? 'კერძო ინსტრუქტორები' : 'Solo Instructors' },
+            { value: 'solo', label: isKa ? 'ინსტრუქტორები' : 'Solo Instructors' },
             { value: 'school', label: isKa ? 'ავტოსკოლები' : 'Driving Schools' },
           ] as const).map(({ value: v, label }) => (
             <button
               key={v}
               onClick={() => onInstructorTypeChange(v)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              className={`md:flex-none flex-1 px-2.5 md:px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
                 instructorType === v
                   ? 'bg-[#F03D3D] text-white shadow-sm'
                   : 'text-white/60 hover:text-white'

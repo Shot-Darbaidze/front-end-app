@@ -127,9 +127,9 @@ const HorizontalFilterBar = memo(({
   ].filter(Boolean).length;
 
   const sortLabels: Record<SortOption, string> = {
-    rating: isKa ? "რეიტინგით" : "Top Rated",
-    "price-asc": isKa ? "₾: დაბლიდან მაღლისკენ" : "₾: Low → High",
-    "price-desc": isKa ? "₾: მაღლიდან დაბლისკენ" : "₾: High → Low",
+    rating: isKa ? "რეიტინგი" : "Top Rated",
+    "price-asc": isKa ? "დაბ → მაღ" : "Low → High",
+    "price-desc": isKa ? "მაღ → დაბ" : "High → Low",
   };
 
   const transmissionLabels: Record<string, string> = {
@@ -304,7 +304,7 @@ const HorizontalFilterBar = memo(({
               aria-haspopup="listbox"
               className="flex items-center gap-1.5 px-6 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:border-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <ArrowUpDown className="w-4 h-4" />
+              {sortBy === "rating" ? <Star className="w-4 h-4" /> : <ArrowUpDown className="w-4 h-4" />}
               <span>{sortLabels[sortBy]}</span>
               <ChevronDown className="w-4 h-4" />
             </button>
@@ -326,12 +326,14 @@ const HorizontalFilterBar = memo(({
                         setOpenDropdown(null);
                       })
                     }
-                    className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-colors ${
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${
                       sortBy === option
                         ? "bg-red-50 text-[#F03D3D] font-bold"
                         : "hover:bg-gray-50 text-gray-700"
                     }`}
                   >
+                    {option === "rating" && <Star className="w-4 h-4" />}
+                    {(option === "price-asc" || option === "price-desc") && <span className="w-4 h-4 flex items-center justify-center text-sm font-bold">₾</span>}
                     {sortLabels[option]}
                   </button>
                 ))}
@@ -380,13 +382,12 @@ const HorizontalFilterBar = memo(({
               className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl border border-gray-200 bg-white text-sm font-bold text-gray-700 hover:border-gray-300 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {sortBy === "rating" && <Star className="w-4 h-4" />}
-              {sortBy === "price-asc" && <ArrowDown className="w-4 h-4" />}
-              {sortBy === "price-desc" && <ArrowUp className="w-4 h-4" />}
+              {(sortBy === "price-asc" || sortBy === "price-desc") && <span className="w-4 h-4 flex items-center justify-center text-sm font-bold">₾</span>}
               <ChevronDown className={`w-4 h-4 transition-transform ${isMobileSortOpen ? "rotate-180" : ""}`} />
             </button>
 
             {isMobileSortOpen && (
-              <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-2xl border border-gray-100 shadow-xl p-2 z-30">
+              <div className="absolute top-full right-0 mt-2 w-40 bg-white rounded-2xl border border-gray-100 shadow-xl p-2 z-30">
                 {(Object.keys(sortLabels) as SortOption[]).map((option) => (
                   <button
                     key={option}
@@ -394,13 +395,19 @@ const HorizontalFilterBar = memo(({
                       onSortChange(option);
                       setIsMobileSortOpen(false);
                     }}
-                    className={`w-full text-center px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    className={`w-full px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 ${
                       sortBy === option
                         ? "bg-red-50 text-[#F03D3D] font-bold"
                         : "text-gray-700 hover:bg-gray-50"
                     }`}
                   >
-                    {sortLabels[option]}
+                    <span className="flex-1 flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 shrink-0 flex items-center justify-center">
+                        {option === "rating" && <Star className="w-4 h-4" />}
+                        {(option === "price-asc" || option === "price-desc") && <span className="text-sm font-bold">₾</span>}
+                      </span>
+                      {sortLabels[option]}
+                    </span>
                   </button>
                 ))}
               </div>

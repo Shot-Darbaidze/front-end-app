@@ -267,7 +267,7 @@ const Navbar = () => {
     { href: "/for-autoschools", label: language === "ka" ? "აუტოსკოლებისთვის" : "For Autoschools", icon: <Building2 className="w-4 h-4" /> },
   ];
 
-  const partnerDropdownLabel = language === "ka" ? "პარტნიორობა" : "Partners";
+  const partnerDropdownLabel = language === "ka" ? "შემოგვიერთდით" : "Partners";
   const isPartnerActive = pathname?.includes("/for-instructors") || pathname?.includes("/for-autoschools");
 
   const mobileNavItems = navLinks.map((link) => {
