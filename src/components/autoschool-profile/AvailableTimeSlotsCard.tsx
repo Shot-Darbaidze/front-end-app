@@ -14,7 +14,8 @@ interface AvailableTimeSlotsCardProps {
   selectedSlotIds: string[];
   bookingError: string | null;
   selectedOptionLabel: string;
-  selectedOptionPrice: number;
+  selectedOptionPrice?: number;
+  discountActive?: boolean;
   onSelectSlot: (slotId: string) => void;
   onContinue: () => void;
   formatTimeRange: (startTime: string, durationMinutes: number) => string;
@@ -38,6 +39,7 @@ export default function AvailableTimeSlotsCard({
   onContinue,
   formatTimeRange,
 }: AvailableTimeSlotsCardProps) {
+  const showPrice = selectedOptionPrice != null && selectedOptionPrice > 0;
   const effectVariant: SelectionEffectVariant = "soft";
 
   const getSelectedSlotClasses = (variant: SelectionEffectVariant) => {
@@ -111,7 +113,7 @@ export default function AvailableTimeSlotsCard({
 
             <div className="flex justify-between items-center mb-4">
               <span className="text-gray-500 text-sm">{selectedOptionLabel}</span>
-              <span className="font-bold text-gray-900">₾{selectedOptionPrice}</span>
+              {showPrice && <span className="font-bold text-gray-900">₾{selectedOptionPrice}</span>}
             </div>
 
             <button

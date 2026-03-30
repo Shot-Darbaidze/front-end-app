@@ -7,7 +7,7 @@ import LocationCard from "@/components/instructor-profile/LocationCard";
 import CommentSection from "@/components/instructor-profile/CommentSection";
 import BackToInstructorsButton from "@/components/instructor-profile/BackToInstructorsButton";
 import type { SchoolInstructor } from "@/components/autoschool-profile/InstructorGrid";
-import type { CoursePackage } from "@/components/autoschool-profile/CoursePackagesSidebar";
+import type { CoursePackage, InstructorMini } from "@/components/autoschool-profile/CoursePackagesSidebar";
 import type { AutoschoolDetail } from "@/services/autoschoolService";
 import { resolveMediaUrl } from "@/utils/media";
 
@@ -49,32 +49,55 @@ export default async function AutoschoolProfilePage({
 
   // ── Transform API data to component-prop shapes ──────────────────────────
 
+  // Parse CSV helper (needed before packages)
+  const csvToArray = (csv: string | null | undefined) =>
+    csv ? csv.split(",").map((s) => s.trim()).filter(Boolean) : [];
+
+  // Build InstructorMini map (id → mini) for package scope display
+  const instructorMiniMap = new Map<string, InstructorMini>(
+    (school.instructors ?? []).map((i) => [
+      i.id,
+      {
+        id: i.id,
+        name: [i.first_name, i.last_name].filter(Boolean).join(" ") || i.title,
+        imageUrl: resolveMediaUrl(i.image_url),
+        profileHref: `/${locale}/instructors/${i.id}`,
+        transmission: i.transmission ?? null,
+        cityPrice: i.city_price != null ? Number(i.city_price)
+          : i.manual_city_price != null ? Number(i.manual_city_price)
+          : i.automatic_city_price != null ? Number(i.automatic_city_price)
+          : null,
+        yardPrice: i.yard_price != null ? Number(i.yard_price)
+          : i.manual_yard_price != null ? Number(i.manual_yard_price)
+          : i.automatic_yard_price != null ? Number(i.automatic_yard_price)
+          : null,
+      },
+    ])
+  );
+  const allInstructorMinis: InstructorMini[] = Array.from(instructorMiniMap.values());
+
   const rawPackages = school.packages ?? [];
+
   const packages: CoursePackage[] = rawPackages.length > 0
     ? rawPackages.map((p) => ({
         id: p.id,
         name: p.name,
         lessons: p.lessons,
-        price: Number(p.price),
-        originalPrice: p.original_price != null ? Number(p.original_price) : undefined,
+        percentage: p.percentage != null && Number(p.percentage) > 0 ? Number(p.percentage) : undefined,
         popular: p.popular,
         description: p.description ?? "",
+        appliesToAll: p.applies_to_all,
+        assignedInstructors: (p.assigned_post_ids ?? [])
+          .map((pid) => instructorMiniMap.get(pid))
+          .filter((x): x is InstructorMini => x != null),
       }))
-    : [
-        { id: "std", name: "სტანდარტული", lessons: 8, price: 350, description: "საბაზისო კურსი" },
-        { id: "int", name: "ინტენსიური", lessons: 12, price: 450, originalPrice: 600, popular: true, description: "დაჩქარებული კურსი" },
-        { id: "vip", name: "VIP", lessons: 20, price: 620, description: "პრემიუმ კურსი" },
-      ];
+    : [];
 
   const schedule = (school.working_hours ?? []).map((h) => ({
     days: h.day_label,
     hours: h.hours_label ?? "",
     closed: h.is_closed,
   }));
-
-  // Parse CSV helper
-  const csvToArray = (csv: string | null | undefined) =>
-    csv ? csv.split(",").map((s) => s.trim()).filter(Boolean) : [];
 
   const instructors: SchoolInstructor[] = (school.instructors ?? []).map((i) => ({
     id: i.id,
@@ -129,10 +152,13 @@ export default async function AutoschoolProfilePage({
 
           {/* 2. Sidebar — sticky, col-span-1, spans multiple rows */}
           <div className="order-2 lg:col-span-1 lg:row-span-3 space-y-6">
-            <CoursePackagesSidebar
-              packages={packages}
-              bookingHref={`/${locale}/autoschools/${id}/book`}
-            />
+            {packages.length > 0 && (
+              <CoursePackagesSidebar
+                packages={packages}
+                allInstructors={allInstructorMinis}
+                bookingHref={`/${locale}/autoschools/${id}/book`}
+              />
+            )}
             <WorkingHoursCard
               schedule={schedule}
             />

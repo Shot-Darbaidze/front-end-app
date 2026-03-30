@@ -16,10 +16,14 @@ export interface CoursePackage {
   id: string;
   name: string;
   lessons: number;
-  price: number;
+  percentage: number;
+  applies_to_all: boolean;
+  assigned_post_ids: string[];
+  price?: number | null;
   original_price?: number | null;
   popular: boolean;
   description?: string | null;
+  transmission_modes?: string[] | null;
 }
 
 export interface WorkingHours {
@@ -48,7 +52,12 @@ export interface SchoolInstructor {
   language_skills?: string | null;
   city_price?: number | null;
   yard_price?: number | null;
+  automatic_city_price?: number | null;
+  automatic_yard_price?: number | null;
+  manual_city_price?: number | null;
+  manual_yard_price?: number | null;
   instructor_type: "independent" | "employee";
+  status: string;
 }
 
 export interface AutoschoolDetail {
@@ -274,6 +283,151 @@ export async function kickInstructor(
   return apiFetch(
     `/api/autoschools/${schoolId}/instructors/${instructorPostId}`,
     { method: "DELETE" },
+    token,
+  );
+}
+
+/** Update an instructor's status and/or manual prices (admin only). */
+export async function updateSchoolInstructor(
+  schoolId: string,
+  instructorPostId: string,
+  data: { status?: "active" | "inactive"; manual_city_price?: number | null; manual_yard_price?: number | null },
+  token: string,
+): Promise<SchoolInstructor> {
+  return apiFetch(
+    `/api/autoschools/${schoolId}/instructors/${instructorPostId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    },
+    token,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Package CRUD (individual, production-safe)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CoursePackageCreateInput {
+  name: string;
+  lessons: number;
+  percentage: number;
+  applies_to_all: boolean;
+  assigned_post_ids?: string[] | null;
+  popular?: boolean;
+  description?: string | null;
+  transmission_modes?: string[] | null;
+}
+
+export interface CoursePackageUpdateInput {
+  name?: string;
+  lessons?: number;
+  percentage?: number;
+  applies_to_all?: boolean;
+  assigned_post_ids?: string[] | null;
+  popular?: boolean;
+  description?: string | null;
+  transmission_modes?: string[] | null;
+}
+
+export async function createPackage(
+  schoolId: string,
+  data: CoursePackageCreateInput,
+  token: string,
+): Promise<CoursePackage> {
+  return apiFetch(
+    `/api/autoschools/${schoolId}/packages`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    },
+    token,
+  );
+}
+
+export async function updatePackage(
+  schoolId: string,
+  packageId: string,
+  data: CoursePackageUpdateInput,
+  token: string,
+): Promise<CoursePackage> {
+  return apiFetch(
+    `/api/autoschools/${schoolId}/packages/${packageId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    },
+    token,
+  );
+}
+
+export async function deletePackage(
+  schoolId: string,
+  packageId: string,
+  token: string,
+): Promise<{ detail: string }> {
+  return apiFetch(
+    `/api/autoschools/${schoolId}/packages/${packageId}`,
+    { method: "DELETE" },
+    token,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Autoschool finances
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AutoschoolInstructorFinances {
+  post_id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  image_url?: string | null;
+  total_earned: number;
+  available_to_withdraw: number;
+  pending_release: number;
+}
+
+export interface AutoschoolFinancesData {
+  total_earned: number;
+  total_withdrawn: number;
+  available_to_withdraw: number;
+  pending_release: number;
+  instructors: AutoschoolInstructorFinances[];
+}
+
+export async function getAutoschoolFinances(
+  schoolId: string,
+  token: string,
+): Promise<AutoschoolFinancesData> {
+  return apiFetch<AutoschoolFinancesData>(
+    `/api/autoschools/${schoolId}/finances`,
+    {},
+    token,
+  );
+}
+
+export interface AutoschoolWithdrawResult {
+  withdrawn_amount: number;
+  withdrawn_bookings_count: number;
+  instructors_processed: number;
+  status: string;
+}
+
+export async function withdrawAutoschoolEarnings(
+  schoolId: string,
+  instructorPostIds?: string[],
+  token?: string,
+): Promise<AutoschoolWithdrawResult> {
+  return apiFetch(
+    `/api/autoschools/${schoolId}/finances/withdraw`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instructor_post_ids: instructorPostIds ?? null }),
+    },
     token,
   );
 }

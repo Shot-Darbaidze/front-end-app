@@ -1,21 +1,27 @@
 "use client";
 
+import { MapPin, SquareParking } from "lucide-react";
+
 export type InstructorOption = {
   id: string;
   name: string;
   transmission: string;
   imageUrl?: string;
+  cityPrice?: number | null;
+  yardPrice?: number | null;
 };
 
 interface InstructorSelectionCardProps {
   instructors: InstructorOption[];
   selectedInstructorId: string;
+  lessonMode: "city" | "yard";
   onSelect: (instructorId: string) => void;
 }
 
 export default function InstructorSelectionCard({
   instructors,
   selectedInstructorId,
+  lessonMode,
   onSelect,
 }: InstructorSelectionCardProps) {
   return (
@@ -24,6 +30,7 @@ export default function InstructorSelectionCard({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {instructors.map((instructor) => {
           const isActive = selectedInstructorId === instructor.id;
+          const price = lessonMode === "city" ? instructor.cityPrice : instructor.yardPrice;
 
           return (
             <button
@@ -53,15 +60,23 @@ export default function InstructorSelectionCard({
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">{instructor.name}</p>
-                    <p className="text-xs text-gray-500 mt-1">{instructor.transmission}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{instructor.transmission}</p>
+                    {price != null && (
+                      <p className="text-xs font-semibold text-[#F03D3D] mt-1 flex items-center gap-1">
+                        {lessonMode === "city"
+                          ? <MapPin className="w-3 h-3" />
+                          : <SquareParking className="w-3 h-3" />}
+                        ₾{price} / გაკვ.
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-1 ${
                     isActive ? "border-[#F03D3D]" : "border-gray-300"
                   }`}
                 >
-                    {isActive && <div className="w-2.5 h-2.5 rounded-full bg-[#F03D3D]" />}
+                  {isActive && <div className="w-2.5 h-2.5 rounded-full bg-[#F03D3D]" />}
                 </div>
               </div>
             </button>

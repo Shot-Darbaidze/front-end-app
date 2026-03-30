@@ -7,6 +7,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAutoschoolAdmin } from "@/hooks/useAutoschoolAdmin";
 import InviteNotifications from "@/components/autoschool/InviteNotifications";
 import ManageInstructors from "@/components/autoschool/ManageInstructors";
+import { AutoschoolSidebarNav, type AutoschoolTabId } from "@/components/dashboard/autoschool/AutoschoolSidebarNav";
+import { AutoschoolFinances } from "@/components/dashboard/autoschool/AutoschoolFinances";
+import { AutoschoolPackages } from "@/components/dashboard/autoschool/AutoschoolPackages";
 
 // Shared
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
@@ -239,7 +242,7 @@ function processDashboardData(data: DashboardSummary) {
 export default function DashboardPage() {
   const { getToken } = useClerkAuth();
   const { user: clerkUser, isLoaded: isUserLoaded } = useUser();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { schoolId: mySchoolId, isAutoschoolAdmin, isLoading: isAutoschoolRoleLoading } = useAutoschoolAdmin();
   const userId = clerkUser?.id;
 
@@ -261,6 +264,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasResolvedApproval, setHasResolvedApproval] = useState(false);
 
+  const [autoschoolTab, setAutoschoolTab] = useState<AutoschoolTabId>("members");
   const firstName = clerkUser?.firstName || "";
 
   useEffect(() => {
@@ -409,19 +413,43 @@ export default function DashboardPage() {
         <div className="min-h-screen bg-slate-50 pt-20 transition-colors duration-500">
           <MobileDashboardNav />
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-            <main className="flex-1 min-w-0 space-y-6">
-              <div className="bg-white rounded-2xl border border-slate-200 p-6">
-                <h2 className="text-xl font-bold text-slate-900">Autoschool Admin Panel</h2>
-                <p className="text-sm text-slate-500 mt-1">
-                  Manage instructor invitations and remove instructors from your autoschool.
-                </p>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Page title */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-gray-900">
+                {t("dashboard.nav.overview")}
+              </h1>
+              <p className="text-gray-500 mt-1 text-sm">
+                {language === "ka" ? "ავტოსკოლის ადმინ პანელი" : "Autoschool admin panel"}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Sidebar */}
+              <div className="lg:col-span-3">
+                <AutoschoolSidebarNav
+                  activeTab={autoschoolTab}
+                  setActiveTab={setAutoschoolTab}
+                  language={language}
+                />
               </div>
 
-              <InviteNotifications />
-
-              {mySchoolId && <ManageInstructors schoolId={mySchoolId} />}
-            </main>
+              {/* Content */}
+              <div className="lg:col-span-9 space-y-6">
+                {autoschoolTab === "members" && (
+                  <>
+                    <InviteNotifications />
+                    {mySchoolId && <ManageInstructors schoolId={mySchoolId} />}
+                  </>
+                )}
+                {autoschoolTab === "finances" && mySchoolId && (
+                  <AutoschoolFinances schoolId={mySchoolId} />
+                )}
+                {autoschoolTab === "packages" && mySchoolId && (
+                  <AutoschoolPackages schoolId={mySchoolId} />
+                )}
+              </div>
+            </div>
           </div>
         </div>
       );

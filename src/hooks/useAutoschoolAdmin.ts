@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import { getMyAutoschool } from "@/services/autoschoolService";
 
-const SESSION_KEY_PREFIX = "autoschool-admin";
-const LOCAL_KEY_PREFIX = "autoschool-admin-v1";
+const SESSION_KEY_PREFIX = "autoschool-admin-v2";
+const LOCAL_KEY_PREFIX = "autoschool-admin-v2";
 
 type AutoschoolAdminCachePayload = {
   user_id: string;
@@ -89,13 +89,12 @@ export function useAutoschoolAdmin() {
       }
 
       const cached = readCachedAdmin(userId);
-      if (cached && isMounted) {
+      // Only use cached value to avoid flash if it's a positive result (is admin).
+      // For cached negatives, wait for the fresh API response so a newly-approved
+      // school shows the admin panel without needing a manual cache clear.
+      if (cached?.isAdmin && isMounted) {
         setSchoolId(cached.schoolId);
         setIsLoading(false);
-      }
-
-      if (!cached && isMounted) {
-        setIsLoading(true);
       }
 
       try {
@@ -110,13 +109,15 @@ export function useAutoschoolAdmin() {
 
         const school = await getMyAutoschool(token);
         const nextSchoolId = school?.id ?? null;
+        console.log("[useAutoschoolAdmin] API result:", { school, nextSchoolId });
         writeCachedAdmin(userId, Boolean(nextSchoolId), nextSchoolId);
 
         if (isMounted) {
           setSchoolId(nextSchoolId);
           setIsLoading(false);
         }
-      } catch {
+      } catch (err) {
+        console.error("[useAutoschoolAdmin] API error:", err);
         if (isMounted) {
           setSchoolId(null);
           setIsLoading(false);
