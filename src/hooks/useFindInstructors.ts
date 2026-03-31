@@ -96,6 +96,7 @@ const mapResults = (results: SearchResult[]): InstructorCardData[] => {
       specialty,
       price: Number(item.hourly_rate ?? 0),
       cityPrice: item.city_price ?? null,
+      yardPrice: item.yard_price ?? null,
       tags,
       imageUrl: resolveMediaUrl(item.image_url),
     };
@@ -121,7 +122,8 @@ export const useFindInstructors = () => {
     const urlMaxPrice = searchParams.get('max_price');
     const urlSort = searchParams.get('sort') as 'rating' | 'price-asc' | 'price-desc' | null;
     const urlPage = searchParams.get('page');
-    const hasUrlParams = !!(urlSearch || urlCity || urlTransmission || urlInstructorType || urlMinPrice || urlMaxPrice || urlSort || urlPage);
+    const urlMode = searchParams.get('mode') as 'city' | 'yard' | null;
+    const hasUrlParams = !!(urlSearch || urlCity || urlTransmission || urlInstructorType || urlMinPrice || urlMaxPrice || urlSort || urlPage || urlMode);
 
     // 2. Check sessionStorage
     const saved = loadState();
@@ -138,6 +140,9 @@ export const useFindInstructors = () => {
       }
       if (urlInstructorType && ['solo', 'school'].includes(urlInstructorType)) {
         filterValues.instructorType = urlInstructorType;
+      }
+      if (urlMode && ['city', 'yard'].includes(urlMode)) {
+        filterValues.mode = urlMode;
       }
       if (urlMinPrice || urlMaxPrice) {
         filterValues.budget = [
@@ -163,6 +168,7 @@ export const useFindInstructors = () => {
           transmissionType: saved.filters?.transmissionType || '',
           budget: saved.filters?.budget ?? [PRICING.MIN_PRICE_FILTER, PRICING.MAX_PRICE_FILTER],
           instructorType: saved.filters?.instructorType ?? 'all',
+          mode: saved.filters?.mode ?? '',
         } satisfies FilterOptions,
       };
     }
@@ -233,6 +239,9 @@ export const useFindInstructors = () => {
       }
       if (filters.instructorType !== 'all') {
         params.set('instructor_type', filters.instructorType);
+      }
+      if (filters.mode) {
+        params.set('mode', filters.mode);
       }
       if (sortBy !== 'rating') params.set('sort', sortBy);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronRight, Shield, Users, MapPin, SquareParking } from "lucide-react";
+import { Check, ChevronRight, Shield, MapPin, SquareParking, Car } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -22,8 +22,10 @@ export interface CoursePackage {
   percentage?: number;
   popular?: boolean;
   description: string;
-  appliesToAll: boolean;
-  assignedInstructors: InstructorMini[];
+  /** Lesson mode: "city" or "yard" */
+  mode: string;
+  /** Transmission scope: "manual", "automatic", or "both" */
+  transmission: string;
 }
 
 interface CoursePackagesSidebarProps {
@@ -32,42 +34,18 @@ interface CoursePackagesSidebarProps {
   bookingHref?: string;
 }
 
-// Small avatar stack — max 4 shown, rest as "+N"
-function AvatarStack({ instructors }: { instructors: InstructorMini[] }) {
-  const visible = instructors.slice(0, 4);
-  const rest = instructors.length - visible.length;
-  return (
-    <div className="flex items-center -space-x-1.5 mt-1.5">
-      {visible.map((inst) => (
-        <Link
-          key={inst.id}
-          href={inst.profileHref}
-          onClick={(e) => e.stopPropagation()}
-          className="relative w-6 h-6 rounded-full border-2 border-white overflow-hidden bg-gray-200 shrink-0 hover:z-10 hover:scale-110 transition-transform"
-          title={inst.name}
-        >
-          {inst.imageUrl ? (
-            <Image src={inst.imageUrl} alt={inst.name} fill className="object-cover" sizes="24px" />
-          ) : (
-            <span className="flex items-center justify-center w-full h-full text-[8px] font-bold text-gray-500 uppercase">
-              {inst.name.charAt(0)}
-            </span>
-          )}
-        </Link>
-      ))}
-      {rest > 0 && (
-        <span className="w-6 h-6 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[9px] font-bold text-gray-500 shrink-0">
-          +{rest}
-        </span>
-      )}
-    </div>
-  );
-}
-
 // Transmission pill
 function TransmissionPill({ transmission }: { transmission?: string | null }) {
   if (!transmission) return null;
   const isAuto = transmission.toLowerCase().includes("auto") || transmission === "automatic";
+  const isBoth = transmission === "both";
+  if (isBoth) {
+    return (
+      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-600">
+        ორივე
+      </span>
+    );
+  }
   return (
     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${
       isAuto ? "bg-blue-50 text-blue-600" : "bg-orange-50 text-orange-600"
@@ -116,7 +94,7 @@ const CoursePackagesSidebar = ({ packages, allInstructors = [], bookingHref = "#
         <>
           <div className="space-y-2 mb-5">
             {packages.map((pkg) => {
-              const instructors = pkg.appliesToAll ? allInstructors : (pkg.assignedInstructors ?? []);
+              const ModeIcon = pkg.mode === "yard" ? SquareParking : MapPin;
               return (
                 <button
                   key={pkg.id}
@@ -146,18 +124,21 @@ const CoursePackagesSidebar = ({ packages, allInstructors = [], bookingHref = "#
                         )}
                       </div>
                       <span className="text-xs text-gray-500">
-                        {pkg.lessons} გაკვეთილი · {pkg.description}
+                        {pkg.lessons} გაკვეთილი{pkg.description ? ` · ${pkg.description}` : ""}
                       </span>
 
-                      {/* Instructor scope */}
-                      {pkg.appliesToAll ? (
-                        <div className="flex items-center gap-1 mt-1.5">
-                          <Users className="w-3 h-3 text-gray-400" />
-                          <span className="text-[11px] text-gray-400">ყველა ინსტრუქტორი</span>
-                        </div>
-                      ) : (
-                        <AvatarStack instructors={instructors} />
-                      )}
+                      {/* Mode + Transmission */}
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600">
+                          <ModeIcon className="w-2.5 h-2.5" />
+                          {pkg.mode === "city" ? "ქალაქი" : "მოედანი"}
+                        </span>
+                        <TransmissionPill transmission={pkg.transmission} />
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-500">
+                          <Car className="w-2.5 h-2.5" />
+                          ყველა ინსტ.
+                        </span>
+                      </div>
                     </div>
                   </div>
                   {pkg.percentage != null && pkg.percentage > 0 && (
@@ -222,7 +203,15 @@ const CoursePackagesSidebar = ({ packages, allInstructors = [], bookingHref = "#
                         <span className="text-sm font-bold text-gray-900 truncate group-hover:text-[#F03D3D] transition-colors">
                           {inst.name}
                         </span>
-                        <TransmissionPill transmission={inst.transmission} />
+                        {inst.transmission && (
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${
+                            inst.transmission.toLowerCase() === "automatic"
+                              ? "bg-blue-50 text-blue-600"
+                              : "bg-orange-50 text-orange-600"
+                          }`}>
+                            {inst.transmission.toLowerCase() === "automatic" ? "ავტო" : "მექ."}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         {hasCity && (

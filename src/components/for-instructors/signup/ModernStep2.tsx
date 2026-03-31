@@ -204,6 +204,27 @@ const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
       </div>
 
       <div className="space-y-2">
+        <label className="text-sm font-bold text-gray-900">{t("signup.allowedMode")} <span className="text-red-500">*</span></label>
+        <div className="grid grid-cols-3 gap-4">
+          {(["city", "yard", "both"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => updateData({ allowedMode: mode })}
+              className={`w-full py-3 px-4 rounded-xl border-2 font-medium transition text-center ${
+                data.allowedMode === mode
+                  ? "border-[#F03D3D] bg-[#F03D3D]/5 text-[#F03D3D]"
+                  : `bg-white text-gray-600 hover:border-gray-300 ${errors.allowedMode ? "border-red-500 bg-red-50" : "border-gray-200"}`
+              }`}
+            >
+              {t(`signup.allowedMode${mode.charAt(0).toUpperCase() + mode.slice(1)}` as any)}
+            </button>
+          ))}
+        </div>
+        {errors.allowedMode && <p className="text-xs text-red-500 font-medium mt-1">{errors.allowedMode}</p>}
+      </div>
+
+      <div className="space-y-2">
         <label className="text-sm font-bold text-gray-900">{t("signup.vehiclePhotos")} <span className="text-red-500">*</span></label>
         <div 
           onClick={() => {

@@ -3,7 +3,7 @@
 import { memo, useState, useCallback, useRef, useEffect } from "react";
 import { FilterOptions } from "@/hooks/useInstructorFilters";
 import { PRICING, CITIES, CITY_LABELS, TRANSMISSION_TYPES } from "@/config/constants";
-import { Filter, X, ChevronDown, MapPin, Car, ArrowUpDown, DollarSign, Star, ArrowDown, ArrowUp } from "lucide-react";
+import { Filter, X, ChevronDown, MapPin, Car, ArrowUpDown, DollarSign, Star, ArrowDown, ArrowUp, Route } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 type SortOption = "rating" | "price-asc" | "price-desc";
@@ -123,6 +123,7 @@ const HorizontalFilterBar = memo(({
   const activeFilterCount = [
     filters.city,
     filters.transmissionType,
+    filters.mode,
     filters.budget[0] !== PRICING.MIN_PRICE_FILTER || filters.budget[1] !== PRICING.MAX_PRICE_FILTER,
   ].filter(Boolean).length;
 
@@ -256,6 +257,57 @@ const HorizontalFilterBar = memo(({
                     {getTransmissionLabel(type)}
                   </button>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Mode Pill */}
+          <div className="relative">
+            <button
+              onClick={() => toggleDropdown("mode")}
+              disabled={isLoading}
+              aria-expanded={openDropdown === "mode"}
+              aria-haspopup="listbox"
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                filters.mode
+                  ? "border-[#F03D3D] bg-red-50 text-[#F03D3D]"
+                  : "border-gray-200 hover:border-gray-300 text-gray-700"
+              }`}
+            >
+              <Route className="w-4 h-4" />
+              <span>{isKa ? "რეჟიმი" : "Mode"}</span>
+              {filters.mode && (
+                <>
+                  <div className="w-px h-3 bg-current opacity-30" />
+                  <span className="font-bold">{filters.mode === 'city' ? (isKa ? "ქალაქი" : "City") : (isKa ? "მოედანი" : "Yard")}</span>
+                </>
+              )}
+              <ChevronDown className="w-4 h-4" />
+            </button>
+
+            {openDropdown === "mode" && (
+              <div role="listbox" aria-label={isKa ? "აირჩიეთ რეჟიმი" : "Select mode"} className="absolute top-full left-0 mt-2 w-full min-w-[120px] bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-20">
+                {(['city', 'yard'] as const).map((m) => {
+                  const label = m === 'city' ? (isKa ? "ქალაქი" : "City") : (isKa ? "მოედანი" : "Yard");
+                  return (
+                    <button
+                      key={m}
+                      role="option"
+                      aria-selected={filters.mode === m}
+                      onClick={() => {
+                        updateFilter("mode", filters.mode === m ? "" : m);
+                        setOpenDropdown(null);
+                      }}
+                      className={`w-full text-center px-4 py-2 rounded-lg text-sm transition-colors ${
+                        filters.mode === m
+                          ? "bg-red-50 text-[#F03D3D] font-bold"
+                          : "hover:bg-gray-50 text-gray-700"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -470,6 +522,31 @@ const HorizontalFilterBar = memo(({
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            {/* Row 1b: Mode */}
+            <div>
+              <label className="flex items-center gap-1.5 text-sm font-bold text-gray-700 mb-2">
+                <Route className="w-4 h-4" /> {isKa ? "გაკვეთილის რეჟიმი" : "Lesson Mode"}
+              </label>
+              <div className="flex gap-2">
+                {(['city', 'yard'] as const).map((m) => {
+                  const label = m === 'city' ? (isKa ? "ქალაქი" : "City") : (isKa ? "მოედანი" : "Yard");
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => updateFilter("mode", filters.mode === m ? "" : m)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        filters.mode === m
+                          ? "bg-[#F03D3D] text-white shadow-sm"
+                          : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

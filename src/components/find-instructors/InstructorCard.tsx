@@ -13,6 +13,7 @@ interface InstructorCardProps {
   specialty: string;
   price: number;
   cityPrice?: number | null;
+  yardPrice?: number | null;
   showBothPrices?: boolean;
   tags: string[];
   imageUrl?: string;
@@ -23,11 +24,17 @@ interface InstructorCardProps {
 }
 
 const CityIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" className="text-gray-900">
+  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" className="text-gray-500 shrink-0">
     <path
       fill="currentColor"
       d="M3 21V7l6-3v6h6V6l6-3v18H3Zm2-2h3v-4H5v4Zm0-6h3V9H5v4Zm5 6h4v-4h-4v4Zm0-6h4V9h-4v4Zm6 6h3v-4h-3v4Zm0-6h3V7h-3v6Z"
     />
+  </svg>
+);
+
+const YardIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" className="text-gray-500 shrink-0">
+    <path fill="currentColor" d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h10v2H7V7zm0 4h10v2H7v-2zm0 4h6v2H7v-2z"/>
   </svg>
 );
 
@@ -131,6 +138,7 @@ const InstructorCard = ({
   specialty,
   price,
   cityPrice,
+  yardPrice,
   showBothPrices = false,
   tags,
   imageUrl,
@@ -156,6 +164,8 @@ const InstructorCard = ({
   }, [onCardClick, id, position]);
 
   const hasCityPrice = cityPrice != null;
+  const hasYardPrice = yardPrice != null;
+  const hasAnyModePrice = hasCityPrice || hasYardPrice;
   const displayName = isKa && /[A-Za-z]/.test(name) ? transliterateToGeorgian(name) : name;
   const displaySpecialty = isKa && /[A-Za-z]/.test(specialty)
     ? translateSpecialtyToGeorgian(specialty)
@@ -244,12 +254,24 @@ const InstructorCard = ({
       </div>
 
       <div className="mt-auto pt-4 border-t border-gray-50 flex items-center justify-between">
-        <div className="flex flex-col pl-1">
-          {hasCityPrice ? (
-            <div className="flex items-center gap-1">
-              <CityIcon />
-              <span className="text-lg font-semibold text-gray-900">{PRICING.CURRENCY_SYMBOL}{cityPrice}/{isKa ? "საათი" : "hour"}</span>
-            </div>
+        <div className="flex flex-col gap-0.5 pl-1">
+          {hasAnyModePrice ? (
+            <>
+              {hasCityPrice && (
+                <div className="flex items-center gap-1.5">
+                  <CityIcon />
+                  <span className="text-sm font-semibold text-gray-900">{PRICING.CURRENCY_SYMBOL}{cityPrice}<span className="text-xs font-normal text-gray-400">/{isKa ? "სთ" : "hr"}</span></span>
+                  <span className="text-xs text-gray-400">{isKa ? "ქალაქი" : "City"}</span>
+                </div>
+              )}
+              {hasYardPrice && (
+                <div className="flex items-center gap-1.5">
+                  <YardIcon />
+                  <span className="text-sm font-semibold text-gray-900">{PRICING.CURRENCY_SYMBOL}{yardPrice}<span className="text-xs font-normal text-gray-400">/{isKa ? "სთ" : "hr"}</span></span>
+                  <span className="text-xs text-gray-400">{isKa ? "მოედანი" : "Yard"}</span>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex items-center gap-1">
               <span className="text-xl font-bold text-gray-900">{PRICING.CURRENCY_SYMBOL}{price}/{isKa ? "საათი" : "hour"}</span>
@@ -277,6 +299,7 @@ const arePropsEqual = (prev: InstructorCardProps, next: InstructorCardProps): bo
   prev.specialty === next.specialty &&
   prev.price === next.price &&
   prev.cityPrice === next.cityPrice &&
+  prev.yardPrice === next.yardPrice &&
   prev.imageUrl === next.imageUrl &&
   prev.reviewCount === next.reviewCount &&
   prev.position === next.position &&

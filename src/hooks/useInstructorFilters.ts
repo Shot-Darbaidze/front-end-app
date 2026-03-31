@@ -6,6 +6,7 @@ export interface FilterOptions {
   transmissionType: string;
   city: string;
   instructorType: 'all' | 'solo' | 'school';
+  mode: '' | 'city' | 'yard';
 }
 
 const getInitialFilters = (): FilterOptions => ({
@@ -13,6 +14,7 @@ const getInitialFilters = (): FilterOptions => ({
   transmissionType: '',
   city: '',
   instructorType: 'all',
+  mode: '',
 });
 
 export const useInstructorFilters = (initialValues?: Partial<FilterOptions>) => {
@@ -38,7 +40,8 @@ export const useInstructorFilters = (initialValues?: Partial<FilterOptions>) => 
       filters.budget[0] !== defaultFilters.budget[0] ||
       filters.budget[1] !== defaultFilters.budget[1] ||
       filters.transmissionType !== '' ||
-      filters.city !== ''
+      filters.city !== '' ||
+      filters.mode !== ''
     );
   }, [filters]);
 

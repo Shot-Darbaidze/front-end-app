@@ -53,28 +53,16 @@ export default async function AutoschoolProfilePage({
   const csvToArray = (csv: string | null | undefined) =>
     csv ? csv.split(",").map((s) => s.trim()).filter(Boolean) : [];
 
-  // Build InstructorMini map (id → mini) for package scope display
-  const instructorMiniMap = new Map<string, InstructorMini>(
-    (school.instructors ?? []).map((i) => [
-      i.id,
-      {
-        id: i.id,
-        name: [i.first_name, i.last_name].filter(Boolean).join(" ") || i.title,
-        imageUrl: resolveMediaUrl(i.image_url),
-        profileHref: `/${locale}/instructors/${i.id}`,
-        transmission: i.transmission ?? null,
-        cityPrice: i.city_price != null ? Number(i.city_price)
-          : i.manual_city_price != null ? Number(i.manual_city_price)
-          : i.automatic_city_price != null ? Number(i.automatic_city_price)
-          : null,
-        yardPrice: i.yard_price != null ? Number(i.yard_price)
-          : i.manual_yard_price != null ? Number(i.manual_yard_price)
-          : i.automatic_yard_price != null ? Number(i.automatic_yard_price)
-          : null,
-      },
-    ])
-  );
-  const allInstructorMinis: InstructorMini[] = Array.from(instructorMiniMap.values());
+  // Build InstructorMini list for the single-lesson sidebar ("სათითაო" tab)
+  const allInstructorMinis: InstructorMini[] = (school.instructors ?? []).map((i) => ({
+    id: i.id,
+    name: [i.first_name, i.last_name].filter(Boolean).join(" ") || i.title,
+    imageUrl: resolveMediaUrl(i.image_url),
+    profileHref: `/${locale}/instructors/${i.id}`,
+    transmission: i.transmission ?? null,
+    cityPrice: i.city_price != null ? Number(i.city_price) : null,
+    yardPrice: i.yard_price != null ? Number(i.yard_price) : null,
+  }));
 
   const rawPackages = school.packages ?? [];
 
@@ -86,10 +74,8 @@ export default async function AutoschoolProfilePage({
         percentage: p.percentage != null && Number(p.percentage) > 0 ? Number(p.percentage) : undefined,
         popular: p.popular,
         description: p.description ?? "",
-        appliesToAll: p.applies_to_all,
-        assignedInstructors: (p.assigned_post_ids ?? [])
-          .map((pid) => instructorMiniMap.get(pid))
-          .filter((x): x is InstructorMini => x != null),
+        mode: p.mode ?? "city",
+        transmission: p.transmission ?? "manual",
       }))
     : [];
 

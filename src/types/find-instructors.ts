@@ -10,6 +10,7 @@ export interface InstructorCardData {
   specialty: string;
   price: number;
   cityPrice: number | null;
+  yardPrice: number | null;
   tags: string[];
   imageUrl?: string;
 }
@@ -25,4 +26,5 @@ export interface SearchResult {
   transmission?: string | null;
   hourly_rate?: number | null;
   city_price?: number | null;
+  yard_price?: number | null;
 }

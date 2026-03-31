@@ -52,8 +52,10 @@ interface RawPackage {
   percentage: number | null;
   popular: boolean;
   description: string | null;
-  applies_to_all: boolean;
-  assigned_post_ids: string[];
+  /** Lesson mode: "city" or "yard" */
+  mode: string;
+  /** Transmission scope: "manual", "automatic", or "both" */
+  transmission: string;
 }
 
 interface RawInstructor {
@@ -83,6 +85,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
 
   const initialMode: BookingMode = searchParams.get("mode") === "single" ? "single" : "package";
   const initialPackageId = searchParams.get("package") ?? "";
+  const initialInstructorId = searchParams.get("instructor") ?? "";
 
   // ── school data ──
   const [schoolName, setSchoolName] = useState("ავტოსკოლა");
@@ -150,8 +153,12 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
         }));
         setInstructors(opts);
 
-        // Auto-select first instructor
-        if (opts.length > 0) setSelectedInstructorId(opts[0].id);
+        // Auto-select instructor from URL param, falling back to first
+        if (initialInstructorId && opts.find((i) => i.id === initialInstructorId)) {
+          setSelectedInstructorId(initialInstructorId);
+        } else if (opts.length > 0) {
+          setSelectedInstructorId(opts[0].id);
+        }
 
         // Default package to URL param or popular/first
         if (!initialPackageId && pkgs.length > 0) {
@@ -161,7 +168,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
       })
       .catch(() => {})
       .finally(() => setLoadingSchool(false));
-  }, [id, initialPackageId]);
+  }, [id, initialPackageId, initialInstructorId]);
 
   // ── fetch slots for selected instructor ───────────────────────────────────
   const fetchSlots = useCallback(async (postId: string) => {
@@ -213,14 +220,8 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
     [rawPackages, selectedPackageId]
   );
 
-  // Filter instructors: in package mode, only show instructors assigned to this package
-  const filteredInstructors = useMemo(() => {
-    if (bookingMode === "single" || !selectedPackage || selectedPackage.applies_to_all) {
-      return instructors;
-    }
-    const allowed = new Set(selectedPackage.assigned_post_ids);
-    return instructors.filter((i) => allowed.has(i.id));
-  }, [bookingMode, selectedPackage, instructors]);
+  // Packages now always apply to all instructors — no per-package filtering needed
+  const filteredInstructors = instructors;
 
   // If selected instructor was filtered out, switch to first available
   useEffect(() => {

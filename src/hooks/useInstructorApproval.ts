@@ -10,6 +10,7 @@ const APPROVAL_LOCAL_KEY_PREFIX = "instructor-approval-v2";
 type ApprovalPayload = {
   user_id: string;
   is_approved?: boolean | null;
+  instructor_type?: string | null;
   timestamp?: number;
 };
 
@@ -21,7 +22,7 @@ function localKey(userId: string) {
   return `${APPROVAL_LOCAL_KEY_PREFIX}:${userId}`;
 }
 
-function readCachedApproval(userId: string): boolean | null {
+function readCachedApproval(userId: string): { isApproved: boolean; instructorType: string | null } | null {
   if (typeof window === "undefined") return null;
 
   try {
@@ -29,7 +30,7 @@ function readCachedApproval(userId: string): boolean | null {
     if (sessionRaw) {
       const parsed = JSON.parse(sessionRaw) as ApprovalPayload;
       if (typeof parsed?.is_approved === "boolean") {
-        return parsed.is_approved;
+        return { isApproved: parsed.is_approved, instructorType: parsed.instructor_type ?? null };
       }
     }
   } catch {
@@ -41,7 +42,7 @@ function readCachedApproval(userId: string): boolean | null {
     if (localRaw) {
       const parsed = JSON.parse(localRaw) as ApprovalPayload;
       if (typeof parsed?.is_approved === "boolean") {
-        return parsed.is_approved;
+        return { isApproved: parsed.is_approved, instructorType: parsed.instructor_type ?? null };
       }
     }
   } catch {
@@ -51,24 +52,19 @@ function readCachedApproval(userId: string): boolean | null {
   return null;
 }
 
-function writeCachedApproval(userId: string, isApproved: boolean) {
+function writeCachedApproval(userId: string, isApproved: boolean, instructorType: string | null) {
   if (typeof window === "undefined") return;
 
-  window.sessionStorage.setItem(
-    sessionKey(userId),
-    JSON.stringify({ user_id: userId, is_approved: isApproved, timestamp: Date.now() })
-  );
-
-  window.localStorage.setItem(
-    localKey(userId),
-    JSON.stringify({ user_id: userId, is_approved: isApproved, timestamp: Date.now() })
-  );
+  const payload: ApprovalPayload = { user_id: userId, is_approved: isApproved, instructor_type: instructorType, timestamp: Date.now() };
+  window.sessionStorage.setItem(sessionKey(userId), JSON.stringify(payload));
+  window.localStorage.setItem(localKey(userId), JSON.stringify(payload));
 }
 
 export function useInstructorApproval() {
   const { getToken, isLoaded } = useClerkAuth();
   const { user, isLoaded: isUserLoaded } = useUser();
   const [isInstructor, setIsInstructor] = useState<boolean>(false);
+  const [isEmployee, setIsEmployee] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const userId = user?.id;
@@ -84,6 +80,7 @@ export function useInstructorApproval() {
       if (!userId) {
         if (isMounted) {
           setIsInstructor(false);
+          setIsEmployee(false);
           setIsLoading(false);
         }
         return;
@@ -91,7 +88,8 @@ export function useInstructorApproval() {
 
       const cached = readCachedApproval(userId);
       if (cached !== null && isMounted) {
-        setIsInstructor(cached);
+        setIsInstructor(cached.isApproved);
+        setIsEmployee(cached.instructorType === "employee");
         setIsLoading(false);
       }
 
@@ -104,6 +102,7 @@ export function useInstructorApproval() {
         if (!token) {
           if (isMounted) {
             setIsInstructor(false);
+            setIsEmployee(false);
             setIsLoading(false);
           }
           return;
@@ -118,6 +117,7 @@ export function useInstructorApproval() {
         if (!response.ok) {
           if (isMounted) {
             setIsInstructor(false);
+            setIsEmployee(false);
             setIsLoading(false);
           }
           return;
@@ -125,10 +125,12 @@ export function useInstructorApproval() {
 
         const result: ApprovalPayload = await response.json();
         const approved = Boolean(result?.is_approved);
-        writeCachedApproval(userId, approved);
+        const instrType = (result as ApprovalPayload & { instructor_type?: string }).instructor_type ?? null;
+        writeCachedApproval(userId, approved, instrType);
 
         if (isMounted) {
           setIsInstructor(approved);
+          setIsEmployee(instrType === "employee");
           setIsLoading(false);
         }
       } catch {
@@ -145,5 +147,5 @@ export function useInstructorApproval() {
     };
   }, [getToken, isLoaded, isUserLoaded, userId]);
 
-  return { isInstructor, isLoading };
+  return { isInstructor, isEmployee, isLoading };
 }

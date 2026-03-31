@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { API_CONFIG } from "@/config/constants";
-import { Pencil, X, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Pencil, X, Check, ChevronUp } from "lucide-react";
 
 interface Instructor {
   id: string;
@@ -16,12 +16,11 @@ interface Instructor {
   transmission?: string | null;
   city_price?: number | null;
   yard_price?: number | null;
-  automatic_city_price?: number | null;
-  automatic_yard_price?: number | null;
-  manual_city_price?: number | null;
-  manual_yard_price?: number | null;
   instructor_type: string;
   status: string;
+  /** NULL = admin has not enabled any mode — instructor is NOT bookable.
+   *  "city" | "yard" | "both" = explicitly enabled by admin. */
+  allowed_modes: "city" | "yard" | "both" | null;
 }
 
 interface AdminInvite {
@@ -40,21 +39,44 @@ interface AdminInvite {
 
 interface EditState {
   status: "active" | "inactive";
-  cityPrice: string;
-  yardPrice: string;
+  allowed_modes: "city" | "yard" | "both" | null;
 }
 
 const API_BASE = API_CONFIG.BASE_URL;
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes — same as student dashboard
+
+// ── cache helpers ────────────────────────────────────────────────────────────
+
+function cacheKey(schoolId: string, kind: "instructors" | "invites") {
+  return `autoschool-manage-${kind}-v1:${schoolId}`;
+}
+
+function readCache<T>(schoolId: string, kind: "instructors" | "invites"): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(cacheKey(schoolId, kind));
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw) as { data: T; ts: number };
+    if (Date.now() - ts > CACHE_TTL_MS) { sessionStorage.removeItem(cacheKey(schoolId, kind)); return null; }
+    return data;
+  } catch { return null; }
+}
+
+function writeCache<T>(schoolId: string, kind: "instructors" | "invites", data: T) {
+  if (typeof window === "undefined") return;
+  try { sessionStorage.setItem(cacheKey(schoolId, kind), JSON.stringify({ data, ts: Date.now() })); } catch { /* storage full */ }
+}
+
+function bustCache(schoolId: string) {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(cacheKey(schoolId, "instructors"));
+  sessionStorage.removeItem(cacheKey(schoolId, "invites"));
+}
 
 function buildEditState(inst: Instructor): EditState {
   return {
     status: inst.status === "active" ? "active" : "inactive",
-    cityPrice: inst.manual_city_price != null
-      ? String(inst.manual_city_price)
-      : inst.automatic_city_price != null ? String(inst.automatic_city_price) : "",
-    yardPrice: inst.manual_yard_price != null
-      ? String(inst.manual_yard_price)
-      : inst.automatic_yard_price != null ? String(inst.automatic_yard_price) : "",
+    allowed_modes: inst.allowed_modes ?? null,  // null = no mode granted yet = not bookable
   };
 }
 
@@ -87,14 +109,21 @@ export default function ManageInstructors({ schoolId }: Props) {
     }
   }
 
-  const fetchInstructors = useCallback(async () => {
+  const fetchInstructors = useCallback(async (isRevalidation = false) => {
+    // Apply cache immediately on first load (stale-while-revalidate)
+    if (!isRevalidation) {
+      const cached = readCache<Instructor[]>(schoolId, "instructors");
+      if (cached) { setInstructors(cached); setLoading(false); }
+    }
     try {
       const token = await getToken();
       const res = await fetch(`${API_BASE}/api/autoschools/${schoolId}/instructors`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) { setError(await readApiError(res, "Failed to load instructors.")); return; }
-      setInstructors(await res.json());
+      const data: Instructor[] = await res.json();
+      setInstructors(data);
+      writeCache(schoolId, "instructors", data);
     } catch {
       setError("Network error while loading instructors.");
     } finally {
@@ -102,7 +131,11 @@ export default function ManageInstructors({ schoolId }: Props) {
     }
   }, [getToken, schoolId]);
 
-  const fetchSentInvites = useCallback(async () => {
+  const fetchSentInvites = useCallback(async (isRevalidation = false) => {
+    if (!isRevalidation) {
+      const cached = readCache<AdminInvite[]>(schoolId, "invites");
+      if (cached) { setSentInvites(cached); setLoadingInvites(false); }
+    }
     setLoadingInvites(true);
     try {
       const token = await getToken();
@@ -110,7 +143,9 @@ export default function ManageInstructors({ schoolId }: Props) {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) { setError(await readApiError(res, "Failed to load sent invites.")); return; }
-      setSentInvites(await res.json());
+      const data: AdminInvite[] = await res.json();
+      setSentInvites(data);
+      writeCache(schoolId, "invites", data);
     } catch {
       setError("Network error while loading sent invites.");
     } finally {
@@ -132,12 +167,6 @@ export default function ManageInstructors({ schoolId }: Props) {
 
   async function handleSaveEdit(inst: Instructor) {
     if (!editState) return;
-    const cityPrice = parseFloat(editState.cityPrice);
-    const yardPrice = parseFloat(editState.yardPrice);
-    if (isNaN(cityPrice) || cityPrice < 0 || isNaN(yardPrice) || yardPrice < 0) {
-      setError("Please enter valid price values.");
-      return;
-    }
     setSaving(inst.id);
     setError(null);
     try {
@@ -145,15 +174,15 @@ export default function ManageInstructors({ schoolId }: Props) {
       const res = await fetch(`${API_BASE}/api/autoschools/${schoolId}/instructors/${inst.id}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: editState.status,
-          manual_city_price: parseFloat(cityPrice.toFixed(2)),
-          manual_yard_price: parseFloat(yardPrice.toFixed(2)),
-        }),
+        body: JSON.stringify({ status: editState.status, allowed_modes: editState.allowed_modes }),
       });
       if (!res.ok) { setError(await readApiError(res, "Failed to update instructor.")); return; }
       const updated: Instructor = await res.json();
-      setInstructors((prev) => prev.map((i) => (i.id === inst.id ? updated : i)));
+      setInstructors((prev) => {
+        const next = prev.map((i) => (i.id === inst.id ? updated : i));
+        writeCache(schoolId, "instructors", next);
+        return next;
+      });
       setInviteSuccess("Instructor updated successfully.");
       closeEdit();
     } catch {
@@ -174,7 +203,11 @@ export default function ManageInstructors({ schoolId }: Props) {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) { setError(await readApiError(res, "Failed to remove instructor.")); return; }
-      setInstructors((prev) => prev.filter((i) => i.id !== postId));
+      setInstructors((prev) => {
+        const next = prev.filter((i) => i.id !== postId);
+        bustCache(schoolId); // full bust — invites may also change
+        return next;
+      });
       setInviteSuccess("Instructor removed successfully.");
     } catch {
       setError("Network error. Please try again.");
@@ -200,7 +233,8 @@ export default function ManageInstructors({ schoolId }: Props) {
       const data = await res.json().catch(() => ({}));
       setInviteSuccess(data?.id ? `Invite sent successfully. Invite ID: ${data.id}` : "Invite sent successfully.");
       setInviteId("");
-      await fetchSentInvites();
+      bustCache(schoolId); // new invite — bust so next navigation re-fetches
+      await fetchSentInvites(true);
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -220,7 +254,11 @@ export default function ManageInstructors({ schoolId }: Props) {
       });
       if (!res.ok) { setError(await readApiError(res, "Failed to withdraw invite.")); return; }
       setInviteSuccess("Invite withdrawn successfully.");
-      setSentInvites((prev) => prev.map((i) => (i.id === id ? { ...i, status: "declined" } : i)));
+      setSentInvites((prev) => {
+        const next = prev.map((i) => (i.id === id ? { ...i, status: "declined" as const } : i));
+        writeCache(schoolId, "invites", next);
+        return next;
+      });
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -242,7 +280,7 @@ export default function ManageInstructors({ schoolId }: Props) {
       <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
         <div>
           <h3 className="text-base font-bold text-gray-900">Manage Instructors</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Edit prices, toggle status, or remove instructors.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Toggle status or remove instructors. Prices are managed in the Pricing tab.</p>
         </div>
         <span className="text-xs text-gray-500 bg-white border border-slate-200 px-2.5 py-1 rounded-full">
           {instructors.length} total
@@ -283,9 +321,6 @@ export default function ManageInstructors({ schoolId }: Props) {
             const isEditing = editingId === inst.id;
             const es = isEditing ? editState : null;
 
-            const autoCity = inst.automatic_city_price ?? 0;
-            const autoYard = inst.automatic_yard_price ?? 0;
-
             return (
               <div key={inst.id} className="transition-colors">
                 {/* Row */}
@@ -312,6 +347,7 @@ export default function ManageInstructors({ schoolId }: Props) {
                         </span>
                       )}
                       {inst.transmission && <span>{inst.transmission}</span>}
+                      {/* Read-only prices from school level */}
                       {inst.city_price != null && <span>City ₾{Number(inst.city_price)}</span>}
                       {inst.yard_price != null && <span>Yard ₾{Number(inst.yard_price)}</span>}
                     </div>
@@ -326,6 +362,22 @@ export default function ManageInstructors({ schoolId }: Props) {
                     {inst.status}
                   </span>
 
+                  {/* Mode badge — red 'Not bookable' when null, coloured when enabled */}
+                  {inst.allowed_modes ? (
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      inst.allowed_modes === "both"
+                        ? "bg-blue-50 text-blue-600"
+                        : inst.allowed_modes === "city"
+                        ? "bg-violet-50 text-violet-600"
+                        : "bg-amber-50 text-amber-600"
+                    }`}>
+                      {inst.allowed_modes === "both" ? "City + Yard" : inst.allowed_modes === "city" ? "City only" : "Yard only"}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-500">
+                      Not bookable
+                    </span>
+                  )}
                   {/* Edit button */}
                   <button
                     onClick={() => isEditing ? closeEdit() : openEdit(inst)}
@@ -359,10 +411,9 @@ export default function ManageInstructors({ schoolId }: Props) {
                   </button>
                 </div>
 
-                {/* ── Inline edit panel ── */}
+                {/* ── Inline edit panel — status only ── */}
                 {isEditing && es && (
-                  <div className="mx-4 mb-4 bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-5">
-
+                  <div className="mx-4 mb-4 bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                     {/* Status toggle */}
                     <div>
                       <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Status</p>
@@ -385,32 +436,53 @@ export default function ManageInstructors({ schoolId }: Props) {
                       </div>
                     </div>
 
-                    {/* Price inputs */}
-                    <div className="grid grid-cols-2 gap-4">
-                      {[
-                        { label: "City price / lesson", key: "cityPrice" as const, base: autoCity },
-                        { label: "Yard price / lesson", key: "yardPrice" as const, base: autoYard },
-                      ].map(({ label, key, base }) => (
-                        <div key={key}>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <p className="text-xs font-semibold text-slate-600">{label}</p>
-                            {base > 0 && <span className="text-xs text-slate-400">Base ₾{base}</span>}
-                          </div>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold">₾</span>
-                            <input
-                              type="number"
-                              min={0}
-                              step={0.01}
-                              value={es[key]}
-                              onChange={(e) => setEditState((prev) => prev ? { ...prev, [key]: e.target.value } : prev)}
-                              className="w-full pl-7 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/20 focus:border-[#F03D3D] bg-white"
-                              placeholder="0.00"
-                            />
-                          </div>
-                        </div>
-                      ))}
+                  {/* ── Mode selector ── */}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Allowed Mode</p>
+                      <p className="text-xs text-slate-400 mb-2">
+                        Select which lesson type(s) this instructor may offer.
+                        {" "}<span className="text-red-400 font-medium">No mode = not bookable.</span>
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {/* Explicit null — disables bookings */}
+                        <button
+                          onClick={() => setEditState((prev) => prev ? { ...prev, allowed_modes: null } : prev)}
+                          className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                            es.allowed_modes === null
+                              ? "bg-red-500 text-white border-red-500 shadow-sm"
+                              : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                          }`}
+                        >
+                          None
+                        </button>
+                        {([
+                          { value: "city",  label: "City only" },
+                          { value: "yard",  label: "Yard only" },
+                          { value: "both",  label: "City + Yard" },
+                        ] as const).map(({ value, label }) => (
+                          <button
+                            key={value}
+                            onClick={() => setEditState((prev) => prev ? { ...prev, allowed_modes: value } : prev)}
+                            className={`px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                              es.allowed_modes === value
+                                ? value === "city"
+                                  ? "bg-violet-500 text-white border-violet-500 shadow-sm"
+                                  : value === "yard"
+                                  ? "bg-amber-500 text-white border-amber-500 shadow-sm"
+                                  : "bg-blue-500 text-white border-blue-500 shadow-sm"
+                                : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+
+                    {/* Note about pricing */}
+                    <p className="text-xs text-slate-400">
+                      Prices are set school-wide in the <span className="font-semibold text-slate-600">Pricing</span> tab.
+                    </p>
 
                     {/* Save / Cancel */}
                     <div className="flex gap-2 pt-1">

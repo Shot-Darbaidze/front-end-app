@@ -17,13 +17,12 @@ export interface CoursePackage {
   name: string;
   lessons: number;
   percentage: number;
-  applies_to_all: boolean;
-  assigned_post_ids: string[];
-  price?: number | null;
-  original_price?: number | null;
   popular: boolean;
   description?: string | null;
-  transmission_modes?: string[] | null;
+  /** Lesson mode: "city" or "yard" */
+  mode: string;
+  /** Transmission scope: "manual", "automatic", or "both" */
+  transmission: string;
 }
 
 export interface WorkingHours {
@@ -50,12 +49,10 @@ export interface SchoolInstructor {
   rating?: number | null;
   transmission?: string | null;
   language_skills?: string | null;
+  /** Effective city price derived from school-level pricing */
   city_price?: number | null;
+  /** Effective yard price derived from school-level pricing */
   yard_price?: number | null;
-  automatic_city_price?: number | null;
-  automatic_yard_price?: number | null;
-  manual_city_price?: number | null;
-  manual_yard_price?: number | null;
   instructor_type: "independent" | "employee";
   status: string;
 }
@@ -76,6 +73,11 @@ export interface AutoschoolDetail {
   image_urls?: string[];
   is_approved: boolean;
   status: string;
+  // School-level pricing
+  manual_city_price?: number | null;
+  manual_yard_price?: number | null;
+  automatic_city_price?: number | null;
+  automatic_yard_price?: number | null;
   packages: CoursePackage[];
   working_hours: WorkingHours[];
   instructors: SchoolInstructor[];
@@ -191,6 +193,28 @@ export async function updateAutoschool(
   );
 }
 
+/** Update school-level pricing (4 price fields). */
+export async function updateAutoschoolPricing(
+  schoolId: string,
+  pricing: {
+    manual_city_price?: number | null;
+    manual_yard_price?: number | null;
+    automatic_city_price?: number | null;
+    automatic_yard_price?: number | null;
+  },
+  token: string,
+): Promise<AutoschoolDetail> {
+  return apiFetch(
+    `/api/autoschools/${schoolId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pricing),
+    },
+    token,
+  );
+}
+
 /** Upload/remove logo, cover, and gallery images (admin only). */
 export async function updateAutoschoolMedia(
   schoolId: string,
@@ -287,11 +311,11 @@ export async function kickInstructor(
   );
 }
 
-/** Update an instructor's status and/or manual prices (admin only). */
+/** Update an instructor's status (admin only). Prices are set at school level. */
 export async function updateSchoolInstructor(
   schoolId: string,
   instructorPostId: string,
-  data: { status?: "active" | "inactive"; manual_city_price?: number | null; manual_yard_price?: number | null },
+  data: { status?: "active" | "inactive" },
   token: string,
 ): Promise<SchoolInstructor> {
   return apiFetch(
@@ -313,22 +337,22 @@ export interface CoursePackageCreateInput {
   name: string;
   lessons: number;
   percentage: number;
-  applies_to_all: boolean;
-  assigned_post_ids?: string[] | null;
   popular?: boolean;
   description?: string | null;
-  transmission_modes?: string[] | null;
+  /** Lesson mode: "city" or "yard" */
+  mode: string;
+  /** Transmission scope: "manual", "automatic", or "both" */
+  transmission: string;
 }
 
 export interface CoursePackageUpdateInput {
   name?: string;
   lessons?: number;
   percentage?: number;
-  applies_to_all?: boolean;
-  assigned_post_ids?: string[] | null;
   popular?: boolean;
   description?: string | null;
-  transmission_modes?: string[] | null;
+  mode?: string;
+  transmission?: string;
 }
 
 export async function createPackage(

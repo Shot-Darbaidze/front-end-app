@@ -11,6 +11,33 @@ import {
 } from "@/services/autoschoolService";
 import { Wallet, TrendingUp, Clock, CheckCircle, User, Users, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
 
+const FINANCES_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+function financesCacheKey(schoolId: string) {
+  return `autoschool-finances-v1:${schoolId}`;
+}
+
+function readFinancesCache(schoolId: string): AutoschoolFinancesData | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(financesCacheKey(schoolId));
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw) as { data: AutoschoolFinancesData; ts: number };
+    if (Date.now() - ts > FINANCES_CACHE_TTL_MS) { sessionStorage.removeItem(financesCacheKey(schoolId)); return null; }
+    return data;
+  } catch { return null; }
+}
+
+function writeFinancesCache(schoolId: string, data: AutoschoolFinancesData) {
+  if (typeof window === "undefined") return;
+  try { sessionStorage.setItem(financesCacheKey(schoolId), JSON.stringify({ data, ts: Date.now() })); } catch { /* storage full */ }
+}
+
+function bustFinancesCache(schoolId: string) {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(financesCacheKey(schoolId));
+}
+
 interface AutoschoolFinancesProps {
   schoolId: string;
 }
@@ -136,7 +163,19 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
   const [withdrawSuccess, setWithdrawSuccess] = useState<string | null>(null);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (isRevalidation = false) => {
+    // Apply cache immediately (stale-while-revalidate)
+    if (!isRevalidation) {
+      const cached = readFinancesCache(schoolId);
+      if (cached) {
+        setData(cached);
+        const withBalance = cached.instructors
+          .filter((i) => i.available_to_withdraw > 0)
+          .map((i) => i.post_id);
+        setSelectedPostIds(new Set(withBalance));
+        setIsLoading(false);
+      }
+    }
     try {
       setIsLoading(true);
       setError(null);
@@ -144,6 +183,7 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
       if (!token) return;
       const result = await getAutoschoolFinances(schoolId, token);
       setData(result);
+      writeFinancesCache(schoolId, result);
       // Auto-select all instructors with available balance
       const withBalance = result.instructors
         .filter((i) => i.available_to_withdraw > 0)
@@ -197,7 +237,8 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
             ? `წარმატებით გამოიტანეთ ${result.withdrawn_amount.toFixed(2)}₾ (${result.withdrawn_bookings_count} ჯავშანი, ${result.instructors_processed} ინსტრუქტორი)`
             : `Successfully requested withdrawal of ${result.withdrawn_amount.toFixed(2)}₾ across ${result.withdrawn_bookings_count} bookings for ${result.instructors_processed} instructor(s).`
         );
-        void load();
+        bustFinancesCache(schoolId); // balances changed — force fresh fetch
+        void load(true);
       }
     } catch (e) {
       setWithdrawError(e instanceof Error ? e.message : "Withdrawal failed.");
@@ -221,7 +262,7 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
       <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
         <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
         <p className="text-sm font-medium text-red-600">{error}</p>
-        <button onClick={load} className="mt-3 text-xs text-red-500 underline">
+        <button onClick={() => void load()} className="mt-3 text-xs text-red-500 underline">
           {language === "ka" ? "თავიდან ცდა" : "Try again"}
         </button>
       </div>

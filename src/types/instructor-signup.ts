@@ -16,6 +16,7 @@ export interface InstructorSignupFormData {
   vehicleBrand: string;
   vehicleYear: number | string;
   transmission: string;
+  allowedMode: string;
   vehiclePhotos: File[];
 
   // Step 3: Documents

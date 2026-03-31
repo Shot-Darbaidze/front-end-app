@@ -10,6 +10,7 @@ import ManageInstructors from "@/components/autoschool/ManageInstructors";
 import { AutoschoolSidebarNav, type AutoschoolTabId } from "@/components/dashboard/autoschool/AutoschoolSidebarNav";
 import { AutoschoolFinances } from "@/components/dashboard/autoschool/AutoschoolFinances";
 import { AutoschoolPackages } from "@/components/dashboard/autoschool/AutoschoolPackages";
+import { AutoschoolPricing } from "@/components/dashboard/autoschool/AutoschoolPricing";
 
 // Shared
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
@@ -447,6 +448,9 @@ export default function DashboardPage() {
                 )}
                 {autoschoolTab === "packages" && mySchoolId && (
                   <AutoschoolPackages schoolId={mySchoolId} />
+                )}
+                {autoschoolTab === "pricing" && mySchoolId && (
+                  <AutoschoolPricing schoolId={mySchoolId} />
                 )}
               </div>
             </div>

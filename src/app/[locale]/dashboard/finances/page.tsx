@@ -69,7 +69,7 @@ export default function FinancesPage() {
   const router = useRouter();
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] ?? "en";
-  const { isInstructor, isLoading } = useInstructorApproval();
+  const { isInstructor, isEmployee, isLoading } = useInstructorApproval();
   const [financeData, setFinanceData] = useState<FinancesResponse | null>(null);
   const [isFetching, setIsFetching] = useState(true);
   const [isMetricLoading, setIsMetricLoading] = useState(false);
@@ -178,8 +178,8 @@ export default function FinancesPage() {
   }, [isLoading, isInstructor, activeMetric, loadMetric, appliedRange]);
 
   const canWithdraw = useMemo(
-    () => Boolean(financeData && financeData.eligible_bookings_count > 0 && !isWithdrawing),
-    [financeData, isWithdrawing]
+    () => Boolean(!isEmployee && financeData && financeData.eligible_bookings_count > 0 && !isWithdrawing),
+    [isEmployee, financeData, isWithdrawing]
   );
 
   const withdrawAll = async () => {
@@ -283,14 +283,23 @@ export default function FinancesPage() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={withdrawAll}
-                disabled={!canWithdraw || isFetching}
-                className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isWithdrawing ? "Withdrawing..." : "Withdraw Available"}
-              </button>
+              {isEmployee ? (
+                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  <svg className="h-4 w-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                  </svg>
+                  Your autoschool admin manages withdrawals on your behalf.
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={withdrawAll}
+                  disabled={!canWithdraw || isFetching}
+                  className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isWithdrawing ? "Withdrawing..." : "Withdraw Available"}
+                </button>
+              )}
             </div>
 
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">

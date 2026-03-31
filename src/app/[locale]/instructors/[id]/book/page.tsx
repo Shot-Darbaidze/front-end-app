@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, use, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle, Info, Loader2, AlertCircle, Timer, PlusCircle, CreditCard, Lock, Shield, MapPin } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -27,10 +27,14 @@ interface InstructorPost {
   applicant_last_name?: string | null;
   automatic_city_price?: number | null;
   manual_city_price?: number | null;
+  automatic_yard_price?: number | null;
+  manual_yard_price?: number | null;
   located_at?: string | null;
   applicant_address?: string | null;
   address?: string | null;
   google_maps_url?: string | null;
+  autoschool_id?: string | null;
+  transmission?: string | null;
 }
 
 type SelectedSlot = {
@@ -84,6 +88,8 @@ const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
 export default function BookingPage({ params }: { params: Promise<{ id: string; locale: string }> }) {
   const { id, locale } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const bookingMode = (searchParams.get("mode") === "yard" ? "yard" : "city") as "city" | "yard";
   const { getToken, isSignedIn } = useAuth();
   const { t, language } = useLanguage();
   
@@ -123,7 +129,9 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
     : "...";
   
   const price = instructor
-    ? pickFirstValidPrice([instructor.automatic_city_price, instructor.manual_city_price]) ?? 0
+    ? bookingMode === "yard"
+      ? pickFirstValidPrice([instructor.automatic_yard_price, instructor.manual_yard_price]) ?? 0
+      : pickFirstValidPrice([instructor.automatic_city_price, instructor.manual_city_price]) ?? 0
     : 0;
 
   const hasPhone = normalizePhone(userPhone).length > 0;
@@ -164,6 +172,13 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
         }
 
         const postData = await postRes.json() as InstructorPost;
+
+        // Employee instructors must be booked through the autoschool booking flow
+        if (postData.autoschool_id) {
+          router.replace(`/${locale}/autoschools/${postData.autoschool_id}/book?mode=package&instructor=${id}`);
+          return;
+        }
+
         setInstructor(postData);
 
         let allSlots: AvailableSlot[] = [];
@@ -517,7 +532,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
         },
         body: JSON.stringify({
           slot_ids: selectedSlots.map(s => s.id),
-          mode: "city",
+          mode: bookingMode,
         }),
       });
       
@@ -865,6 +880,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
                 </>
               )}
             </div>
+
           </div>
         )}
 

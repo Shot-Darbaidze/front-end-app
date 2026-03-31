@@ -1,5 +1,6 @@
 import InstructorProfileHeader from "@/components/instructor-profile/InstructorProfileHeader";
 import BookingSidebar from "@/components/instructor-profile/BookingSidebar";
+import InstructorPackagesCard from "@/components/instructor-profile/InstructorPackagesCard";
 import LocationCard from "@/components/instructor-profile/LocationCard";
 import CommentSection from "@/components/instructor-profile/CommentSection";
 import BackToInstructorsButton from "@/components/instructor-profile/BackToInstructorsButton";
@@ -24,6 +25,8 @@ type InstructorPost = {
   address?: string | null;
   automatic_city_price?: number | null;
   manual_city_price?: number | null;
+  automatic_yard_price?: number | null;
+  manual_yard_price?: number | null;
   language_skills?: string | null;
   rating?: number | null;
   review_count?: number | null;
@@ -33,6 +36,17 @@ type InstructorPost = {
   vehicle_brand?: string | null;
   vehicle_year?: number | null;
   autoschool_id?: string | null;
+};
+
+type CoursePackage = {
+  id: string;
+  name: string;
+  lessons: number;
+  percentage?: number | null;
+  popular?: boolean;
+  description?: string | null;
+  mode: string;
+  transmission: string;
 };
 
 type InstructorAsset = {
@@ -79,6 +93,28 @@ export default async function InstructorProfilePage({ params }: { params: Promis
     .map((asset) => resolveMediaUrl(asset.url))
     .filter((url): url is string => Boolean(url));
   const cityPrice = pickFirstValidPrice([post.automatic_city_price, post.manual_city_price]);
+  const yardPrice = pickFirstValidPrice([post.automatic_yard_price, post.manual_yard_price]);
+
+  // Fetch autoschool packages if instructor belongs to a school
+  let packages: CoursePackage[] = [];
+  if (post.autoschool_id) {
+    try {
+      const schoolRes = await fetch(`${baseUrl}/api/autoschools/${post.autoschool_id}`, { cache: "no-store" });
+      if (schoolRes.ok) {
+        const school = await schoolRes.json();
+        const trans = (post.transmission || "").toLowerCase();
+        packages = (school.packages || []).filter((pkg: CoursePackage) => {
+          const pkgTrans = pkg.transmission.toLowerCase();
+          return pkgTrans === "both" || pkgTrans === trans;
+        });
+      }
+    } catch {
+      // non-critical — profile still works without packages
+    }
+  }
+
+  const defaultPackageId =
+    packages.find((p) => p.popular)?.id ?? packages[0]?.id ?? null;
 
   return (
     <div className="min-h-screen bg-gray-50/50 pt-28 pb-12">
@@ -125,9 +161,26 @@ export default async function InstructorProfilePage({ params }: { params: Promis
           <div className="order-2 lg:col-span-1 lg:row-span-2 space-y-6 lg:sticky lg:top-24 lg:h-fit">
             <BookingSidebar
               cityPrice={cityPrice}
+              yardPrice={yardPrice}
               lessonDuration={60}
               instructorId={post.id}
+              autoschoolId={post.autoschool_id}
+              defaultPackageId={defaultPackageId}
             />
+            {packages.length > 0 && post.autoschool_id && (
+              <InstructorPackagesCard
+                packages={packages}
+                instructorId={post.id}
+                autoschoolId={post.autoschool_id}
+                post={{
+                  transmission: post.transmission,
+                  automatic_city_price: post.automatic_city_price,
+                  manual_city_price: post.manual_city_price,
+                  automatic_yard_price: post.automatic_yard_price,
+                  manual_yard_price: post.manual_yard_price,
+                }}
+              />
+            )}
             <LocationCard
               location={cityLocation}
               googleMapsUrl={post.google_maps_url}

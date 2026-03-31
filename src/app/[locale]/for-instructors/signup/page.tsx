@@ -54,6 +54,7 @@ const SignupPage = () => {
     vehicleBrand: "",
     vehicleYear: new Date().getFullYear(),
     transmission: "",
+    allowedMode: "",
     vehiclePhotos: [] as File[],
     instructorLicense: [] as File[],
     professionalCertificate: null as File | null,
@@ -197,6 +198,7 @@ const SignupPage = () => {
       if (!formData.vehicleRegistration) newErrors.vehicleRegistration = t("signup.registrationRequired");
       if (!formData.vehicleYear) newErrors.vehicleYear = t("signup.yearRequired");
       if (!formData.transmission) newErrors.transmission = t("signup.transmissionRequired");
+      if (!formData.allowedMode) newErrors.allowedMode = t("signup.allowedModeRequired");
       
       // Registration Regex (XX-123-XX)
       const regRegex = /^[A-Z]{2}-\d{3}-[A-Z]{2}$/;
@@ -263,6 +265,7 @@ const SignupPage = () => {
     console.log("  Vehicle Registration:", formData.vehicleRegistration);
     console.log("  Vehicle Year:", formData.vehicleYear);
     console.log("  Transmission:", formData.transmission);
+    console.log("  Allowed Mode:", formData.allowedMode);
     console.log("  Vehicle Photos:", formData.vehiclePhotos?.length || 0, "file(s)");
     if (formData.vehiclePhotos?.length > 0) {
       formData.vehiclePhotos.forEach((file: File, index: number) => {
@@ -387,6 +390,7 @@ const SignupPage = () => {
       submitData.append("vehicleRegistration", formData.vehicleRegistration);
       submitData.append("vehicleYear", formData.vehicleYear.toString());
       submitData.append("transmission", formData.transmission);
+      submitData.append("allowedMode", formData.allowedMode);
 
       if (inviteId) {
         submitData.append("inviteId", inviteId);

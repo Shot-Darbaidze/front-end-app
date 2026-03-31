@@ -1,14 +1,15 @@
 "use client";
 
-import { Users, Wallet, Package } from "lucide-react";
+import { Users, Wallet, Package, DollarSign } from "lucide-react";
 
-export const AUTOSCHOOL_TAB_IDS = ["members", "finances", "packages"] as const;
+export const AUTOSCHOOL_TAB_IDS = ["members", "finances", "packages", "pricing"] as const;
 export type AutoschoolTabId = (typeof AUTOSCHOOL_TAB_IDS)[number];
 
 const TAB_CONFIG: Record<AutoschoolTabId, { icon: typeof Users; labelEn: string; labelKa: string }> = {
-  members:  { icon: Users,   labelEn: "Members",  labelKa: "წევრები" },
-  finances: { icon: Wallet,  labelEn: "Finances",  labelKa: "ფინანსები" },
-  packages: { icon: Package, labelEn: "Packages",  labelKa: "პაკეტები" },
+  members:  { icon: Users,       labelEn: "Members",  labelKa: "წევრები" },
+  finances: { icon: Wallet,      labelEn: "Finances", labelKa: "ფინანსები" },
+  packages: { icon: Package,     labelEn: "Packages", labelKa: "პაკეტები" },
+  pricing:  { icon: DollarSign,  labelEn: "Pricing",  labelKa: "ფასები" },
 };
 
 interface AutoschoolSidebarNavProps {
