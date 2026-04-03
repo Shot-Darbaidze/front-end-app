@@ -18,6 +18,9 @@ export interface CoursePackage {
   lessons: number;
   percentage: number;
   popular: boolean;
+  is_active?: boolean;
+  has_booked_lessons?: boolean;
+  can_delete?: boolean;
   description?: string | null;
   /** Lesson mode: "city" or "yard" */
   mode: string;
@@ -55,6 +58,7 @@ export interface SchoolInstructor {
   yard_price?: number | null;
   instructor_type: "independent" | "employee";
   status: string;
+  has_upcoming_lessons?: boolean;
 }
 
 export interface AutoschoolDetail {
@@ -350,9 +354,21 @@ export interface CoursePackageUpdateInput {
   lessons?: number;
   percentage?: number;
   popular?: boolean;
+  is_active?: boolean;
   description?: string | null;
   mode?: string;
   transmission?: string;
+}
+
+export async function getAutoschoolPackagesForAdmin(
+  schoolId: string,
+  token: string,
+): Promise<CoursePackage[]> {
+  return apiFetch<CoursePackage[]>(
+    `/api/autoschools/${schoolId}/packages`,
+    {},
+    token,
+  );
 }
 
 export async function createPackage(
@@ -412,6 +428,21 @@ export interface AutoschoolInstructorFinances {
   total_earned: number;
   available_to_withdraw: number;
   pending_release: number;
+  has_booked_lessons: boolean;
+}
+
+export interface AutoschoolFinanceBooking {
+  id: string;
+  post_id: string;
+  instructor_name?: string | null;
+  start_time_utc: string;
+  duration_minutes: number;
+  status: string;
+  withdrawn: boolean;
+  price: number;
+  package_name_snapshot?: string | null;
+  package_percentage_snapshot?: number | null;
+  pre_discount_price?: number | null;
 }
 
 export interface AutoschoolFinancesData {
@@ -420,6 +451,7 @@ export interface AutoschoolFinancesData {
   available_to_withdraw: number;
   pending_release: number;
   instructors: AutoschoolInstructorFinances[];
+  bookings: AutoschoolFinanceBooking[];
 }
 
 export async function getAutoschoolFinances(
@@ -428,7 +460,7 @@ export async function getAutoschoolFinances(
 ): Promise<AutoschoolFinancesData> {
   return apiFetch<AutoschoolFinancesData>(
     `/api/autoschools/${schoolId}/finances`,
-    {},
+    { cache: "no-store" },
     token,
   );
 }

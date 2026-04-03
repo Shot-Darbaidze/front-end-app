@@ -7,6 +7,7 @@ import {
   createPackage,
   updatePackage,
   deletePackage,
+  getAutoschoolPackagesForAdmin,
   getAutoschool,
   type CoursePackage,
   type CoursePackageCreateInput,
@@ -14,7 +15,7 @@ import {
 } from "@/services/autoschoolService";
 import {
   Plus, Pencil, Trash2, Star, X, AlertCircle, CheckCircle,
-  Package, Percent, MapPin, SquareParking, Car,
+  Package, Percent, MapPin, SquareParking, Car, Power,
 } from "lucide-react";
 import {
   applyPackagePercentage,
@@ -507,17 +508,25 @@ export function PackageCard({
   pkg,
   pricing,
   onEdit,
+  onToggleActive,
   onDelete,
+  isTogglingActive,
   isDeleting,
   language,
 }: {
   pkg: CoursePackage;
   pricing: PackagePricingSource | null;
   onEdit: () => void;
+  onToggleActive: () => void;
   onDelete: () => void;
+  isTogglingActive: boolean;
   isDeleting: boolean;
   language: string;
 }) {
+  const isActive = pkg.is_active ?? true;
+  const hasBookedLessons = pkg.has_booked_lessons ?? false;
+  const canDelete = pkg.can_delete ?? !hasBookedLessons;
+
   // Derive computed price for display
   const lessons = pkg.lessons;
   const pct = Number(pkg.percentage);
@@ -541,7 +550,9 @@ export function PackageCard({
   const ModeIcon = pkg.mode === "yard" ? SquareParking : MapPin;
 
   return (
-    <div className="relative bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">
+    <div className={`relative rounded-2xl border p-4 sm:p-5 ${
+      isActive ? "bg-white border-slate-200" : "bg-slate-50/70 border-slate-300"
+    }`}>
       {pkg.popular && (
         <div className="absolute -top-2 left-4">
           <span className="bg-gradient-to-r from-[#F03D3D] to-[#e04545] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
@@ -552,7 +563,19 @@ export function PackageCard({
       )}
 
       <div className="mt-1 space-y-2">
-        <h4 className="font-bold text-slate-900 truncate">{pkg.name}</h4>
+        <div className="flex flex-wrap items-center gap-2">
+          <h4 className="font-bold text-slate-900 truncate">{pkg.name}</h4>
+          {!isActive && (
+            <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+              {language === "ka" ? "არააქტიური" : "Inactive"}
+            </span>
+          )}
+          {hasBookedLessons && (
+            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+              {language === "ka" ? "დაჯავშნილი გაკვეთილები" : "Booked lessons"}
+            </span>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm text-slate-600">
           <span className="flex items-center gap-1">
             <Package className="w-3.5 h-3.5 text-slate-400" />
@@ -602,15 +625,39 @@ export function PackageCard({
           {language === "ka" ? "რედაქტირება" : "Edit"}
         </button>
         <button
-          onClick={onDelete}
-          disabled={isDeleting}
-          className="flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-40 sm:justify-start sm:py-1"
+          onClick={onToggleActive}
+          disabled={isTogglingActive}
+          className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition-colors disabled:opacity-40 sm:justify-start sm:py-1 ${
+            isActive
+              ? "text-amber-600 hover:bg-amber-50"
+              : "text-emerald-600 hover:bg-emerald-50"
+          }`}
         >
-          <Trash2 className="w-3.5 h-3.5" />
-          {isDeleting
-            ? language === "ka" ? "წაშლა..." : "Deleting..."
-            : language === "ka" ? "წაშლა" : "Delete"}
+          <Power className="w-3.5 h-3.5" />
+          {isTogglingActive
+            ? language === "ka" ? "განახლება..." : "Updating..."
+            : isActive
+            ? language === "ka" ? "დეაქტივაცია" : "Deactivate"
+            : language === "ka" ? "აქტივაცია" : "Activate"}
         </button>
+        {canDelete ? (
+          <button
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-40 sm:justify-start sm:py-1"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            {isDeleting
+              ? language === "ka" ? "წაშლა..." : "Deleting..."
+              : language === "ka" ? "წაშლა" : "Delete"}
+          </button>
+        ) : (
+          <span className="flex items-center justify-center rounded-lg px-2 py-2 text-[11px] font-medium text-amber-700 sm:justify-start sm:py-1">
+            {language === "ka"
+              ? "წაშლა განიბლოკება როცა დაჯავშნილი გაკვეთილები დასრულდება"
+              : "Delete unlocks after booked lessons are completed or cancelled"}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -629,6 +676,7 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -636,15 +684,23 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
     try {
       setIsLoading(true);
       setError(null);
-      const s = await getAutoschool(schoolId);
+      const token = await getToken();
+      if (!token) {
+        setError(language === "ka" ? "ავტორიზაცია საჭიროა." : "Authorization is required.");
+        return;
+      }
+      const [s, packageRows] = await Promise.all([
+        getAutoschool(schoolId),
+        getAutoschoolPackagesForAdmin(schoolId, token),
+      ]);
       setSchool(s);
-      setPackages(s?.packages ?? []);
+      setPackages(packageRows);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load packages.");
     } finally {
       setIsLoading(false);
     }
-  }, [schoolId]);
+  }, [getToken, language, schoolId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -721,6 +777,25 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
     }
   };
 
+  const handleToggleActive = async (pkg: CoursePackage) => {
+    try {
+      setTogglingId(pkg.id);
+      const token = await getToken();
+      if (!token) return;
+      const updated = await updatePackage(schoolId, pkg.id, { is_active: !(pkg.is_active ?? true) }, token);
+      setPackages((prev) => prev.map((item) => (item.id === pkg.id ? updated : item)));
+      flash(
+        (pkg.is_active ?? true)
+          ? language === "ka" ? "პაკეტი დეაქტივირდა" : "Package deactivated."
+          : language === "ka" ? "პაკეტი გააქტიურდა" : "Package activated."
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update package.");
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const pkgToForm = (pkg: CoursePackage): PackageFormState => ({
     name: pkg.name,
     lessons: String(pkg.lessons),
@@ -753,6 +828,11 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
           </h2>
           <p className="text-sm text-slate-500 mt-0.5">
             {packages.length} {language === "ka" ? "პაკეტი" : "package(s)"}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            {language === "ka"
+              ? "დაჯავშნილი გაკვეთილების მქონე პაკეტები მხოლოდ დეაქტიურდება, ხოლო წაშლა შემდეგ გახდება შესაძლებელი."
+              : "Packages with booked lessons can only be deactivated. Delete becomes available after those lessons finish."}
           </p>
         </div>
         {!showAddForm && (
@@ -838,7 +918,9 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
                 pkg={pkg}
                 pricing={school}
                 onEdit={() => { setEditingId(pkg.id); setShowAddForm(false); }}
+                onToggleActive={() => handleToggleActive(pkg)}
                 onDelete={() => handleDelete(pkg)}
+                isTogglingActive={togglingId === pkg.id}
                 isDeleting={deletingId === pkg.id}
                 language={language}
               />

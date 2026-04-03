@@ -9,6 +9,10 @@ export interface BookingResponse {
     price?: number | null;
     instructor_name?: string | null;
     instructor_image?: string | null;
+    // Package discount info (populated when booked via a package)
+    package_name_snapshot?: string | null;
+    package_percentage_snapshot?: number | null;
+    pre_discount_price?: number | null;
 }
 
 export type CancellationReason =
@@ -30,11 +34,15 @@ export interface CancellationResponse {
     original_start_time_utc: string;
     original_duration_minutes: number;
     original_mode: "city" | "yard" | null;
-    original_price: number | null;
+    original_price: number | null;    // discounted price at booking time
     original_post_id: string;
     cancelled_at: string;
     instructor_name?: string | null;
     instructor_image?: string | null;
+    // Package discount info (populated when booked via a package)
+    package_name_snapshot?: string | null;
+    package_percentage_snapshot?: number | null;
+    pre_discount_price?: number | null;
 }
 
 export type TabId = "upcoming" | "past" | "cancelled";

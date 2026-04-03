@@ -59,6 +59,7 @@ export default function InstructorPackagesSection({ post }: InstructorPackagesSe
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -125,6 +126,11 @@ export default function InstructorPackagesSection({ post }: InstructorPackagesSe
           </h2>
           <p className="text-sm text-slate-500 mt-0.5">
             {packages.length} {language === "ka" ? "პაკეტი" : "package(s)"}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            {language === "ka"
+              ? "დაჯავშნილი გაკვეთილების მქონე პაკეტები ჯერ დეაქტიურდება და მხოლოდ შემდეგ გახდება წაშლადი."
+              : "Packages with booked lessons can only be deactivated first. Delete becomes available after those lessons finish."}
           </p>
         </div>
         {!showAddForm && (
@@ -259,6 +265,26 @@ export default function InstructorPackagesSection({ post }: InstructorPackagesSe
                   setEditingId(pkg.id);
                   setShowAddForm(false);
                 }}
+                onToggleActive={async () => {
+                  try {
+                    setTogglingId(pkg.id);
+                    const token = await getToken();
+                    if (!token) {
+                      return;
+                    }
+                    const updated = await updateMyPackage(pkg.id, { is_active: !(pkg.is_active ?? true) }, token);
+                    setPackages((prev) => prev.map((item) => (item.id === pkg.id ? updated : item)));
+                    flash(
+                      (pkg.is_active ?? true)
+                        ? language === "ka" ? "პაკეტი დეაქტივირდა" : "Package deactivated."
+                        : language === "ka" ? "პაკეტი გააქტიურდა" : "Package activated."
+                    );
+                  } catch (cause) {
+                    setError(cause instanceof Error ? cause.message : "Failed to update package.");
+                  } finally {
+                    setTogglingId(null);
+                  }
+                }}
                 onDelete={async () => {
                   if (!window.confirm(
                     language === "ka" ? `წაშლით "${pkg.name}" პაკეტს?` : `Delete package "${pkg.name}"?`,
@@ -280,6 +306,7 @@ export default function InstructorPackagesSection({ post }: InstructorPackagesSe
                     setDeletingId(null);
                   }
                 }}
+                isTogglingActive={togglingId === pkg.id}
                 isDeleting={deletingId === pkg.id}
                 language={language}
               />

@@ -32,6 +32,9 @@ type MetricBooking = {
   status: string;
   withdrawn: boolean;
   price: number;
+  package_name_snapshot?: string | null;
+  package_percentage_snapshot?: number | null;
+  pre_discount_price?: number | null;
 };
 
 type MetricResponse = {
@@ -80,7 +83,6 @@ export default function FinancesPage() {
   const [draftRange, setDraftRange] = useState<DateRange>({ fromDate: "", toDate: "" });
   const [appliedRange, setAppliedRange] = useState<DateRange>({ fromDate: "", toDate: "" });
 
-  const todayDateString = new Date().toISOString().slice(0, 10);
   const oldestAllowedDateString = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
@@ -280,8 +282,8 @@ export default function FinancesPage() {
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Finances</h1>
                 <p className="mt-2 text-gray-600">
                   {isEmployee
-                    ? "Use calendar controls below (max lookback is last 90 days). Review your lesson earnings and release status."
-                    : "Use calendar controls below (max lookback is last 90 days). Withdraw earnings from lessons completed after the 24h grace."}
+                    ? "Use calendar controls below (max lookback is last 90 days). Pending Release includes upcoming booked lessons by default."
+                    : "Use calendar controls below (max lookback is last 90 days). Pending Release includes upcoming booked lessons by default, while withdrawals unlock after the 24h grace."}
                 </p>
               </div>
 
@@ -312,7 +314,6 @@ export default function FinancesPage() {
                   value={draftRange.fromDate}
                   onChange={(e) => setDraftRange((prev) => ({ ...prev, fromDate: e.target.value }))}
                   min={oldestAllowedDateString}
-                  max={todayDateString}
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                 />
               </label>
@@ -324,7 +325,6 @@ export default function FinancesPage() {
                   value={draftRange.toDate}
                   onChange={(e) => setDraftRange((prev) => ({ ...prev, toDate: e.target.value }))}
                   min={oldestAllowedDateString}
-                  max={todayDateString}
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                 />
               </label>
@@ -348,7 +348,7 @@ export default function FinancesPage() {
               <p className="text-xs text-gray-500 lg:text-right">
                 {appliedRange.fromDate || appliedRange.toDate
                   ? `Using ${appliedRange.fromDate || "..."} to ${appliedRange.toDate || "..."}`
-                  : "Using default last-90-days window"}
+                  : "Using default last-90-days lookback plus upcoming booked lessons"}
               </p>
             </div>
 
@@ -399,6 +399,7 @@ export default function FinancesPage() {
                       <th className="py-2 pr-4 font-medium">Lesson End</th>
                       <th className="py-2 pr-4 font-medium">Duration</th>
                       <th className="py-2 pr-4 font-medium">Status</th>
+                      <th className="py-2 pr-4 font-medium">Package</th>
                       <th className="py-2 pr-4 font-medium">Amount</th>
                     </tr>
                   </thead>
@@ -413,7 +414,30 @@ export default function FinancesPage() {
                           <td className="py-3 pr-4">{formatDateTime(endDate)}</td>
                           <td className="py-3 pr-4">{booking.duration_minutes} min</td>
                           <td className="py-3 pr-4 capitalize">{booking.status}</td>
-                          <td className="py-3 pr-4 font-semibold">{currencyFormatter.format(booking.price)}</td>
+                          <td className="py-3 pr-4">
+                            {booking.package_name_snapshot ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
+                                📦 {booking.package_name_snapshot}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 pr-4">
+                            {booking.package_percentage_snapshot && booking.pre_discount_price ? (
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs text-gray-400 line-through">{currencyFormatter.format(booking.pre_discount_price)}</span>
+                                  <span className="font-semibold text-emerald-700">{currencyFormatter.format(booking.price)}</span>
+                                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full leading-none">
+                                    -{booking.package_percentage_snapshot.toFixed(0)}%
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="font-semibold">{currencyFormatter.format(booking.price)}</span>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}

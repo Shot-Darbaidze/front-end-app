@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   AlertCircle, Calendar as CalendarIcon, CheckCircle,
-  ChevronLeft, Clock, Loader2, MapPin, SquareParking,
+  ChevronLeft, Clock, Loader2, MapPin, SquareParking, Timer,
 } from "lucide-react";
 import AvailableTimeSlotsCard, { type BookingSlot } from "@/components/autoschool-profile/AvailableTimeSlotsCard";
 import BookingCalendarCard from "@/components/autoschool-profile/BookingCalendarCard";
@@ -14,7 +14,6 @@ import BookingPricingCard, { type BookingOption } from "@/components/autoschool-
 import InstructorSelectionCard, { type InstructorOption } from "@/components/autoschool-profile/InstructorSelectionCard";
 import Button from "@/components/ui/Button";
 import {
-  applyPackagePercentage,
   formatPackagePrice,
   formatPackageAdjustment,
   getPackagePriceBreakdown,
@@ -46,6 +45,11 @@ const getDaysInMonth = (date: Date) => {
   const days = new Date(y, mo + 1, 0).getDate();
   const fd = new Date(y, mo, 1).getDay();
   return { days, startDay: fd === 0 ? 6 : fd - 1 };
+};
+
+const startOfCurrentMonth = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1);
 };
 
 // ── types ─────────────────────────────────────────────────────────────────────
@@ -81,12 +85,27 @@ interface RawSlot {
   status: string;
 }
 
+interface StoredReservationContext {
+  instructorId: string;
+  packageId: string | null;
+  mode: LessonMode;
+  reservedUntilUtc: string;
+}
+
+type SelectedSlotDetail = {
+  id: string;
+  date: string;
+  time: string;
+  durationMinutes: number;
+};
+
 // ── page ──────────────────────────────────────────────────────────────────────
 
 export default function AutoschoolBookingPage({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const { locale, id } = use(params);
   const { getToken } = useAuth();
   const searchParams = useSearchParams();
+  const reservationStorageKey = `autoschool-booking-reservation:${id}`;
 
   const initialLessonMode: LessonMode = searchParams.get("mode") === "yard" ? "yard" : "city";
   const initialPackageId = searchParams.get("package") ?? "";
@@ -105,23 +124,71 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
   const [selectedPackageId, setSelectedPackageId] = useState(initialPackageId);
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
   const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
+  const [selectedSlotMeta, setSelectedSlotMeta] = useState<Record<string, Omit<SelectedSlotDetail, "id">>>({});
 
   // ── slots ──
   const [slotsByDate, setSlotsByDate] = useState<Record<string, BookingSlot[]>>({});
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
+  const [currentMonth, setCurrentMonth] = useState(() => startOfCurrentMonth());
   const [viewingDate, setViewingDate] = useState<string | null>(null);
 
   // ── flow ──
   const [step, setStep] = useState(1);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [reserving, setReserving] = useState(false);
+  const [reservedUntilUtc, setReservedUntilUtc] = useState<string | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [reservationExpired, setReservationExpired] = useState(false);
   const [confirmedSlotIds, setConfirmedSlotIds] = useState<string[]>([]);
 
   const hasMountedRef = useRef(false);
+  const reservedSlotIdsRef = useRef<string[]>([]);
+  const restoredReservationContextRef = useRef(false);
+
+  const clearStoredReservation = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.sessionStorage.removeItem(reservationStorageKey);
+  }, [reservationStorageKey]);
+
+  const readStoredReservation = useCallback((): StoredReservationContext | null => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const rawValue = window.sessionStorage.getItem(reservationStorageKey);
+    if (!rawValue) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(rawValue) as StoredReservationContext;
+      if (!parsed.instructorId || !parsed.mode || !parsed.reservedUntilUtc) {
+        clearStoredReservation();
+        return null;
+      }
+
+      if (new Date(parsed.reservedUntilUtc).getTime() <= Date.now()) {
+        clearStoredReservation();
+        return null;
+      }
+
+      return parsed;
+    } catch {
+      clearStoredReservation();
+      return null;
+    }
+  }, [clearStoredReservation, reservationStorageKey]);
+
+  const writeStoredReservation = useCallback((value: StoredReservationContext) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.sessionStorage.setItem(reservationStorageKey, JSON.stringify(value));
+  }, [reservationStorageKey]);
 
   // ── fetch school ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -183,11 +250,14 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
     setSlotsByDate({});
     setViewingDate(null);
     setSelectedSlotIds([]);
+    setSelectedSlotMeta({});
     try {
       const res = await fetch(`${API_BASE}/api/bookings/by-post/${postId}?status=available&limit=500`);
       const rows: RawSlot[] = await res.json();
+      const now = new Date();
+      const futureRows = rows.filter((row) => new Date(row.start_time_utc) > now);
       const grouped: Record<string, BookingSlot[]> = {};
-      for (const row of rows) {
+      for (const row of futureRows) {
         const date = toTbilisiDate(row.start_time_utc);
         const time = toTbilisiTime(row.start_time_utc);
         if (!grouped[date]) grouped[date] = [];
@@ -202,6 +272,8 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
         setViewingDate(firstDate);
         const d = new Date(firstDate + "T00:00:00");
         setCurrentMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+      } else {
+        setCurrentMonth(startOfCurrentMonth());
       }
     } catch {
       // silently fail
@@ -214,11 +286,140 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
     if (selectedInstructorId) fetchSlots(selectedInstructorId);
   }, [selectedInstructorId, fetchSlots]);
 
+  useEffect(() => {
+    if (loadingSchool || restoredReservationContextRef.current) {
+      return;
+    }
+
+    restoredReservationContextRef.current = true;
+    const storedReservation = readStoredReservation();
+    if (!storedReservation) {
+      return;
+    }
+
+    setLessonMode(storedReservation.mode);
+
+    if (
+      storedReservation.packageId &&
+      rawPackages.some((pkg) => pkg.id === storedReservation.packageId)
+    ) {
+      setSelectedPackageId(storedReservation.packageId);
+    }
+
+    if (instructors.some((instructor) => instructor.id === storedReservation.instructorId)) {
+      setSelectedInstructorId(storedReservation.instructorId);
+    } else {
+      clearStoredReservation();
+    }
+  }, [clearStoredReservation, instructors, loadingSchool, rawPackages, readStoredReservation]);
+
+  useEffect(() => {
+    if (loadingSchool || step !== 1 || !selectedInstructorId) {
+      return;
+    }
+
+    const storedReservation = readStoredReservation();
+    if (!storedReservation || storedReservation.instructorId !== selectedInstructorId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const resumeReservation = async () => {
+      try {
+        const token = await getToken();
+        if (!token) {
+          return;
+        }
+
+        const response = await fetch(
+          `${API_BASE}/api/bookings/slots/reserved/mine?post_id=${selectedInstructorId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          },
+        );
+
+        if (!response.ok) {
+          clearStoredReservation();
+          return;
+        }
+
+        const data = await response.json();
+        if (!data.reserved || data.reserved.length === 0 || Number(data.ttl_seconds ?? 0) <= 0) {
+          clearStoredReservation();
+          return;
+        }
+
+        const restoredIds = data.reserved.map((slot: { id: string }) => slot.id);
+        const restoredMeta = Object.fromEntries(
+          data.reserved.map((slot: RawSlot & { id: string }) => {
+            const date = toTbilisiDate(slot.start_time_utc);
+            const time = toTbilisiTime(slot.start_time_utc);
+            return [
+              slot.id,
+              {
+                date,
+                time,
+                durationMinutes: slot.duration_minutes,
+              },
+            ];
+          }),
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setLessonMode(storedReservation.mode);
+        setSelectedPackageId(storedReservation.packageId ?? "");
+        setSelectedSlotIds(restoredIds);
+        setSelectedSlotMeta(restoredMeta);
+        reservedSlotIdsRef.current = restoredIds;
+        setReservedUntilUtc(data.reserved_until_utc ?? storedReservation.reservedUntilUtc);
+        setSecondsLeft(Number(data.ttl_seconds ?? 0));
+        setReservationExpired(false);
+        setViewingDate(restoredMeta[restoredIds[0]]?.date ?? null);
+        setStep(2);
+      } catch {
+        // Non-critical — user can start a fresh reservation.
+      }
+    };
+
+    void resumeReservation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clearStoredReservation, getToken, loadingSchool, readStoredReservation, selectedInstructorId, step]);
+
   // Scroll to top on step change
   useEffect(() => {
     if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
+
+  useEffect(() => {
+    if (!reservedUntilUtc) {
+      return;
+    }
+
+    const tick = () => {
+      const diff = Math.max(0, Math.floor((new Date(reservedUntilUtc).getTime() - Date.now()) / 1000));
+      setSecondsLeft(diff);
+
+      if (diff <= 0) {
+        clearStoredReservation();
+        reservedSlotIdsRef.current = [];
+        setReservedUntilUtc(null);
+        setReservationExpired(true);
+      }
+    };
+
+    tick();
+    const intervalId = window.setInterval(tick, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [clearStoredReservation, reservedUntilUtc]);
 
   // ── derived ───────────────────────────────────────────────────────────────
   const selectedPackage = useMemo(
@@ -235,6 +436,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
     if (lessonMode !== packageMode) {
       setLessonMode(packageMode);
       setSelectedSlotIds([]);
+      setSelectedSlotMeta({});
       setBookingError(null);
     }
   }, [selectedPackage, lessonMode]);
@@ -292,6 +494,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
     if (!filteredInstructors.find((i) => i.id === selectedInstructorId)) {
       setSelectedInstructorId(filteredInstructors[0].id);
       setSelectedSlotIds([]);
+      setSelectedSlotMeta({});
       setBookingError(null);
     }
   }, [filteredInstructors]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -304,8 +507,27 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
   );
 
   const selectedSlotDetails = useMemo(
-    () => Object.values(slotsByDate).flat().filter((s) => selectedSlotIds.includes(s.id)),
-    [slotsByDate, selectedSlotIds]
+    () => selectedSlotIds
+      .map((slotId) => {
+        const meta = selectedSlotMeta[slotId];
+        if (!meta) {
+          return null;
+        }
+
+        return {
+          id: slotId,
+          date: meta.date,
+          time: meta.time,
+          durationMinutes: meta.durationMinutes,
+        };
+      })
+      .filter((slot): slot is SelectedSlotDetail => slot !== null)
+      .sort((left, right) => {
+        const leftKey = `${left.date}T${left.time}`;
+        const rightKey = `${right.date}T${right.time}`;
+        return leftKey.localeCompare(rightKey);
+      }),
+    [selectedSlotIds, selectedSlotMeta]
   );
 
   // Price computation
@@ -360,6 +582,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
       : undefined;
 
   const { days, startDay } = getDaysInMonth(currentMonth);
+  const minimumMonth = useMemo(() => startOfCurrentMonth(), []);
   const isDateAvailable = (day: number) => {
     const ds = `${currentMonth.getFullYear()}-${pad(currentMonth.getMonth() + 1)}-${pad(day)}`;
     return Boolean(slotsByDate[ds]?.length);
@@ -379,12 +602,14 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
       setSelectedPackageId("");
     }
     setSelectedSlotIds([]);
+    setSelectedSlotMeta({});
     setBookingError(null);
   };
 
   const handleInstructorSelect = (instId: string) => {
     setSelectedInstructorId(instId);
     setSelectedSlotIds([]);
+    setSelectedSlotMeta({});
     setBookingError(null);
   };
 
@@ -395,7 +620,111 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
     setBookingError(null);
   };
 
-  const handleContinueToConfirm = () => {
+  const releaseReservation = useCallback(async () => {
+    const reservedSlotIds = reservedSlotIdsRef.current;
+    clearStoredReservation();
+
+    if (reservedSlotIds.length > 0) {
+      try {
+        const token = await getToken();
+        if (token) {
+          await fetch(`${API_BASE}/api/bookings/slots/release`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ slot_ids: reservedSlotIds }),
+            keepalive: true,
+          });
+        }
+      } catch {
+        // Best effort only — server-side expiry will clean this up if release fails.
+      }
+    }
+
+    reservedSlotIdsRef.current = [];
+    setReservedUntilUtc(null);
+    setSecondsLeft(0);
+  }, [clearStoredReservation, getToken]);
+
+  const reserveSelectedSlots = async () => {
+    setReserving(true);
+    setBookingError(null);
+    setReservationExpired(false);
+
+    try {
+      const token = await getToken();
+      if (!token) {
+        setBookingError("გთხოვთ შეხვიდეთ სისტემაში.");
+        return;
+      }
+
+      const reserveRes = await fetch(`${API_BASE}/api/bookings/slots/reserve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ slot_ids: selectedSlotIds }),
+      });
+
+      const reserveData = await reserveRes.json().catch(() => ({}));
+      if (!reserveRes.ok) {
+        setBookingError(reserveData.detail ?? "სლოტების რეზერვაცია ვერ მოხერხდა.");
+        return;
+      }
+
+      const reservedRows = Array.isArray(reserveData.reserved) ? reserveData.reserved : [];
+      const failedSlotIds = Array.isArray(reserveData.failed_slot_ids) ? reserveData.failed_slot_ids : [];
+
+      if (failedSlotIds.length > 0) {
+        const reservedIds = reservedRows.map((row: { id: string }) => row.id);
+        if (reservedIds.length > 0) {
+          await fetch(`${API_BASE}/api/bookings/slots/release`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ slot_ids: reservedIds }),
+          }).catch(() => undefined);
+        }
+
+        const failedSet = new Set<string>(failedSlotIds);
+        setSelectedSlotIds((prev) => prev.filter((slotId) => !failedSet.has(slotId)));
+        setSelectedSlotMeta((prev) => {
+          const next = { ...prev };
+          for (const failedSlotId of failedSlotIds) {
+            delete next[failedSlotId];
+          }
+          return next;
+        });
+        setBookingError(
+          selectedPackage
+            ? "არჩეული სლოტებიდან ნაწილი აღარ არის ხელმისაწვდომი. თავიდან აირჩიეთ პაკეტის დროები."
+            : "არჩეული სლოტებიდან ნაწილი აღარ არის ხელმისაწვდომი. გადაამოწმეთ დროები და სცადეთ თავიდან.",
+        );
+        return;
+      }
+
+      const reservedIds = reservedRows.map((row: { id: string }) => row.id);
+      reservedSlotIdsRef.current = reservedIds;
+      setReservedUntilUtc(reserveData.reserved_until_utc ?? null);
+      setSecondsLeft(Number(reserveData.ttl_seconds ?? 0));
+      writeStoredReservation({
+        instructorId: selectedInstructorId,
+        packageId: selectedPackage?.id ?? null,
+        mode: lessonMode,
+        reservedUntilUtc: reserveData.reserved_until_utc ?? new Date(Date.now() + Number(reserveData.ttl_seconds ?? 0) * 1000).toISOString(),
+      });
+      setStep(2);
+    } catch {
+      setBookingError("რეზერვაცია ვერ მოხერხდა. სცადეთ თავიდან.");
+    } finally {
+      setReserving(false);
+    }
+  };
+
+  const handleContinueToConfirm = async () => {
+    if (reserving) {
+      return;
+    }
+
     if (selectedSlotIds.length === 0) {
       setBookingError("აირჩიეთ მინიმუმ ერთი დრო.");
       return;
@@ -405,29 +734,49 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
       return;
     }
     setBookingError(null);
-    setStep(2);
+    await reserveSelectedSlots();
+  };
+
+  const handleBackToSelection = async () => {
+    await releaseReservation();
+    setBookingError(null);
+    setReservationExpired(false);
+    setSelectedSlotIds([]);
+    setSelectedSlotMeta({});
+    setStep(1);
+    if (selectedInstructorId) {
+      await fetchSlots(selectedInstructorId);
+    }
+  };
+
+  const handleReservationExpired = async () => {
+    clearStoredReservation();
+    reservedSlotIdsRef.current = [];
+    setReservedUntilUtc(null);
+    setSecondsLeft(0);
+    setReservationExpired(false);
+    setBookingError(null);
+    setSelectedSlotIds([]);
+    setSelectedSlotMeta({});
+    setStep(1);
+    if (selectedInstructorId) {
+      await fetchSlots(selectedInstructorId);
+    }
   };
 
   const handleConfirm = async () => {
+    if (secondsLeft <= 0 || !reservedUntilUtc) {
+      clearStoredReservation();
+      setReservationExpired(true);
+      return;
+    }
+
     setSubmitting(true);
     setBookingError(null);
     try {
       const token = await getToken();
       if (!token) { setBookingError("გთხოვთ შეხვიდეთ სისტემაში."); return; }
 
-      // 1. Reserve
-      const reserveRes = await fetch(`${API_BASE}/api/bookings/slots/reserve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ slot_ids: selectedSlotIds }),
-      });
-      if (!reserveRes.ok) {
-        const err = await reserveRes.json().catch(() => ({}));
-        setBookingError(err.detail ?? "სლოტების დარეზერვება ვერ მოხერხდა.");
-        return;
-      }
-
-      // 2. Confirm
       const confirmBody: Record<string, unknown> = {
         slot_ids: selectedSlotIds,
         mode: lessonMode,
@@ -443,10 +792,23 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
       });
       if (!confirmRes.ok) {
         const err = await confirmRes.json().catch(() => ({}));
+        const detail = typeof err.detail === "string" ? err.detail.toLowerCase() : "";
+        if (detail.includes("expired") || detail.includes("reserved slot not found")) {
+          clearStoredReservation();
+          reservedSlotIdsRef.current = [];
+          setReservedUntilUtc(null);
+          setSecondsLeft(0);
+          setReservationExpired(true);
+          return;
+        }
         setBookingError(err.detail ?? "ჯავშნის დადასტურება ვერ მოხერხდა.");
         return;
       }
 
+      clearStoredReservation();
+      reservedSlotIdsRef.current = [];
+      setReservedUntilUtc(null);
+      setSecondsLeft(0);
       setConfirmedSlotIds(selectedSlotIds);
       setStep(3);
     } catch {
@@ -566,7 +928,12 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
                     <button
                       key={m}
                       type="button"
-                      onClick={() => { setLessonMode(m); setSelectedSlotIds([]); setBookingError(null); }}
+                      onClick={() => {
+                        setLessonMode(m);
+                        setSelectedSlotIds([]);
+                        setSelectedSlotMeta({});
+                        setBookingError(null);
+                      }}
                       className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border font-medium text-sm transition-all ${
                         lessonMode === m
                           ? "border-[#F03D3D] bg-[#F03D3D]/5 text-[#F03D3D]"
@@ -587,7 +954,10 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
                 isDateAvailable={isDateAvailable}
                 isDateSelected={isDateSelected}
                 onDateClick={handleDateClick}
-                onPrevMonth={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
+                onPrevMonth={() => setCurrentMonth((prev) => {
+                  const next = new Date(prev.getFullYear(), prev.getMonth() - 1, 1);
+                  return next < minimumMonth ? minimumMonth : next;
+                })}
                 onNextMonth={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
               />
 
@@ -626,18 +996,38 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
                   selectedOptionPrice={computedTotal ?? undefined}
                   selectedOptionOriginalPrice={selectedOptionOriginalPrice}
                   discountActive={showDiscountBadge ?? false}
-                  onSelectSlot={(slotId) => {
+                  continueDisabled={selectedSlotIds.length === 0 || reserving}
+                  continueLoading={reserving}
+                  continueLoadingLabel="რეზერვაცია..."
+                  onSelectSlot={(slot) => {
+                    if (!viewingDate) {
+                      return;
+                    }
+
                     setSelectedSlotIds((prev) => {
-                      if (prev.includes(slotId)) {
+                      if (prev.includes(slot.id)) {
+                        setSelectedSlotMeta((meta) => {
+                          const next = { ...meta };
+                          delete next[slot.id];
+                          return next;
+                        });
                         setBookingError(null);
-                        return prev.filter((x) => x !== slotId);
+                        return prev.filter((x) => x !== slot.id);
                       }
                       if (selectedPackage && requiredSlots && prev.length >= requiredSlots) {
                         setBookingError(`მაქსიმუმ ${requiredSlots} გაკვეთილის არჩევა შეიძლება.`);
                         return prev;
                       }
+                      setSelectedSlotMeta((meta) => ({
+                        ...meta,
+                        [slot.id]: {
+                          date: viewingDate,
+                          time: slot.time,
+                          durationMinutes: slot.durationMinutes,
+                        },
+                      }));
                       setBookingError(null);
-                      return [...prev, slotId];
+                      return [...prev, slot.id];
                     });
                   }}
                   onContinue={handleContinueToConfirm}
@@ -651,87 +1041,154 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
         {/* ── Step 2: Confirm ── */}
         {step === 2 && (
           <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm space-y-6">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-[#F03D3D]" />
-                ჯავშნის დადასტურება
-              </h2>
-
-              {/* Summary */}
-              <div className="bg-gray-50 rounded-2xl p-5 space-y-3">
-                <Row label="ავტოსკოლა" value={schoolName} />
-                <Row label="ინსტრუქტორი" value={`${selectedInstructor?.name ?? "-"} · ${selectedInstructor?.transmission ?? ""}`} />
-                <Row label="გაკვეთილის ადგილი" value={lessonMode === "city" ? "ქალაქი" : "მოედანი"} />
-                {selectedPackage && (
-                  <Row
-                    label="პაკეტი"
-                    value={
-                      selectedPackage.name +
-                      (formatPackageAdjustment(selectedPackage.percentage)
-                        ? ` · ${formatPackageAdjustment(selectedPackage.percentage)}`
-                        : "")
-                    }
-                  />
-                )}
-                {computedTotal != null && (
-                  <Row
-                    label="სავარაუდო ღირებულება"
-                    value={
-                      selectedPackagePricing && selectedPackagePricing.baseTotalPrice > selectedPackagePricing.discountedTotalPrice
-                        ? (
-                          <span className="inline-flex items-baseline gap-2">
-                            <span className="text-xs text-gray-400 line-through">
-                              ₾{formatPackagePrice(selectedPackagePricing.baseTotalPrice)}
-                            </span>
-                            <span>₾{formatPackagePrice(computedTotal)}</span>
-                          </span>
-                        )
-                        : `₾${formatPackagePrice(computedTotal)}`
-                    }
-                  />
-                )}
-                <div className="pt-1">
-                  <p className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1">
-                    <CalendarIcon className="w-3.5 h-3.5" /> არჩეული დროები ({selectedSlotDetails.length})
-                  </p>
-                  <div className="space-y-1">
-                    {selectedSlotDetails.map((s) => (
-                      <div key={s.id} className="flex items-center gap-2 text-sm text-gray-700 bg-white rounded-lg px-3 py-1.5 border border-gray-100">
-                        <Clock className="w-3 h-3 text-gray-400" />
-                        {formatTimeRange(s.time, s.durationMinutes)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {bookingError && (
-                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3">
-                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-600">{bookingError}</p>
-                </div>
-              )}
-
-              <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  disabled={submitting}
-                  className="text-gray-500 font-medium hover:text-gray-900 transition-colors disabled:opacity-50"
-                >
-                  უკან
-                </button>
-                <Button onClick={handleConfirm} disabled={submitting} className="px-8 relative">
-                  {submitting ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" /> იჯავშნება...
-                    </span>
-                  ) : (
-                    "დაჯავშნა"
-                  )}
+            {reservationExpired ? (
+              <div className="bg-white rounded-3xl border border-red-200 p-8 shadow-sm text-center">
+                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                <h2 className="text-xl font-bold text-gray-900 mb-2">რეზერვაციის ვადა ამოიწურა</h2>
+                <p className="text-gray-500 mb-6">
+                  დროებითი რეზერვაცია ამოიწურა და სლოტები ხელახლა გახდა ხელმისაწვდომი. აირჩიეთ ახალი დროები.
+                </p>
+                <Button onClick={handleReservationExpired} className="px-8">
+                  ახალი დროების არჩევა
                 </Button>
               </div>
-            </div>
+            ) : (
+              <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm space-y-6">
+                {secondsLeft > 0 && (
+                  <div className={`flex items-center justify-between rounded-2xl border p-4 ${
+                    secondsLeft <= 60
+                      ? "bg-red-50 border-red-200"
+                      : secondsLeft <= 180
+                        ? "bg-amber-50 border-amber-200"
+                        : "bg-blue-50 border-blue-200"
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <Timer className={`w-5 h-5 ${
+                        secondsLeft <= 60
+                          ? "text-red-500 animate-pulse"
+                          : secondsLeft <= 180
+                            ? "text-amber-500"
+                            : "text-blue-500"
+                      }`} />
+                      <div>
+                        <p className={`text-sm font-medium ${
+                          secondsLeft <= 60
+                            ? "text-red-800"
+                            : secondsLeft <= 180
+                              ? "text-amber-800"
+                              : "text-blue-800"
+                        }`}>
+                          სლოტები დროებით დაჭერილია თქვენთვის
+                        </p>
+                        <p className={`text-xs ${
+                          secondsLeft <= 60
+                            ? "text-red-600"
+                            : secondsLeft <= 180
+                              ? "text-amber-600"
+                              : "text-blue-600"
+                        }`}>
+                          დაასრულეთ დაჯავშნა დროის ამოწურვამდე.
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`text-2xl font-bold tabular-nums ${
+                      secondsLeft <= 60
+                        ? "text-red-600"
+                        : secondsLeft <= 180
+                          ? "text-amber-600"
+                          : "text-blue-600"
+                    }`}>
+                      {String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:{String(secondsLeft % 60).padStart(2, "0")}
+                    </div>
+                  </div>
+                )}
+
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-[#F03D3D]" />
+                  ჯავშნის დადასტურება
+                </h2>
+
+                <div className="bg-gray-50 rounded-2xl p-5 space-y-3">
+                  <Row label="ავტოსკოლა" value={schoolName} />
+                  <Row label="ინსტრუქტორი" value={`${selectedInstructor?.name ?? "-"} · ${selectedInstructor?.transmission ?? ""}`} />
+                  <Row label="გაკვეთილის ადგილი" value={lessonMode === "city" ? "ქალაქი" : "მოედანი"} />
+                  {selectedPackage && (
+                    <Row
+                      label="პაკეტი"
+                      value={
+                        selectedPackage.name +
+                        (formatPackageAdjustment(selectedPackage.percentage)
+                          ? ` · ${formatPackageAdjustment(selectedPackage.percentage)}`
+                          : "")
+                      }
+                    />
+                  )}
+                  {computedTotal != null && (
+                    <Row
+                      label="სავარაუდო ღირებულება"
+                      value={
+                        selectedPackagePricing && selectedPackagePricing.baseTotalPrice > selectedPackagePricing.discountedTotalPrice
+                          ? (
+                            <span className="inline-flex items-baseline gap-2">
+                              <span className="text-xs text-gray-400 line-through">
+                                ₾{formatPackagePrice(selectedPackagePricing.baseTotalPrice)}
+                              </span>
+                              <span>₾{formatPackagePrice(computedTotal)}</span>
+                            </span>
+                          )
+                          : `₾${formatPackagePrice(computedTotal)}`
+                      }
+                    />
+                  )}
+                  <div className="pt-1">
+                    <p className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1">
+                      <CalendarIcon className="w-3.5 h-3.5" /> არჩეული დროები ({selectedSlotDetails.length})
+                    </p>
+                    <div className="space-y-1">
+                      {selectedSlotDetails.map((slot) => (
+                        <div key={slot.id} className="flex items-center gap-2 text-sm text-gray-700 bg-white rounded-lg px-3 py-1.5 border border-gray-100">
+                          <Clock className="w-3 h-3 text-gray-400" />
+                          {new Date(`${slot.date}T00:00:00`).toLocaleDateString(locale === "ka" ? "ka-GE" : "en-US", {
+                            weekday: "long",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                          <span className="text-gray-300">·</span>
+                          {formatTimeRange(slot.time, slot.durationMinutes)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {bookingError && (
+                  <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3">
+                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-600">{bookingError}</p>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => void handleBackToSelection()}
+                    disabled={submitting}
+                    className="text-gray-500 font-medium hover:text-gray-900 transition-colors disabled:opacity-50"
+                  >
+                    უკან
+                  </button>
+                  <Button onClick={handleConfirm} disabled={submitting || secondsLeft <= 0} className="px-8 relative">
+                    {submitting ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" /> იჯავშნება...
+                      </span>
+                    ) : (
+                      "დაჯავშნა"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

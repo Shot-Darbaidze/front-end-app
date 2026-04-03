@@ -71,9 +71,29 @@ const PastLessonCard = memo(function PastLessonCard({ lesson, isInstructor, isHi
                     </div>
                     <div className="flex items-center gap-2">
                         {lesson.price != null && (
-                            <span className="text-sm font-bold text-emerald-600 group-hover:text-emerald-500 transition-colors">
-                                ₾{lesson.price.toFixed(0)}
-                            </span>
+                            lesson.package_percentage_snapshot && lesson.pre_discount_price ? (
+                                <div className="flex flex-col items-end gap-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-xs text-gray-400 line-through">₾{lesson.pre_discount_price.toFixed(0)}</span>
+                                        <span className="text-sm font-bold text-emerald-600 group-hover:text-emerald-500 transition-colors">₾{lesson.price.toFixed(0)}</span>
+                                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full leading-none">
+                                            -{lesson.package_percentage_snapshot.toFixed(0)}%
+                                        </span>
+                                    </div>
+                                    {lesson.package_name_snapshot && (
+                                        <Link
+                                            href={localeHref(`/instructors/${lesson.post_id}`)}
+                                            className="text-[10px] text-indigo-500 hover:text-indigo-700 hover:underline leading-none"
+                                        >
+                                            📦 {lesson.package_name_snapshot}
+                                        </Link>
+                                    )}
+                                </div>
+                            ) : (
+                                <span className="text-sm font-bold text-emerald-600 group-hover:text-emerald-500 transition-colors">
+                                    ₾{lesson.price.toFixed(0)}
+                                </span>
+                            )
                         )}
                         <Button variant="subtle" size="sm">Rate</Button>
                         <Button variant="outline" size="sm">Book Again</Button>

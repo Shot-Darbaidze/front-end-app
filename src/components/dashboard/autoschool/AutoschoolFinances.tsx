@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
@@ -11,31 +11,24 @@ import {
 } from "@/services/autoschoolService";
 import { Wallet, TrendingUp, Clock, CheckCircle, User, Users, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
 
-const FINANCES_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+const LIVE_REFRESH_MS = 15000;
 
-function financesCacheKey(schoolId: string) {
-  return `autoschool-finances-v1:${schoolId}`;
-}
+const currencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "GEL",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
-function readFinancesCache(schoolId: string): AutoschoolFinancesData | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(financesCacheKey(schoolId));
-    if (!raw) return null;
-    const { data, ts } = JSON.parse(raw) as { data: AutoschoolFinancesData; ts: number };
-    if (Date.now() - ts > FINANCES_CACHE_TTL_MS) { sessionStorage.removeItem(financesCacheKey(schoolId)); return null; }
-    return data;
-  } catch { return null; }
-}
-
-function writeFinancesCache(schoolId: string, data: AutoschoolFinancesData) {
-  if (typeof window === "undefined") return;
-  try { sessionStorage.setItem(financesCacheKey(schoolId), JSON.stringify({ data, ts: Date.now() })); } catch { /* storage full */ }
-}
-
-function bustFinancesCache(schoolId: string) {
-  if (typeof window === "undefined") return;
-  sessionStorage.removeItem(financesCacheKey(schoolId));
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 interface AutoschoolFinancesProps {
@@ -93,7 +86,7 @@ function InstructorRow({
   language: string;
 }) {
   const name = [instructor.first_name, instructor.last_name].filter(Boolean).join(" ") || (language === "ka" ? "ინსტრუქტორი" : "Instructor");
-  const hasEarnings = instructor.available_to_withdraw > 0;
+  const canWithdraw = instructor.available_to_withdraw > 0 && !instructor.has_booked_lessons;
 
   return (
     <div
@@ -120,7 +113,7 @@ function InstructorRow({
             {language === "ka" ? "სულ:" : "Total:"}{" "}
             <span className="font-medium text-slate-700">{instructor.total_earned.toFixed(2)}₾</span>
           </span>
-          <span className={`text-xs font-medium ${hasEarnings ? "text-emerald-600" : "text-slate-400"}`}>
+          <span className={`text-xs font-medium ${canWithdraw ? "text-emerald-600" : "text-slate-400"}`}>
             {language === "ka" ? "გამოსატანი:" : "Available:"}{" "}
             {instructor.available_to_withdraw.toFixed(2)}₾
           </span>
@@ -130,14 +123,19 @@ function InstructorRow({
               {instructor.pending_release.toFixed(2)}₾
             </span>
           )}
+          {instructor.has_booked_lessons && (
+            <span className="text-xs text-amber-700">
+              {language === "ka" ? "დაჯავშნილი გაკვეთილები ჯერ უნდა დასრულდეს." : "Booked lessons must complete before payout."}
+            </span>
+          )}
         </div>
       </div>
 
       <button
         onClick={onToggle}
-        disabled={!hasEarnings}
+        disabled={!canWithdraw}
         className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-          !hasEarnings
+          !canWithdraw
             ? "border-slate-200 cursor-not-allowed opacity-40"
             : selected
             ? "border-[#F03D3D] bg-[#F03D3D]"
@@ -162,41 +160,69 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawSuccess, setWithdrawSuccess] = useState<string | null>(null);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const hasLoadedDataRef = useRef(false);
 
-  const load = useCallback(async (isRevalidation = false) => {
-    // Apply cache immediately (stale-while-revalidate)
-    if (!isRevalidation) {
-      const cached = readFinancesCache(schoolId);
-      if (cached) {
-        setData(cached);
-        const withBalance = cached.instructors
-          .filter((i) => i.available_to_withdraw > 0)
-          .map((i) => i.post_id);
-        setSelectedPostIds(new Set(withBalance));
-        setIsLoading(false);
-      }
-    }
+  useEffect(() => {
+    hasLoadedDataRef.current = data !== null;
+  }, [data]);
+
+  const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     try {
-      setIsLoading(true);
-      setError(null);
+      if (!silent) {
+        setIsLoading(true);
+      }
       const token = await getToken();
-      if (!token) return;
+      if (!token) {
+        if (!silent || !hasLoadedDataRef.current) {
+          setError("Not authorized.");
+        }
+        return;
+      }
       const result = await getAutoschoolFinances(schoolId, token);
       setData(result);
-      writeFinancesCache(schoolId, result);
+      setError(null);
       // Auto-select all instructors with available balance
       const withBalance = result.instructors
-        .filter((i) => i.available_to_withdraw > 0)
+        .filter((i) => i.available_to_withdraw > 0 && !i.has_booked_lessons)
         .map((i) => i.post_id);
       setSelectedPostIds(new Set(withBalance));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load finances.");
+      if (!silent || !hasLoadedDataRef.current) {
+        setError(e instanceof Error ? e.message : "Failed to load finances.");
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   }, [getToken, schoolId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void load({ silent: true });
+    }, LIVE_REFRESH_MS);
+
+    const handleFocus = () => {
+      void load({ silent: true });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void load({ silent: true });
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [load]);
 
   const toggleInstructor = (postId: string) => {
     setSelectedPostIds((prev) => {
@@ -209,7 +235,7 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
 
   const selectAll = () => {
     if (!data) return;
-    setSelectedPostIds(new Set(data.instructors.filter((i) => i.available_to_withdraw > 0).map((i) => i.post_id)));
+    setSelectedPostIds(new Set(data.instructors.filter((i) => i.available_to_withdraw > 0 && !i.has_booked_lessons).map((i) => i.post_id)));
   };
 
   const deselectAll = () => setSelectedPostIds(new Set());
@@ -230,15 +256,25 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
       if (!token) return;
       const result = await withdrawAutoschoolEarnings(schoolId, [...selectedPostIds], token);
       if (result.status === "skipped") {
-        setWithdrawSuccess(language === "ka" ? "გამოსატანი ბალანსი არ არსებობს." : "No balance available to withdraw.");
+        const hasBlockedSelection = data.instructors.some(
+          (instructor) => selectedPostIds.has(instructor.post_id) && instructor.has_booked_lessons,
+        );
+        setWithdrawSuccess(
+          hasBlockedSelection
+            ? language === "ka"
+              ? "გამოტანა დაბლოკილია, სანამ დაჯავშნილი გაკვეთილები არ დასრულდება."
+              : "Withdrawal is blocked until booked lessons are completed."
+            : language === "ka"
+              ? "გამოსატანი ბალანსი არ არსებობს."
+              : "No balance available to withdraw."
+        );
       } else {
         setWithdrawSuccess(
           language === "ka"
             ? `წარმატებით გამოიტანეთ ${result.withdrawn_amount.toFixed(2)}₾ (${result.withdrawn_bookings_count} ჯავშანი, ${result.instructors_processed} ინსტრუქტორი)`
             : `Successfully requested withdrawal of ${result.withdrawn_amount.toFixed(2)}₾ across ${result.withdrawn_bookings_count} bookings for ${result.instructors_processed} instructor(s).`
         );
-        bustFinancesCache(schoolId); // balances changed — force fresh fetch
-        void load(true);
+        void load({ silent: true });
       }
     } catch (e) {
       setWithdrawError(e instanceof Error ? e.message : "Withdrawal failed.");
@@ -271,7 +307,8 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
 
   if (!data) return null;
 
-  const hasAnyAvailable = data.available_to_withdraw > 0;
+  const hasAnyAvailable = data.instructors.some((instructor) => instructor.available_to_withdraw > 0 && !instructor.has_booked_lessons);
+  const bookingRows = data.bookings ?? [];
 
   return (
     <div className="space-y-6">
@@ -282,8 +319,8 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
         </h2>
         <p className="text-sm text-slate-500 mt-0.5">
           {language === "ka"
-            ? "ყველა წევრი ინსტრუქტორის შემოსავლის ჯამი"
-            : "Aggregated earnings across all member instructors"}
+            ? "ყველა წევრი ინსტრუქტორის შემოსავალი, ბოლო 90 დღის ჭრილში და მომავალი დაჯავშნილი გაკვეთილებით"
+            : "Aggregated earnings across all member instructors, with a 90-day lookback plus upcoming booked lessons"}
         </p>
       </div>
 
@@ -368,6 +405,80 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
           )}
         </div>
       )}
+
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="border-b border-slate-200 p-5">
+          <h3 className="text-sm font-semibold text-slate-900">
+            {language === "ka" ? "ჯავშნების დეტალები" : "Booking Details"}
+          </h3>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {language === "ka"
+              ? "აქ ჩანს პაკეტის სახელი და ფასდაკლებული თანხა თითო ჯავშანზე."
+              : "Package names and discounted lesson amounts are shown per booking here."}
+          </p>
+        </div>
+
+        {bookingRows.length > 0 ? (
+          <div className="overflow-x-auto p-5">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-slate-500">
+                  <th className="py-2 pr-4 font-medium">{language === "ka" ? "ინსტრუქტორი" : "Instructor"}</th>
+                  <th className="py-2 pr-4 font-medium">{language === "ka" ? "გაკვეთილის დასასრული" : "Lesson End"}</th>
+                  <th className="py-2 pr-4 font-medium">{language === "ka" ? "ხანგრძლივობა" : "Duration"}</th>
+                  <th className="py-2 pr-4 font-medium">{language === "ka" ? "სტატუსი" : "Status"}</th>
+                  <th className="py-2 pr-4 font-medium">{language === "ka" ? "პაკეტი" : "Package"}</th>
+                  <th className="py-2 pr-4 font-medium">{language === "ka" ? "თანხა" : "Amount"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bookingRows.map((booking) => {
+                  const endDate = new Date(
+                    new Date(booking.start_time_utc).getTime() + booking.duration_minutes * 60 * 1000,
+                  ).toISOString();
+
+                  return (
+                    <tr key={booking.id} className="border-b border-slate-100 text-slate-800">
+                      <td className="py-3 pr-4">{booking.instructor_name ?? (language === "ka" ? "ინსტრუქტორი" : "Instructor")}</td>
+                      <td className="py-3 pr-4">{formatDateTime(endDate)}</td>
+                      <td className="py-3 pr-4">{booking.duration_minutes} min</td>
+                      <td className="py-3 pr-4 capitalize">{booking.status}</td>
+                      <td className="py-3 pr-4">
+                        {booking.package_name_snapshot ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                            {booking.package_name_snapshot}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4">
+                        {booking.package_percentage_snapshot && booking.pre_discount_price ? (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-slate-400 line-through">{currencyFormatter.format(booking.pre_discount_price)}</span>
+                              <span className="font-semibold text-emerald-700">{currencyFormatter.format(booking.price)}</span>
+                              <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold leading-none text-emerald-700">
+                                -{booking.package_percentage_snapshot.toFixed(0)}%
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="font-semibold">{currencyFormatter.format(booking.price)}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-5 text-sm text-slate-500">
+            {language === "ka" ? "ჯერჯერობით ფინანსური ჯავშნები არ არის." : "No finance bookings yet."}
+          </div>
+        )}
+      </div>
 
       {/* Withdraw action */}
       {hasAnyAvailable && (

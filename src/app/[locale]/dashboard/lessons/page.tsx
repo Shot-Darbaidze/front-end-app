@@ -41,6 +41,9 @@ interface InstructorBookingRow {
   status: "booked" | "completed" | "cancelled";
   mode: "city" | "yard" | null;
   price?: number | null;
+  package_name_snapshot?: string | null;
+  package_percentage_snapshot?: number | null;
+  pre_discount_price?: number | null;
   student?: {
     id: string;
     first_name?: string | null;
@@ -212,6 +215,9 @@ export default function LessonsPage() {
                 cancelled_at: row.start_time_utc,
                 instructor_name: meta?.name ?? row.instructor_name ?? "Instructor",
                 instructor_image: meta?.image ?? row.instructor_image ?? null,
+                package_name_snapshot: row.package_name_snapshot ?? null,
+                package_percentage_snapshot: row.package_percentage_snapshot ?? null,
+                pre_discount_price: row.pre_discount_price ?? null,
               };
             })
             .sort((a, b) => new Date(b.cancelled_at).getTime() - new Date(a.cancelled_at).getTime());
@@ -358,6 +364,9 @@ export default function LessonsPage() {
               // Reuse existing card fields for role-specific rendering.
               instructor_name: studentName,
               instructor_image: row.student?.image_url ?? null,
+              package_name_snapshot: row.package_name_snapshot ?? null,
+              package_percentage_snapshot: row.package_percentage_snapshot ?? null,
+              pre_discount_price: row.pre_discount_price ?? null,
             };
           })
           : (rawBookings as BookingResponse[]);

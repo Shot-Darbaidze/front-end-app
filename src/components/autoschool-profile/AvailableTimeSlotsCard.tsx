@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Calendar as CalendarIcon, Clock } from "lucide-react";
+import { AlertCircle, Calendar as CalendarIcon, Clock, Loader2 } from "lucide-react";
 import { formatPackagePrice } from "@/utils/packages";
 
 export type BookingSlot = {
@@ -18,7 +18,11 @@ interface AvailableTimeSlotsCardProps {
   selectedOptionPrice?: number;
   selectedOptionOriginalPrice?: number;
   discountActive?: boolean;
-  onSelectSlot: (slotId: string) => void;
+  continueDisabled?: boolean;
+  continueLoading?: boolean;
+  continueLabel?: string;
+  continueLoadingLabel?: string;
+  onSelectSlot: (slot: BookingSlot) => void;
   onContinue: () => void;
   formatTimeRange: (startTime: string, durationMinutes: number) => string;
 }
@@ -38,6 +42,10 @@ export default function AvailableTimeSlotsCard({
   selectedOptionLabel,
   selectedOptionPrice,
   selectedOptionOriginalPrice,
+  continueDisabled = false,
+  continueLoading = false,
+  continueLabel = "დადასტურებაზე გადასვლა",
+  continueLoadingLabel = "რეზერვაცია...",
   onSelectSlot,
   onContinue,
   formatTimeRange,
@@ -92,7 +100,7 @@ export default function AvailableTimeSlotsCard({
                 <button
                   key={slot.id}
                   type="button"
-                  onClick={() => onSelectSlot(slot.id)}
+                  onClick={() => onSelectSlot(slot)}
                   className={`relative w-full py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center border ${
                     isSelected
                       ? getSelectedSlotClasses(effectVariant)
@@ -135,9 +143,17 @@ export default function AvailableTimeSlotsCard({
             <button
               type="button"
               onClick={onContinue}
-              className="w-full py-3 px-4 rounded-xl bg-[#F03D3D] text-white font-semibold hover:bg-[#d62f2f] transition-colors"
+              disabled={continueDisabled}
+              className="w-full py-3 px-4 rounded-xl bg-[#F03D3D] text-white font-semibold hover:bg-[#d62f2f] transition-colors disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
             >
-              დადასტურებაზე გადასვლა
+              {continueLoading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {continueLoadingLabel}
+                </span>
+              ) : (
+                continueLabel
+              )}
             </button>
           </div>
         </>

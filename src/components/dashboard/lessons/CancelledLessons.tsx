@@ -75,9 +75,29 @@ const CancelledLessonCard = memo(function CancelledLessonCard({ cancellation, is
                     </div>
                     <div className="flex items-center gap-2">
                         {cancellation.original_price != null && (
-                            <span className="text-sm font-bold text-emerald-600">
-                                ₾{cancellation.original_price.toFixed(0)}
-                            </span>
+                            cancellation.package_percentage_snapshot && cancellation.pre_discount_price ? (
+                                <div className="flex flex-col items-end gap-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-xs text-gray-400 line-through">₾{cancellation.pre_discount_price.toFixed(0)}</span>
+                                        <span className="text-sm font-bold text-emerald-600">₾{cancellation.original_price.toFixed(0)}</span>
+                                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full leading-none">
+                                            -{cancellation.package_percentage_snapshot.toFixed(0)}%
+                                        </span>
+                                    </div>
+                                    {cancellation.package_name_snapshot && (
+                                        <Link
+                                            href={localeHref(`/instructors/${cancellation.original_post_id}`)}
+                                            className="text-[10px] text-indigo-500 hover:text-indigo-700 hover:underline leading-none"
+                                        >
+                                            📦 {cancellation.package_name_snapshot}
+                                        </Link>
+                                    )}
+                                </div>
+                            ) : (
+                                <span className="text-sm font-bold text-emerald-600">
+                                    ₾{cancellation.original_price.toFixed(0)}
+                                </span>
+                            )
                         )}
                         <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-500">
                             Cancelled
