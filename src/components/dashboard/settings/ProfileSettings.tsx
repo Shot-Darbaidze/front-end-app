@@ -12,6 +12,7 @@ import AutoResizeTextarea from "@/components/ui/AutoResizeTextarea";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { validateGeorgianPhone } from "@/utils/validation/georgianPhone";
+import InstructorPackagesSection from "./InstructorPackagesSection";
 import {
     InstructorPost, InstructorAsset, InstructorProfileForm,
     emptyInstructorForm, mapPostToForm, buildUpdatePayload,
@@ -758,6 +759,8 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                 <p className="text-sm text-gray-500 mb-4">{t("settings.profile.availabilityDesc")}</p>
                 <Button asChild><Link href={localeHref("/dashboard/schedule")}>{t("settings.profile.openCalendar")}</Link></Button>
             </div>
+
+            {instructorPost && <InstructorPackagesSection post={instructorPost} />}
 
             {/* Personal Info */}
             <div className="bg-white p-6 sm:p-7 rounded-3xl border border-gray-100 shadow-sm">

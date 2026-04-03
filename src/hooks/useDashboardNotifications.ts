@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { API_CONFIG } from "@/config/constants";
 import type { Notification } from "@/hooks/useNotifications";
+import { isExpectedAuthTransitionError } from "@/utils/authTransitions";
 
 type DashboardNotificationApiItem = {
   id: string;
@@ -163,28 +164,38 @@ async function fetchNotifications(
   }
 
   inFlightFetch = (async () => {
-    const token = await getToken();
-    if (!token) {
-      patchState(getEmptyState());
-      return;
+    try {
+      const token = await getToken();
+      if (!token) {
+        patchState(getEmptyState());
+        return;
+      }
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/dashboard/notifications?limit=20`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        if (!sharedState) patchState(getEmptyState());
+        return;
+      }
+
+      const payload = (await response.json()) as DashboardNotificationsResponse;
+      const next: DashboardNotificationState = {
+        isInstructor: Boolean(payload.is_instructor),
+        notifications: mapApiToNotifications(payload),
+        updatedAt: Date.now(),
+      };
+      patchState(next);
+    } catch (error) {
+      if (!sharedState) {
+        patchState(getEmptyState());
+      }
+
+      if (!isExpectedAuthTransitionError(error)) {
+        console.error("[useDashboardNotifications] Failed to fetch notifications:", error);
+      }
     }
-
-    const response = await fetch(`${API_CONFIG.BASE_URL}/api/dashboard/notifications?limit=20`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (!response.ok) {
-      if (!sharedState) patchState(getEmptyState());
-      return;
-    }
-
-    const payload = (await response.json()) as DashboardNotificationsResponse;
-    const next: DashboardNotificationState = {
-      isInstructor: Boolean(payload.is_instructor),
-      notifications: mapApiToNotifications(payload),
-      updatedAt: Date.now(),
-    };
-    patchState(next);
   })().finally(() => {
     inFlightFetch = null;
   });
@@ -271,13 +282,19 @@ export function useDashboardNotifications(options?: {
     patchState(next);
 
     void (async () => {
-      const token = await getToken();
-      if (!token) return;
-      await fetch(`${API_CONFIG.BASE_URL}/api/dashboard/notifications/read`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ notification_ids: [id] }),
-      });
+      try {
+        const token = await getToken();
+        if (!token) return;
+        await fetch(`${API_CONFIG.BASE_URL}/api/dashboard/notifications/read`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ notification_ids: [id] }),
+        });
+      } catch (error) {
+        if (!isExpectedAuthTransitionError(error)) {
+          console.error("[useDashboardNotifications] Failed to mark notification as read:", error);
+        }
+      }
     })();
   }, [getToken, state]);
 
@@ -293,13 +310,19 @@ export function useDashboardNotifications(options?: {
     patchState(next);
 
     void (async () => {
-      const token = await getToken();
-      if (!token) return;
-      await fetch(`${API_CONFIG.BASE_URL}/api/dashboard/notifications/unread`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ notification_id: id }),
-      });
+      try {
+        const token = await getToken();
+        if (!token) return;
+        await fetch(`${API_CONFIG.BASE_URL}/api/dashboard/notifications/unread`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ notification_id: id }),
+        });
+      } catch (error) {
+        if (!isExpectedAuthTransitionError(error)) {
+          console.error("[useDashboardNotifications] Failed to mark notification as unread:", error);
+        }
+      }
     })();
   }, [getToken, state]);
 
@@ -314,13 +337,19 @@ export function useDashboardNotifications(options?: {
     patchState(next);
 
     void (async () => {
-      const token = await getToken();
-      if (!token || ids.length === 0) return;
-      await fetch(`${API_CONFIG.BASE_URL}/api/dashboard/notifications/read`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ notification_ids: ids }),
-      });
+      try {
+        const token = await getToken();
+        if (!token || ids.length === 0) return;
+        await fetch(`${API_CONFIG.BASE_URL}/api/dashboard/notifications/read`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ notification_ids: ids }),
+        });
+      } catch (error) {
+        if (!isExpectedAuthTransitionError(error)) {
+          console.error("[useDashboardNotifications] Failed to mark all notifications as read:", error);
+        }
+      }
     })();
   }, [getToken, state]);
 

@@ -1,4 +1,8 @@
+import path from "path";
+import { fileURLToPath } from "url";
 import type { NextConfig } from "next";
+
+const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 const apiHostPattern = (() => {
@@ -17,6 +21,10 @@ const apiHostPattern = (() => {
 
 const nextConfig: NextConfig = {
   /* config options here */
+
+  turbopack: {
+    root: configDir,
+  },
 
   // Security headers (additional layer beyond middleware)
   async headers() {

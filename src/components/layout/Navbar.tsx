@@ -19,6 +19,7 @@ import Button from "@/components/ui/Button";
 import NotificationsDropdown from "@/components/navbar-components/NotificationsDropdown";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { removeLocaleFromPathname } from "@/lib/i18n";
+import { hardRedirect, isExpectedAuthTransitionError } from "@/utils/authTransitions";
 
 const Navbar = () => {
   const MOBILE_MENU_ANIMATION_MS = 300;
@@ -52,6 +53,21 @@ const Navbar = () => {
     // Navigate to the same page with the new locale
     const pathWithoutLocale = removeLocaleFromPathname(pathname);
     router.push(`/${newLang}${pathWithoutLocale === "/" ? "" : pathWithoutLocale}`);
+  };
+
+  const handleSignOut = async () => {
+    const redirectUrl = localeHref("/");
+
+    try {
+      await signOut({ redirectUrl });
+    } catch (error) {
+      if (isExpectedAuthTransitionError(error)) {
+        hardRedirect(redirectUrl);
+        return;
+      }
+
+      console.error("[Navbar] Sign-out failed:", error);
+    }
   };
 
   // Determine user type from Clerk metadata (default to "student")
@@ -657,7 +673,7 @@ const Navbar = () => {
                       <span>{language === "ka" ? "პარამეტრები" : "Settings"}</span>
                     </Link>
                     <button
-                      onClick={() => signOut({ redirectUrl: localeHref("/") })}
+                      onClick={() => void handleSignOut()}
                       className="w-full rounded-lg px-2 py-2 text-left text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
                     >
                       <LogOut className="w-5 h-5" />

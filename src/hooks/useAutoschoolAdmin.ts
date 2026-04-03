@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import { getMyAutoschool } from "@/services/autoschoolService";
+import { isExpectedAuthTransitionError } from "@/utils/authTransitions";
 
 const SESSION_KEY_PREFIX = "autoschool-admin-v2";
 const LOCAL_KEY_PREFIX = "autoschool-admin-v2";
@@ -117,7 +118,9 @@ export function useAutoschoolAdmin() {
           setIsLoading(false);
         }
       } catch (err) {
-        console.error("[useAutoschoolAdmin] API error:", err);
+        if (!isExpectedAuthTransitionError(err)) {
+          console.error("[useAutoschoolAdmin] API error:", err);
+        }
         if (isMounted) {
           setSchoolId(null);
           setIsLoading(false);

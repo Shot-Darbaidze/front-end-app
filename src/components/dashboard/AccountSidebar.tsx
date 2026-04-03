@@ -15,6 +15,7 @@ import {
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { hardRedirect, isExpectedAuthTransitionError } from "@/utils/authTransitions";
 
 interface AccountSidebarProps {
   isInstructor?: boolean;
@@ -58,8 +59,19 @@ const AccountSidebar: React.FC<AccountSidebarProps> = ({ isInstructor = false })
     return pathname.startsWith(fullHref);
   };
 
-  const handleLogout = () => {
-    signOut({ redirectUrl: localeHref("/") });
+  const handleLogout = async () => {
+    const redirectUrl = localeHref("/");
+
+    try {
+      await signOut({ redirectUrl });
+    } catch (error) {
+      if (isExpectedAuthTransitionError(error)) {
+        hardRedirect(redirectUrl);
+        return;
+      }
+
+      console.error("[AccountSidebar] Sign-out failed:", error);
+    }
   };
 
   return (
@@ -111,7 +123,7 @@ const AccountSidebar: React.FC<AccountSidebarProps> = ({ isInstructor = false })
         <div className="p-3 pt-2 mt-auto">
           <div className="mx-1 mb-2 h-px bg-slate-100" />
           <button
-            onClick={handleLogout}
+            onClick={() => void handleLogout()}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-[13px] font-semibold text-slate-500 hover:text-red-500 hover:bg-red-50 transition-all duration-200"
           >
             <LogOut size={17} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertCircle, Calendar as CalendarIcon, Clock } from "lucide-react";
+import { formatPackagePrice } from "@/utils/packages";
 
 export type BookingSlot = {
   id: string;
@@ -15,6 +16,7 @@ interface AvailableTimeSlotsCardProps {
   bookingError: string | null;
   selectedOptionLabel: string;
   selectedOptionPrice?: number;
+  selectedOptionOriginalPrice?: number;
   discountActive?: boolean;
   onSelectSlot: (slotId: string) => void;
   onContinue: () => void;
@@ -35,11 +37,16 @@ export default function AvailableTimeSlotsCard({
   bookingError,
   selectedOptionLabel,
   selectedOptionPrice,
+  selectedOptionOriginalPrice,
   onSelectSlot,
   onContinue,
   formatTimeRange,
 }: AvailableTimeSlotsCardProps) {
   const showPrice = selectedOptionPrice != null && selectedOptionPrice > 0;
+  const showOriginalPrice =
+    selectedOptionOriginalPrice != null &&
+    selectedOptionPrice != null &&
+    selectedOptionOriginalPrice > selectedOptionPrice;
   const effectVariant: SelectionEffectVariant = "soft";
 
   const getSelectedSlotClasses = (variant: SelectionEffectVariant) => {
@@ -113,7 +120,16 @@ export default function AvailableTimeSlotsCard({
 
             <div className="flex justify-between items-center mb-4">
               <span className="text-gray-500 text-sm">{selectedOptionLabel}</span>
-              {showPrice && <span className="font-bold text-gray-900">₾{selectedOptionPrice}</span>}
+              {showPrice && (
+                <div className="text-right">
+                  {showOriginalPrice && (
+                    <div className="text-[11px] text-gray-400 line-through">
+                      ₾{formatPackagePrice(selectedOptionOriginalPrice)}
+                    </div>
+                  )}
+                  <span className="font-bold text-gray-900">₾{formatPackagePrice(selectedOptionPrice)}</span>
+                </div>
+              )}
             </div>
 
             <button

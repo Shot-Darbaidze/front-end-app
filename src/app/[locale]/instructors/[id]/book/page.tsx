@@ -1,14 +1,23 @@
 "use client";
 
-import React, { useState, use, useEffect, useRef, useCallback } from "react";
+import React, { useState, use, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle, Info, Loader2, AlertCircle, Timer, PlusCircle, CreditCard, Lock, Shield, MapPin } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { useAuth } from "@clerk/nextjs";
+import BookingPricingCard, { type BookingOption } from "@/components/autoschool-profile/BookingPricingCard";
 import { buildInstructorName, pickFirstValidPrice, extractCityName } from "@/utils/instructor";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { normalizePhone, validateGeorgianPhone } from "@/utils/validation/georgianPhone";
+import {
+  applyPackagePercentage,
+  formatPackagePrice,
+  formatPackageAdjustment,
+  getPackagePriceBreakdown,
+  isPackageTransmissionCompatible,
+  normalizeInstructorTransmission,
+} from "@/utils/packages";
 
 // Types for backend data
 interface AvailableSlot {
@@ -35,6 +44,18 @@ interface InstructorPost {
   google_maps_url?: string | null;
   autoschool_id?: string | null;
   transmission?: string | null;
+  packages?: CoursePackage[];
+}
+
+interface CoursePackage {
+  id: string;
+  name: string;
+  lessons: number;
+  percentage?: number | null;
+  popular?: boolean;
+  description?: string | null;
+  mode: string;
+  transmission: string;
 }
 
 type SelectedSlot = {
@@ -85,11 +106,50 @@ const extractGoogleMapsHref = (value?: string | null): string | null => {
 const bookingCache = new Map<string, { instructor: InstructorPost; slots: AvailableSlot[]; ts: number }>();
 const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
 
+function mapPackages(post: InstructorPost): BookingOption[] {
+  const transmission = (post.transmission || "").toLowerCase();
+  return (post.packages ?? [])
+    .filter((pkg) => {
+      return isPackageTransmissionCompatible(pkg.transmission, transmission, { allowBoth: false });
+    })
+    .map((pkg) => ({
+      id: pkg.id,
+      name: pkg.name,
+      lessons: pkg.lessons,
+      percentage: pkg.percentage != null ? Number(pkg.percentage) : undefined,
+      popular: pkg.popular,
+      description: pkg.description ?? "",
+      mode: pkg.mode,
+      transmission: pkg.transmission,
+    }));
+}
+
+function getInstructorModePrice(
+  instructor: InstructorPost | null,
+  mode: "city" | "yard",
+): number | null {
+  if (!instructor) {
+    return null;
+  }
+
+  const transmission = normalizeInstructorTransmission(instructor.transmission);
+  if (mode === "yard") {
+    return transmission === "automatic"
+      ? pickFirstValidPrice([instructor.automatic_yard_price, instructor.manual_yard_price]) ?? null
+      : pickFirstValidPrice([instructor.manual_yard_price, instructor.automatic_yard_price]) ?? null;
+  }
+
+  return transmission === "automatic"
+    ? pickFirstValidPrice([instructor.automatic_city_price, instructor.manual_city_price]) ?? null
+    : pickFirstValidPrice([instructor.manual_city_price, instructor.automatic_city_price]) ?? null;
+}
+
 export default function BookingPage({ params }: { params: Promise<{ id: string; locale: string }> }) {
   const { id, locale } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const bookingMode = (searchParams.get("mode") === "yard" ? "yard" : "city") as "city" | "yard";
+  const initialLessonMode = (searchParams.get("mode") === "yard" ? "yard" : "city") as "city" | "yard";
+  const initialPackageId = searchParams.get("package") ?? "";
   const { getToken, isSignedIn } = useAuth();
   const { t, language } = useLanguage();
   
@@ -97,6 +157,9 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [viewingDate, setViewingDate] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [lessonMode, setLessonMode] = useState<"city" | "yard">(initialLessonMode);
+  const [packages, setPackages] = useState<BookingOption[]>([]);
+  const [selectedPackageId, setSelectedPackageId] = useState(initialPackageId);
   
   // API data state
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
@@ -127,12 +190,65 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
   const instructorName = instructor 
     ? buildInstructorName(instructor.applicant_first_name, instructor.applicant_last_name)
     : "...";
+
+  const selectedPackage = useMemo(
+    () => packages.find((pkg) => pkg.id === selectedPackageId) ?? null,
+    [packages, selectedPackageId],
+  );
+
+  useEffect(() => {
+    if (!selectedPackage) {
+      return;
+    }
+
+    const packageMode = selectedPackage.mode === "yard" ? "yard" : "city";
+    setLessonMode((currentMode) => currentMode === packageMode ? currentMode : packageMode);
+  }, [selectedPackage]);
   
-  const price = instructor
-    ? bookingMode === "yard"
-      ? pickFirstValidPrice([instructor.automatic_yard_price, instructor.manual_yard_price]) ?? 0
-      : pickFirstValidPrice([instructor.automatic_city_price, instructor.manual_city_price]) ?? 0
-    : 0;
+  const price = getInstructorModePrice(instructor, lessonMode) ?? 0;
+
+  const selectedPackagePricing = useMemo(() => {
+    if (!selectedPackage) {
+      return null;
+    }
+
+    return getPackagePriceBreakdown(
+      getInstructorModePrice(instructor, selectedPackage.mode === "yard" ? "yard" : "city"),
+      selectedPackage.lessons,
+      selectedPackage.percentage,
+    );
+  }, [instructor, selectedPackage]);
+
+  const activePackageTotal =
+    selectedPackagePricing && selectedSlots.length >= (selectedPackage?.lessons ?? 0)
+      ? selectedPackagePricing
+      : null;
+
+  const pricedPackages = useMemo(
+    () => packages.map((pkg) => {
+      const lessonPrice = getInstructorModePrice(instructor, pkg.mode === "yard" ? "yard" : "city");
+      const pricing = getPackagePriceBreakdown(lessonPrice, pkg.lessons, pkg.percentage);
+
+      return {
+        ...pkg,
+        baseLessonPrice: pricing?.baseLessonPrice,
+        discountedLessonPrice: pricing?.discountedLessonPrice,
+        baseTotalPrice: pricing?.baseTotalPrice,
+        discountedTotalPrice: pricing?.discountedTotalPrice,
+      };
+    }),
+    [instructor, packages],
+  );
+
+  const totalPrice = useMemo(() => {
+    if (selectedSlots.length === 0) {
+      return 0;
+    }
+    if (activePackageTotal) {
+      return activePackageTotal.discountedTotalPrice;
+    }
+    return price * selectedSlots.length;
+  }, [activePackageTotal, price, selectedSlots.length]);
 
   const hasPhone = normalizePhone(userPhone).length > 0;
 
@@ -144,6 +260,14 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
       const cached = bookingCache.get(id);
       if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
         setInstructor(cached.instructor);
+        const cachedPackages = mapPackages(cached.instructor);
+        setPackages(cachedPackages);
+        if (initialPackageId) {
+          const initialPackage = cachedPackages.find((pkg) => pkg.id === initialPackageId);
+          if (initialPackage?.mode) {
+            setLessonMode(initialPackage.mode === "yard" ? "yard" : "city");
+          }
+        }
         const now = new Date();
         const futureSlots = cached.slots.filter(slot => new Date(slot.start_time_utc) > now);
         setAvailableSlots(futureSlots);
@@ -175,11 +299,20 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
 
         // Employee instructors must be booked through the autoschool booking flow
         if (postData.autoschool_id) {
-          router.replace(`/${locale}/autoschools/${postData.autoschool_id}/book?mode=package&instructor=${id}`);
+          const packageQuery = initialPackageId ? `&package=${initialPackageId}` : "";
+          router.replace(`/${locale}/autoschools/${postData.autoschool_id}/book?instructor=${id}&mode=${initialLessonMode}${packageQuery}`);
           return;
         }
 
         setInstructor(postData);
+        const packageOptions = mapPackages(postData);
+        setPackages(packageOptions);
+        if (initialPackageId) {
+          const initialPackage = packageOptions.find((pkg) => pkg.id === initialPackageId);
+          if (initialPackage?.mode) {
+            setLessonMode(initialPackage.mode === "yard" ? "yard" : "city");
+          }
+        }
 
         let allSlots: AvailableSlot[] = [];
         if (slotsRes.ok) {
@@ -206,7 +339,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
     };
 
     fetchData();
-  }, [id]);
+  }, [id, initialLessonMode, initialPackageId, locale, router]);
 
   // ── Resume active reservation if user accidentally left ───────────
   const resumeChecked = useRef(false);
@@ -395,6 +528,15 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
       return;
     }
 
+    if (selectedPackage && selectedSlots.length !== selectedPackage.lessons) {
+      setBookingError(
+        language === "ka"
+          ? `ამ პაკეტისთვის საჭიროა ზუსტად ${selectedPackage.lessons} გაკვეთილი.`
+          : `This package requires exactly ${selectedPackage.lessons} lessons.`,
+      );
+      return;
+    }
+
     if (!hasPhone) {
       setBookingError(language === "ka"
         ? "რეზერვაციამდე აუცილებელია ტელეფონის ნომრის დამატება."
@@ -498,10 +640,32 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
     setSelectedSlots(prev => {
       const exists = prev.find(s => s.id === slotId);
       if (exists) {
+        setBookingError(null);
         return prev.filter(s => s.id !== slotId);
       }
+      if (selectedPackage && prev.length >= selectedPackage.lessons) {
+        setBookingError(
+          language === "ka"
+            ? `მაქსიმუმ ${selectedPackage.lessons} გაკვეთილის არჩევა შეიძლება.`
+            : `You can select up to ${selectedPackage.lessons} lessons for this package.`,
+        );
+        return prev;
+      }
+      setBookingError(null);
       return [...prev, { id: slotId, date, time, duration_minutes: duration }];
     });
+  };
+
+  const handlePackageSelect = (packageId: string | null) => {
+    const nextPackage = packages.find((pkg) => pkg.id === packageId);
+    if (nextPackage?.mode) {
+      setLessonMode(nextPackage.mode === "yard" ? "yard" : "city");
+      setSelectedPackageId(nextPackage.id);
+    } else {
+      setSelectedPackageId("");
+    }
+    setSelectedSlots([]);
+    setBookingError(null);
   };
 
   const handleConfirm = async () => {
@@ -532,7 +696,8 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
         },
         body: JSON.stringify({
           slot_ids: selectedSlots.map(s => s.id),
-          mode: bookingMode,
+          mode: lessonMode,
+          ...(selectedPackage ? { package_id: selectedPackage.id } : {}),
         }),
       });
       
@@ -669,7 +834,18 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
           </Link>
           <h1 className="text-3xl font-bold text-gray-900">{t("booking.bookALesson")}</h1>
           <p className="text-gray-500 mt-2">
-            {t("booking.with")} {instructorName} <span className="text-gray-400">(₾{price}{t("booking.perLesson")})</span>
+            {t("booking.with")} {instructorName}{" "}
+            <span className="text-gray-400">
+              {selectedPackagePricing && selectedPackagePricing.baseLessonPrice > selectedPackagePricing.discountedLessonPrice ? (
+                <>
+                  (<span className="line-through">₾{formatPackagePrice(selectedPackagePricing.baseLessonPrice)}</span>{" "}
+                  <span className="text-[#F03D3D]">₾{formatPackagePrice(selectedPackagePricing.discountedLessonPrice)}</span>
+                  {t("booking.perLesson")})
+                </>
+              ) : (
+                `(₾${formatPackagePrice(price)}${t("booking.perLesson")})`
+              )}
+            </span>
           </p>
         </div>
 
@@ -711,7 +887,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
         )}
 
         {step === 1 && availableSlots.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500 items-stretch">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500 items-stretch">
             {/* Calendar Column */}
             <div className="lg:col-span-4 bg-white rounded-3xl border border-gray-100 p-6 shadow-sm flex flex-col">
               <div className="flex items-center justify-between mb-6">
@@ -787,7 +963,8 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
             </div>
 
             {/* Time Slots Column */}
-            <div ref={timeSlotsRef} className="lg:col-span-8 bg-white rounded-3xl border border-gray-100 p-6 shadow-sm min-h-[400px] flex flex-col">
+            <div className="lg:col-span-8 flex flex-col gap-6">
+            <div ref={timeSlotsRef} className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm min-h-[400px] flex flex-col">
               <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-[#F03D3D]" />
                 {t("booking.availableTimes")}
@@ -832,7 +1009,12 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
                     )}
                     <div className="flex justify-between items-center mb-4">
                       <span className="text-gray-500 text-sm">{selectedSlots.length} {t("booking.slotsSelected")} ({totalDuration} {t("booking.min")})</span>
-                      <span className="font-bold text-gray-900">₾{selectedSlots.length * price}</span>
+                      <div className="text-right">
+                        {activePackageTotal && activePackageTotal.baseTotalPrice > activePackageTotal.discountedTotalPrice && (
+                          <div className="text-[11px] text-gray-400 line-through">₾{formatPackagePrice(activePackageTotal.baseTotalPrice)}</div>
+                        )}
+                        <span className="font-bold text-gray-900">₾{formatPackagePrice(totalPrice)}</span>
+                      </div>
                     </div>
 
                     {viewingDate && selectedSlots.some(s => s.date === viewingDate) ? (
@@ -879,6 +1061,16 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
                   </div>
                 </>
               )}
+            </div>
+
+            {packages.length > 0 && (
+              <BookingPricingCard
+                selectedPackageId={selectedPackageId}
+                packages={pricedPackages}
+                onPackageSelect={handlePackageSelect}
+                language={language}
+              />
+            )}
             </div>
 
           </div>
@@ -955,9 +1147,20 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
                 <div>
                   <h3 className="font-bold text-gray-900 text-lg">{instructorName}</h3>
                   <p className="text-gray-500">{selectedSlots.length} {selectedSlots.length > 1 ? t("booking.drivingLessons") : t("booking.drivingLesson")}</p>
+                  {selectedPackage && (
+                    <p className="text-sm font-medium text-emerald-600 mt-1">
+                      {selectedPackage.name}
+                      {formatPackageAdjustment(selectedPackage.percentage)
+                        ? ` · ${formatPackageAdjustment(selectedPackage.percentage)}`
+                        : ""}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-gray-900 text-lg">₾{price * selectedSlots.length}</p>
+                  {activePackageTotal && activePackageTotal.baseTotalPrice > activePackageTotal.discountedTotalPrice && (
+                    <p className="text-xs text-gray-400 line-through">₾{formatPackagePrice(activePackageTotal.baseTotalPrice)}</p>
+                  )}
+                  <p className="font-bold text-gray-900 text-lg">₾{formatPackagePrice(totalPrice)}</p>
                   <p className="text-gray-500">{totalDuration} {t("booking.min")} {t("booking.total")}</p>
                 </div>
               </div>
@@ -1130,7 +1333,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
                     disabled={booking || secondsLeft <= 0}
                     className="px-8 relative"
                   >
-                    <span className={booking ? "invisible" : ""}>{t("booking.payNow")}{price * selectedSlots.length}</span>
+                    <span className={booking ? "invisible" : ""}>{t("booking.payNow")}₾{totalPrice}</span>
                     {booking && (
                       <span className="absolute inset-0 flex items-center justify-center gap-2">
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -1184,8 +1387,21 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
                     )}
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{selectedSlots.length} {selectedSlots.length > 1 ? t("booking.drivingLessons") : t("booking.drivingLesson")}</span>
-                      <span className="text-gray-700 font-medium">₾{price * selectedSlots.length}</span>
+                      <div className="text-right">
+                        {activePackageTotal && activePackageTotal.baseTotalPrice > activePackageTotal.discountedTotalPrice && (
+                          <div className="text-[11px] text-gray-400 line-through">₾{formatPackagePrice(activePackageTotal.baseTotalPrice)}</div>
+                        )}
+                        <span className="text-gray-700 font-medium">₾{formatPackagePrice(totalPrice)}</span>
+                      </div>
                     </div>
+                    {selectedPackage && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">{selectedPackage.name}</span>
+                        <span className="text-emerald-600 font-medium">
+                          {formatPackageAdjustment(selectedPackage.percentage) ?? ""}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm text-gray-400">
                       <span>{totalDuration} {t("booking.min")} {t("booking.total")}</span>
                     </div>
@@ -1193,7 +1409,12 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
                   <div className="border-t border-gray-100 pt-4">
                     <div className="flex justify-between font-bold text-gray-900">
                       <span>Total</span>
-                      <span>₾{price * selectedSlots.length}</span>
+                      <div className="text-right">
+                        {activePackageTotal && activePackageTotal.baseTotalPrice > activePackageTotal.discountedTotalPrice && (
+                          <div className="text-[11px] text-gray-400 line-through">₾{formatPackagePrice(activePackageTotal.baseTotalPrice)}</div>
+                        )}
+                        <span>₾{formatPackagePrice(totalPrice)}</span>
+                      </div>
                     </div>
                   </div>
                   {secondsLeft > 0 && (

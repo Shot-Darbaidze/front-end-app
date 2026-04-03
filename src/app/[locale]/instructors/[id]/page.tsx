@@ -1,6 +1,5 @@
 import InstructorProfileHeader from "@/components/instructor-profile/InstructorProfileHeader";
-import BookingSidebar from "@/components/instructor-profile/BookingSidebar";
-import InstructorPackagesCard from "@/components/instructor-profile/InstructorPackagesCard";
+import InstructorBookingPanel from "@/components/instructor-profile/InstructorBookingPanel";
 import LocationCard from "@/components/instructor-profile/LocationCard";
 import CommentSection from "@/components/instructor-profile/CommentSection";
 import BackToInstructorsButton from "@/components/instructor-profile/BackToInstructorsButton";
@@ -12,6 +11,7 @@ import {
   buildVehicleInfo,
   pickFirstValidPrice,
 } from "@/utils/instructor";
+import { isPackageTransmissionCompatible } from "@/utils/packages";
 import { resolveMediaUrl } from "@/utils/media";
 
 type InstructorPost = {
@@ -36,6 +36,7 @@ type InstructorPost = {
   vehicle_brand?: string | null;
   vehicle_year?: number | null;
   autoschool_id?: string | null;
+  packages?: CoursePackage[];
 };
 
 type CoursePackage = {
@@ -95,7 +96,7 @@ export default async function InstructorProfilePage({ params }: { params: Promis
   const cityPrice = pickFirstValidPrice([post.automatic_city_price, post.manual_city_price]);
   const yardPrice = pickFirstValidPrice([post.automatic_yard_price, post.manual_yard_price]);
 
-  // Fetch autoschool packages if instructor belongs to a school
+  // Use school packages for employees, own packages for solo instructors.
   let packages: CoursePackage[] = [];
   if (post.autoschool_id) {
     try {
@@ -104,17 +105,18 @@ export default async function InstructorProfilePage({ params }: { params: Promis
         const school = await schoolRes.json();
         const trans = (post.transmission || "").toLowerCase();
         packages = (school.packages || []).filter((pkg: CoursePackage) => {
-          const pkgTrans = pkg.transmission.toLowerCase();
-          return pkgTrans === "both" || pkgTrans === trans;
+          return isPackageTransmissionCompatible(pkg.transmission, trans);
         });
       }
     } catch {
       // non-critical — profile still works without packages
     }
+  } else {
+    const trans = (post.transmission || "").toLowerCase();
+    packages = (post.packages || []).filter((pkg: CoursePackage) => {
+      return isPackageTransmissionCompatible(pkg.transmission, trans, { allowBoth: false });
+    });
   }
-
-  const defaultPackageId =
-    packages.find((p) => p.popular)?.id ?? packages[0]?.id ?? null;
 
   return (
     <div className="min-h-screen bg-gray-50/50 pt-28 pb-12">
@@ -159,20 +161,13 @@ export default async function InstructorProfilePage({ params }: { params: Promis
 
           {/* 2. Booking + Location — mobile: 2nd & 3rd, desktop: sticky sidebar */}
           <div className="order-2 lg:col-span-1 lg:row-span-2 space-y-6 lg:sticky lg:top-24 lg:h-fit">
-            <BookingSidebar
-              cityPrice={cityPrice}
-              yardPrice={yardPrice}
-              lessonDuration={60}
-              instructorId={post.id}
-              autoschoolId={post.autoschool_id}
-              defaultPackageId={defaultPackageId}
-            />
-            {packages.length > 0 && post.autoschool_id && (
-              <InstructorPackagesCard
-                packages={packages}
+              <InstructorBookingPanel
+                cityPrice={cityPrice}
+                yardPrice={yardPrice}
                 instructorId={post.id}
                 autoschoolId={post.autoschool_id}
-                post={{
+                packages={packages}
+                pricing={{
                   transmission: post.transmission,
                   automatic_city_price: post.automatic_city_price,
                   manual_city_price: post.manual_city_price,
@@ -180,7 +175,6 @@ export default async function InstructorProfilePage({ params }: { params: Promis
                   manual_yard_price: post.manual_yard_price,
                 }}
               />
-            )}
             <LocationCard
               location={cityLocation}
               googleMapsUrl={post.google_maps_url}

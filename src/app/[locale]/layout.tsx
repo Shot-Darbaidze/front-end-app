@@ -1,4 +1,3 @@
-import { ClerkProvider } from "@clerk/nextjs";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ClientProviders from "@/components/providers/ClientProviders";
@@ -62,16 +61,14 @@ export default async function LocaleLayout({
   const locale: Locale = isValidLocale(rawLocale) ? rawLocale : defaultLocale;
 
   return (
-    <ClerkProvider>
-      <ClientProviders locale={locale}>
-        <div className="flex flex-col min-h-screen">
-          <Navbar />
-          <main className="flex-1">
-            {children}
-          </main>
-          <Footer />
-        </div>
-      </ClientProviders>
-    </ClerkProvider>
+    <ClientProviders locale={locale}>
+      <div className="flex flex-col min-h-screen">
+        <Navbar />
+        <main className="flex-1">
+          {children}
+        </main>
+        <Footer />
+      </div>
+    </ClientProviders>
   );
 }

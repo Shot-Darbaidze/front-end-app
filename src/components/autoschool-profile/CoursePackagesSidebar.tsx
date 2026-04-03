@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, ChevronRight, Shield, MapPin, SquareParking, Car } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { formatPackageAdjustment } from "@/utils/packages";
 
 export interface InstructorMini {
   id: string;
@@ -62,8 +63,10 @@ const CoursePackagesSidebar = ({ packages, allInstructors = [], bookingHref = "#
   );
 
   const active = packages.find((p) => p.id === selected);
-  const packageBookingHref = `${bookingHref}?mode=package&package=${selected}`;
-  const singleLessonBookingHref = `${bookingHref}?mode=single`;
+  const packageBookingHref = active
+    ? `${bookingHref}?package=${selected}&mode=${active.mode}`
+    : bookingHref;
+  const singleLessonBookingHref = bookingHref;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-xl shadow-gray-200/50 p-6">
@@ -95,6 +98,7 @@ const CoursePackagesSidebar = ({ packages, allInstructors = [], bookingHref = "#
           <div className="space-y-2 mb-5">
             {packages.map((pkg) => {
               const ModeIcon = pkg.mode === "yard" ? SquareParking : MapPin;
+              const adjustmentLabel = formatPackageAdjustment(pkg.percentage);
               return (
                 <button
                   key={pkg.id}
@@ -141,9 +145,9 @@ const CoursePackagesSidebar = ({ packages, allInstructors = [], bookingHref = "#
                       </div>
                     </div>
                   </div>
-                  {pkg.percentage != null && pkg.percentage > 0 && (
+                  {adjustmentLabel && (
                     <span className="shrink-0 ml-2 text-xs font-bold text-white bg-emerald-500 px-2 py-1 rounded-lg">
-                      -{pkg.percentage}%
+                      {adjustmentLabel}
                     </span>
                   )}
                 </button>

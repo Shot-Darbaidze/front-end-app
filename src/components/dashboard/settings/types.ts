@@ -1,3 +1,5 @@
+import type { CoursePackage as ServiceCoursePackage } from "@/services/autoschoolService";
+
 export type InstructorPost = {
     id: string;
     title?: string | null;
@@ -18,7 +20,11 @@ export type InstructorPost = {
     applicant_date_of_birth?: string | null;
     is_approved?: boolean | null;
     status?: "active" | "inactive" | string | null;
+    instructor_type?: "independent" | "employee" | string | null;
+    packages?: CoursePackage[];
 };
+
+export type CoursePackage = ServiceCoursePackage;
 
 export type InstructorAsset = {
     id: string;

@@ -5,17 +5,45 @@ import { Check, ChevronRight, Shield } from "lucide-react";
 import Link from "next/link";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  formatPackageAdjustment,
+  formatPackagePrice,
+} from "@/utils/packages";
+
+export type BookingSidebarLessonMode = "city" | "yard";
+
+export interface BookingSidebarSelectedPackage {
+  id: string;
+  name: string;
+  percentage?: number | null;
+  mode?: string | null;
+}
 
 interface BookingSidebarProps {
   cityPrice: number | null;
   yardPrice: number | null;
-  lessonDuration: number; // in minutes
   instructorId: number | string;
   autoschoolId?: string | null;
-  defaultPackageId?: string | null;
+  selectedMode?: BookingSidebarLessonMode;
+  onModeChange?: (mode: BookingSidebarLessonMode) => void;
+  selectedPackage?: BookingSidebarSelectedPackage | null;
+  originalPricePerLesson?: number | null;
+  discountedPricePerLesson?: number | null;
+  onClearPackage?: () => void;
 }
 
-const BookingSidebar = ({ cityPrice, yardPrice, lessonDuration, instructorId, autoschoolId, defaultPackageId }: BookingSidebarProps) => {
+const BookingSidebar = ({
+  cityPrice,
+  yardPrice,
+  instructorId,
+  autoschoolId,
+  selectedMode,
+  onModeChange,
+  selectedPackage,
+  originalPricePerLesson,
+  discountedPricePerLesson,
+  onClearPackage,
+}: BookingSidebarProps) => {
   const localeHref = useLocaleHref();
   const { language } = useLanguage();
   const isKa = language === "ka";
@@ -27,17 +55,35 @@ const BookingSidebar = ({ cityPrice, yardPrice, lessonDuration, instructorId, au
   const hasBothModes = hasCityMode && hasYardMode && !isEmployee;
 
   // Auto-select the only available mode; default to city when both exist
-  const defaultMode: "city" | "yard" = hasCityMode ? "city" : "yard";
-  const [selectedMode, setSelectedMode] = useState<"city" | "yard">(defaultMode);
+  const defaultMode: BookingSidebarLessonMode = hasCityMode ? "city" : "yard";
+  const [internalSelectedMode, setInternalSelectedMode] = useState<BookingSidebarLessonMode>(defaultMode);
 
   const canBook = hasCityMode || hasYardMode;
-  const displayPrice = selectedMode === "city" ? cityPrice : yardPrice;
+  const resolvedSelectedMode = selectedMode ?? internalSelectedMode;
+  const setResolvedMode = onModeChange ?? setInternalSelectedMode;
+  const displayPrice = resolvedSelectedMode === "city" ? cityPrice : yardPrice;
+  const activeOriginalPrice = selectedPackage ? (originalPricePerLesson ?? displayPrice) : displayPrice;
+  const activeDisplayPrice = selectedPackage ? (discountedPricePerLesson ?? displayPrice) : displayPrice;
+  const packageAdjustmentLabel = formatPackageAdjustment(selectedPackage?.percentage);
+  const showDiscountedPrice =
+    selectedPackage != null &&
+    activeOriginalPrice != null &&
+    activeDisplayPrice != null &&
+    activeOriginalPrice > activeDisplayPrice;
+  const modeLockedByPackage = Boolean(selectedPackage);
+
+  const params = new URLSearchParams();
+  params.set("mode", resolvedSelectedMode);
+  if (selectedPackage?.id) {
+    params.set("package", selectedPackage.id);
+  }
+  if (isEmployee) {
+    params.set("instructor", String(instructorId));
+  }
 
   const bookingHref = isEmployee
-    ? localeHref(
-        `/autoschools/${autoschoolId}/book?mode=package${defaultPackageId ? `&package=${defaultPackageId}` : ""}&instructor=${instructorId}`
-      )
-    : localeHref(`/instructors/${instructorId}/book?mode=${selectedMode}`);
+    ? localeHref(`/autoschools/${autoschoolId}/book?${params.toString()}`)
+    : localeHref(`/instructors/${instructorId}/book?${params.toString()}`);
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-xl shadow-gray-200/50 p-6">
@@ -45,21 +91,55 @@ const BookingSidebar = ({ cityPrice, yardPrice, lessonDuration, instructorId, au
       <div className="flex items-end justify-between mb-4">
         <div>
           <span className="text-sm text-gray-500 font-medium">
-            {isKa ? "ფასი გაკვეთილზე" : "Price per lesson"}
+            {selectedPackage
+              ? (isKa ? "თითო გაკვეთილის ფასი პაკეტით" : "Package price per lesson")
+              : (isKa ? "თითო გაკვეთილის ფასი" : "Price per lesson")}
           </span>
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold text-gray-900">
-              {displayPrice != null
-                ? `₾${displayPrice}`
+          <div className="flex items-baseline gap-2 flex-wrap">
+            {showDiscountedPrice && activeOriginalPrice != null && (
+              <span className="text-base font-semibold text-gray-400 line-through">
+                ₾{formatPackagePrice(activeOriginalPrice)}
+              </span>
+            )}
+            <span className={`text-3xl font-bold ${showDiscountedPrice ? "text-[#F03D3D]" : "text-gray-900"}`}>
+              {activeDisplayPrice != null
+                ? `₾${formatPackagePrice(activeDisplayPrice)}`
                 : isKa ? "მიუწვდომელია" : "Not available"}
             </span>
-            <span className="text-gray-500">/ {lessonDuration}{isKa ? "წთ" : "min"}</span>
+            <span className="text-gray-500">/ {isKa ? "გაკვეთილი" : "lesson"}</span>
           </div>
+          {selectedPackage && (
+            <p className="mt-1 text-xs font-medium text-emerald-600">
+              {selectedPackage.name}
+              {packageAdjustmentLabel ? ` · ${packageAdjustmentLabel}` : ""}
+            </p>
+          )}
         </div>
         <div className="bg-green-50 text-green-700 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide">
           {isKa ? "საუკეთესო ფასი" : "Best Value"}
         </div>
       </div>
+
+      {selectedPackage && (
+        <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-700">
+          <div className="flex items-start justify-between gap-3">
+            <span>
+              {isKa
+                ? `არჩეული პაკეტი ავტომატურად იყენებს ${resolvedSelectedMode === "city" ? "ქალაქის" : "მოედნის"} რეჟიმს.`
+                : `The selected package automatically uses ${resolvedSelectedMode === "city" ? "city" : "yard"} mode.`}
+            </span>
+            {onClearPackage && (
+              <button
+                type="button"
+                onClick={onClearPackage}
+                className="shrink-0 rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-50"
+              >
+                {isKa ? "გამორთვა" : "Disable"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Mode selector — only shown for independent instructors offering both modes */}
       {hasBothModes && (
@@ -70,27 +150,33 @@ const BookingSidebar = ({ cityPrice, yardPrice, lessonDuration, instructorId, au
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => setSelectedMode("city")}
+              onClick={() => setResolvedMode("city")}
+              disabled={modeLockedByPackage}
               className={`py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${
-                selectedMode === "city"
+                resolvedSelectedMode === "city"
                   ? "border-[#F03D3D] bg-[#F03D3D]/5 text-[#F03D3D]"
-                  : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  : modeLockedByPackage
+                    ? "border-gray-200 text-gray-400"
+                    : "border-gray-200 text-gray-600 hover:border-gray-300"
               }`}
             >
               🏙 {isKa ? "ქალაქი" : "City"}
-              <span className="block text-xs font-normal mt-0.5 opacity-70">₾{cityPrice}</span>
+              <span className="block text-xs font-normal mt-0.5 opacity-70">₾{formatPackagePrice(cityPrice)}</span>
             </button>
             <button
               type="button"
-              onClick={() => setSelectedMode("yard")}
+              onClick={() => setResolvedMode("yard")}
+              disabled={modeLockedByPackage}
               className={`py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${
-                selectedMode === "yard"
+                resolvedSelectedMode === "yard"
                   ? "border-[#F03D3D] bg-[#F03D3D]/5 text-[#F03D3D]"
-                  : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  : modeLockedByPackage
+                    ? "border-gray-200 text-gray-400"
+                    : "border-gray-200 text-gray-600 hover:border-gray-300"
               }`}
             >
               🅿 {isKa ? "მოედანი" : "Yard"}
-              <span className="block text-xs font-normal mt-0.5 opacity-70">₾{yardPrice}</span>
+              <span className="block text-xs font-normal mt-0.5 opacity-70">₾{formatPackagePrice(yardPrice)}</span>
             </button>
           </div>
         </div>
@@ -112,9 +198,10 @@ const BookingSidebar = ({ cityPrice, yardPrice, lessonDuration, instructorId, au
           href={bookingHref}
           className="w-full py-4 bg-[#F03D3D] text-white rounded-xl font-bold text-lg hover:bg-[#d62f2f] transition-all shadow-lg shadow-red-500/20 active:scale-95 flex items-center justify-center gap-2"
         >
-          {isEmployee
-            ? (isKa ? "კურსზე ჩარიცხვა" : "Enroll in Course")
-            : (isKa ? "დაჯავშნე პირველი გაკვეთილი" : "Book First Lesson")} <ChevronRight className="w-5 h-5" />
+          {selectedPackage
+            ? (isKa ? "პაკეტით დაჯავშნე" : "Book with Package")
+            : (isKa ? "დაჯავშნე გაკვეთილი" : "Book Lesson")}
+          <ChevronRight className="w-5 h-5" />
         </Link>
       ) : (
         <button

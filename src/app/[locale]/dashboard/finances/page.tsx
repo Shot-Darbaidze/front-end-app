@@ -279,7 +279,9 @@ export default function FinancesPage() {
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Finances</h1>
                 <p className="mt-2 text-gray-600">
-                  Use calendar controls below (max lookback is last 90 days). Withdraw earnings from lessons completed after the 24h grace.
+                  {isEmployee
+                    ? "Use calendar controls below (max lookback is last 90 days). Review your lesson earnings and release status."
+                    : "Use calendar controls below (max lookback is last 90 days). Withdraw earnings from lessons completed after the 24h grace."}
                 </p>
               </div>
 

@@ -21,9 +21,12 @@ const InstructorCardSkeleton = () => {
       </div>
 
       {/* Footer */}
-      <div className="mt-auto pt-4 border-t border-gray-50 flex items-center justify-between">
-        <div className="h-6 w-24 bg-gray-200 rounded" />
-        <div className="h-10 w-32 bg-gray-200 rounded-xl" />
+      <div className="mt-auto pt-4 border-t border-gray-50 space-y-3">
+        <div>
+          <div className="h-3 w-28 bg-gray-200 rounded mb-2" />
+          <div className="h-12 w-full bg-gray-200 rounded-xl" />
+        </div>
+        <div className="h-10 w-full bg-gray-200 rounded-xl" />
       </div>
     </div>
   );

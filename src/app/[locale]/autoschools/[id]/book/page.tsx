@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -13,11 +13,16 @@ import BookingCalendarCard from "@/components/autoschool-profile/BookingCalendar
 import BookingPricingCard, { type BookingOption } from "@/components/autoschool-profile/BookingPricingCard";
 import InstructorSelectionCard, { type InstructorOption } from "@/components/autoschool-profile/InstructorSelectionCard";
 import Button from "@/components/ui/Button";
+import {
+  applyPackagePercentage,
+  formatPackagePrice,
+  formatPackageAdjustment,
+  getPackagePriceBreakdown,
+  isPackageTransmissionCompatible,
+} from "@/utils/packages";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 const TZ = "Asia/Tbilisi";
-
-type BookingMode = "package" | "single";
 type LessonMode = "city" | "yard";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -83,7 +88,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
   const { getToken } = useAuth();
   const searchParams = useSearchParams();
 
-  const initialMode: BookingMode = searchParams.get("mode") === "single" ? "single" : "package";
+  const initialLessonMode: LessonMode = searchParams.get("mode") === "yard" ? "yard" : "city";
   const initialPackageId = searchParams.get("package") ?? "";
   const initialInstructorId = searchParams.get("instructor") ?? "";
 
@@ -92,13 +97,11 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
   const [schoolCity, setSchoolCity] = useState<string | null>(null);
   const [packages, setPackages] = useState<BookingOption[]>([]);
   const [rawPackages, setRawPackages] = useState<RawPackage[]>([]);
-  const [rawInstructors, setRawInstructors] = useState<RawInstructor[]>([]);
   const [instructors, setInstructors] = useState<InstructorOption[]>([]);
   const [loadingSchool, setLoadingSchool] = useState(true);
 
   // ── selection ──
-  const [bookingMode, setBookingMode] = useState<BookingMode>(initialMode);
-  const [lessonMode, setLessonMode] = useState<LessonMode>("city");
+  const [lessonMode, setLessonMode] = useState<LessonMode>(initialLessonMode);
   const [selectedPackageId, setSelectedPackageId] = useState(initialPackageId);
   const [selectedInstructorId, setSelectedInstructorId] = useState("");
   const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
@@ -138,11 +141,12 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
             percentage: p.percentage != null && Number(p.percentage) > 0 ? Number(p.percentage) : undefined,
             popular: p.popular,
             description: p.description ?? "",
+            mode: p.mode,
+            transmission: p.transmission,
           }))
         );
 
         const insts: RawInstructor[] = school.instructors ?? [];
-        setRawInstructors(insts);
         const opts: InstructorOption[] = insts.map((i) => ({
           id: i.id,
           name: [i.first_name, i.last_name].filter(Boolean).join(" ") || i.title,
@@ -160,10 +164,12 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
           setSelectedInstructorId(opts[0].id);
         }
 
-        // Default package to URL param or popular/first
-        if (!initialPackageId && pkgs.length > 0) {
-          const popular = pkgs.find((p) => p.popular);
-          setSelectedPackageId((popular ?? pkgs[0]).id);
+        if (initialPackageId) {
+          const initialPackage = pkgs.find((pkg) => pkg.id === initialPackageId);
+          if (initialPackage) {
+            setSelectedPackageId(initialPackage.id);
+            setLessonMode(initialPackage.mode === "yard" ? "yard" : "city");
+          }
         }
       })
       .catch(() => {})
@@ -216,12 +222,69 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
 
   // ── derived ───────────────────────────────────────────────────────────────
   const selectedPackage = useMemo(
-    () => rawPackages.find((p) => p.id === selectedPackageId) ?? rawPackages[0],
+    () => rawPackages.find((p) => p.id === selectedPackageId) ?? null,
     [rawPackages, selectedPackageId]
   );
 
-  // Packages now always apply to all instructors — no per-package filtering needed
-  const filteredInstructors = instructors;
+  useEffect(() => {
+    if (!selectedPackage) {
+      return;
+    }
+
+    const packageMode = selectedPackage.mode === "yard" ? "yard" : "city";
+    if (lessonMode !== packageMode) {
+      setLessonMode(packageMode);
+      setSelectedSlotIds([]);
+      setBookingError(null);
+    }
+  }, [selectedPackage, lessonMode]);
+
+  const filteredInstructors = useMemo(
+    () => instructors.filter((instructor) => {
+      const modePrice = lessonMode === "city" ? instructor.cityPrice : instructor.yardPrice;
+      if (modePrice == null) {
+        return false;
+      }
+      if (!selectedPackage) {
+        return true;
+      }
+
+      return isPackageTransmissionCompatible(selectedPackage.transmission, instructor.transmission);
+    }),
+    [instructors, lessonMode, selectedPackage]
+  );
+
+  const filteredPackages = useMemo(
+    () => packages.filter((pkg) => {
+      const rawPackage = rawPackages.find((item) => item.id === pkg.id);
+      if (!rawPackage) {
+        return false;
+      }
+      if (rawPackage.mode !== lessonMode) {
+        return false;
+      }
+      if (!selectedInstructorId) {
+        return true;
+      }
+
+      const selectedInstructor = instructors.find((item) => item.id === selectedInstructorId);
+      if (!selectedInstructor) {
+        return true;
+      }
+
+      return isPackageTransmissionCompatible(rawPackage.transmission, selectedInstructor.transmission);
+    }),
+    [packages, rawPackages, lessonMode, instructors, selectedInstructorId]
+  );
+
+  useEffect(() => {
+    if (!selectedPackageId) {
+      return;
+    }
+    if (!filteredPackages.some((pkg) => pkg.id === selectedPackageId)) {
+      setSelectedPackageId("");
+    }
+  }, [filteredPackages, selectedPackageId]);
 
   // If selected instructor was filtered out, switch to first available
   useEffect(() => {
@@ -233,7 +296,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
     }
   }, [filteredInstructors]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const requiredSlots = bookingMode === "package" ? (selectedPackage?.lessons ?? 1) : null;
+  const requiredSlots = selectedPackage?.lessons ?? null;
 
   const selectedInstructor = useMemo(
     () => instructors.find((i) => i.id === selectedInstructorId) ?? instructors[0],
@@ -252,15 +315,49 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
     return p ?? null;
   }, [selectedInstructor, lessonMode]);
 
+  const selectedPackagePricing = useMemo(() => {
+    if (!selectedPackage || requiredSlots == null) {
+      return null;
+    }
+
+    const lessonPrice = selectedInstructor
+      ? (selectedPackage.mode === "yard" ? selectedInstructor.yardPrice : selectedInstructor.cityPrice)
+      : null;
+
+    return getPackagePriceBreakdown(lessonPrice, requiredSlots, selectedPackage.percentage);
+  }, [requiredSlots, selectedInstructor, selectedPackage]);
+
+  const pricedFilteredPackages = useMemo(
+    () => filteredPackages.map((pkg) => {
+      const lessonPrice = selectedInstructor
+        ? (pkg.mode === "yard" ? selectedInstructor.yardPrice : selectedInstructor.cityPrice)
+        : null;
+      const pricing = getPackagePriceBreakdown(lessonPrice, pkg.lessons, pkg.percentage);
+
+      return {
+        ...pkg,
+        baseLessonPrice: pricing?.baseLessonPrice,
+        discountedLessonPrice: pricing?.discountedLessonPrice,
+        baseTotalPrice: pricing?.baseTotalPrice,
+        discountedTotalPrice: pricing?.discountedTotalPrice,
+      };
+    }),
+    [filteredPackages, selectedInstructor],
+  );
+
   const computedTotal = useMemo(() => {
     if (pricePerSlot == null || selectedSlotIds.length === 0) return null;
     const count = selectedSlotIds.length;
-    if (bookingMode === "package" && selectedPackage && requiredSlots && count >= requiredSlots) {
-      const pct = Number(selectedPackage.percentage ?? 0);
-      return Math.round(pricePerSlot * requiredSlots * (1 - pct / 100) * 100) / 100;
+    if (selectedPackagePricing && requiredSlots && count >= requiredSlots) {
+      return selectedPackagePricing.discountedTotalPrice;
     }
     return Math.round(pricePerSlot * count * 100) / 100;
-  }, [pricePerSlot, selectedSlotIds.length, bookingMode, selectedPackage, requiredSlots]);
+  }, [pricePerSlot, requiredSlots, selectedPackagePricing, selectedSlotIds.length]);
+
+  const selectedOptionOriginalPrice =
+    selectedPackagePricing && requiredSlots != null && selectedSlotIds.length >= requiredSlots
+      ? selectedPackagePricing.baseTotalPrice
+      : undefined;
 
   const { days, startDay } = getDaysInMonth(currentMonth);
   const isDateAvailable = (day: number) => {
@@ -273,8 +370,14 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
   };
 
   // ── handlers ──────────────────────────────────────────────────────────────
-  const handleModeChange = (m: BookingMode) => {
-    setBookingMode(m);
+  const handlePackageSelect = (packageId: string | null) => {
+    const nextPackage = rawPackages.find((pkg) => pkg.id === packageId);
+    if (nextPackage) {
+      setLessonMode(nextPackage.mode === "yard" ? "yard" : "city");
+      setSelectedPackageId(nextPackage.id);
+    } else {
+      setSelectedPackageId("");
+    }
     setSelectedSlotIds([]);
     setBookingError(null);
   };
@@ -297,7 +400,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
       setBookingError("აირჩიეთ მინიმუმ ერთი დრო.");
       return;
     }
-    if (bookingMode === "package" && requiredSlots && selectedSlotIds.length < requiredSlots) {
+    if (selectedPackage && requiredSlots && selectedSlotIds.length !== requiredSlots) {
       setBookingError(`ამ პაკეტისთვის საჭიროა ზუსტად ${requiredSlots} გაკვეთილის არჩევა.`);
       return;
     }
@@ -329,7 +432,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
         slot_ids: selectedSlotIds,
         mode: lessonMode,
       };
-      if (bookingMode === "package" && selectedPackage) {
+      if (selectedPackage) {
         confirmBody.package_id = selectedPackage.id;
       }
 
@@ -364,8 +467,8 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
             <p className="text-gray-500 mb-6">გაკვეთილები წარმატებით დაჯავშნა.</p>
             <div className="bg-gray-50 rounded-2xl p-5 text-left mb-6 space-y-3">
               <Row label="ავტოსკოლა" value={schoolName} />
-              <Row label="ფორმატი" value={bookingMode === "package" ? "კურსის პაკეტი" : "სათითაო გაკვეთილი"} />
-              {bookingMode === "package" && selectedPackage && (
+              <Row label="ფორმატი" value={selectedPackage ? "პაკეტით" : "სათითაო გაკვეთილები"} />
+              {selectedPackage && (
                 <Row label="პაკეტი" value={selectedPackage.name} />
               )}
               <Row label="ინსტრუქტორი" value={selectedInstructor?.name ?? "-"} />
@@ -397,23 +500,21 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
   // ── label for slot footer ──────────────────────────────────────────────────
   const slotFooterLabel = (() => {
     const count = selectedSlotIds.length;
-    if (bookingMode === "package" && selectedPackage && requiredSlots) {
-      const pct = Number(selectedPackage.percentage ?? 0);
-      const discountActive = count >= requiredSlots;
+    if (selectedPackage && requiredSlots) {
+      const adjustmentLabel = formatPackageAdjustment(selectedPackage.percentage);
       return (
         `${selectedPackage.name} · ${count}/${requiredSlots} გაკვ.` +
-        (pct > 0 && !discountActive ? `  (${requiredSlots} გაკვ-ზე -${pct}%)` : "")
+        (adjustmentLabel && count < requiredSlots ? `  (${requiredSlots} გაკვ-ზე ${adjustmentLabel})` : "")
       );
     }
     return `სათითაო · ${count} გაკვ.`;
   })();
 
   const showDiscountBadge =
-    bookingMode === "package" &&
     selectedPackage &&
     requiredSlots != null &&
     selectedSlotIds.length >= requiredSlots &&
-    (selectedPackage.percentage ?? 0) > 0;
+    formatPackageAdjustment(selectedPackage.percentage) != null;
 
   return (
     <div className="min-h-screen bg-gray-50/50 pt-24 pb-12">
@@ -457,20 +558,6 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Left column */}
             <div className="lg:col-span-4 flex flex-col gap-6">
-              {packages.length > 0 && (
-                <BookingPricingCard
-                  mode={bookingMode}
-                  selectedPackageId={selectedPackageId}
-                  packages={packages}
-                  onModeChange={handleModeChange}
-                  onPackageSelect={(pkgId) => {
-                    setSelectedPackageId(pkgId);
-                    setSelectedSlotIds([]);
-                    setBookingError(null);
-                  }}
-                />
-              )}
-
               {/* City / Yard selector */}
               <div className="bg-white rounded-3xl border border-gray-100 p-5 shadow-sm">
                 <p className="text-sm font-semibold text-gray-700 mb-3">გაკვეთილის ადგილი</p>
@@ -503,6 +590,15 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
                 onPrevMonth={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
                 onNextMonth={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
               />
+
+              {filteredPackages.length > 0 && (
+                <BookingPricingCard
+                  selectedPackageId={selectedPackageId}
+                  packages={pricedFilteredPackages}
+                  onPackageSelect={handlePackageSelect}
+                  language={locale === "ka" ? "ka" : "en"}
+                />
+              )}
             </div>
 
             {/* Right column */}
@@ -528,6 +624,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
                   bookingError={bookingError}
                   selectedOptionLabel={slotFooterLabel}
                   selectedOptionPrice={computedTotal ?? undefined}
+                  selectedOptionOriginalPrice={selectedOptionOriginalPrice}
                   discountActive={showDiscountBadge ?? false}
                   onSelectSlot={(slotId) => {
                     setSelectedSlotIds((prev) => {
@@ -535,8 +632,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
                         setBookingError(null);
                         return prev.filter((x) => x !== slotId);
                       }
-                      // Package mode: cap at required slots
-                      if (bookingMode === "package" && requiredSlots && prev.length >= requiredSlots) {
+                      if (selectedPackage && requiredSlots && prev.length >= requiredSlots) {
                         setBookingError(`მაქსიმუმ ${requiredSlots} გაკვეთილის არჩევა შეიძლება.`);
                         return prev;
                       }
@@ -566,19 +662,32 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
                 <Row label="ავტოსკოლა" value={schoolName} />
                 <Row label="ინსტრუქტორი" value={`${selectedInstructor?.name ?? "-"} · ${selectedInstructor?.transmission ?? ""}`} />
                 <Row label="გაკვეთილის ადგილი" value={lessonMode === "city" ? "ქალაქი" : "მოედანი"} />
-                {bookingMode === "package" && selectedPackage && (
+                {selectedPackage && (
                   <Row
                     label="პაკეტი"
                     value={
                       selectedPackage.name +
-                      (selectedPackage.percentage ? ` · -${selectedPackage.percentage}%` : "")
+                      (formatPackageAdjustment(selectedPackage.percentage)
+                        ? ` · ${formatPackageAdjustment(selectedPackage.percentage)}`
+                        : "")
                     }
                   />
                 )}
                 {computedTotal != null && (
                   <Row
                     label="სავარაუდო ღირებულება"
-                    value={`₾${computedTotal}`}
+                    value={
+                      selectedPackagePricing && selectedPackagePricing.baseTotalPrice > selectedPackagePricing.discountedTotalPrice
+                        ? (
+                          <span className="inline-flex items-baseline gap-2">
+                            <span className="text-xs text-gray-400 line-through">
+                              ₾{formatPackagePrice(selectedPackagePricing.baseTotalPrice)}
+                            </span>
+                            <span>₾{formatPackagePrice(computedTotal)}</span>
+                          </span>
+                        )
+                        : `₾${formatPackagePrice(computedTotal)}`
+                    }
                   />
                 )}
                 <div className="pt-1">
@@ -630,7 +739,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex justify-between text-sm border-b border-gray-100 pb-2 last:border-0 last:pb-0">
       <span className="text-gray-500">{label}</span>

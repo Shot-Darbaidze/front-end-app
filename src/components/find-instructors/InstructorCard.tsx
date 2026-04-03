@@ -253,34 +253,58 @@ const InstructorCard = ({
         })}
       </div>
 
-      <div className="mt-auto pt-4 border-t border-gray-50 flex items-center justify-between">
-        <div className="flex flex-col gap-0.5 pl-1">
+      <div className="mt-auto pt-4 border-t border-gray-50 space-y-3">
+        <div className="pl-1">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            {isKa ? "თითო გაკვეთილის ფასი" : "Price per lesson"}
+          </p>
           {hasAnyModePrice ? (
-            <>
+            <div className="space-y-2">
               {hasCityPrice && (
-                <div className="flex items-center gap-1.5">
-                  <CityIcon />
-                  <span className="text-sm font-semibold text-gray-900">{PRICING.CURRENCY_SYMBOL}{cityPrice}<span className="text-xs font-normal text-gray-400">/{isKa ? "სთ" : "hr"}</span></span>
-                  <span className="text-xs text-gray-400">{isKa ? "ქალაქი" : "City"}</span>
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <CityIcon />
+                    <span className="whitespace-nowrap text-lg font-bold text-gray-900">{PRICING.CURRENCY_SYMBOL}{cityPrice}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block whitespace-nowrap text-xs font-medium text-gray-500">
+                      {isKa ? "ქალაქი" : "City"}
+                    </span>
+                    <span className="block whitespace-nowrap text-[11px] text-gray-400">
+                      {isKa ? "გაკვეთილი" : "lesson"}
+                    </span>
+                  </div>
                 </div>
               )}
               {hasYardPrice && (
-                <div className="flex items-center gap-1.5">
-                  <YardIcon />
-                  <span className="text-sm font-semibold text-gray-900">{PRICING.CURRENCY_SYMBOL}{yardPrice}<span className="text-xs font-normal text-gray-400">/{isKa ? "სთ" : "hr"}</span></span>
-                  <span className="text-xs text-gray-400">{isKa ? "მოედანი" : "Yard"}</span>
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <YardIcon />
+                    <span className="whitespace-nowrap text-lg font-bold text-gray-900">{PRICING.CURRENCY_SYMBOL}{yardPrice}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block whitespace-nowrap text-xs font-medium text-gray-500">
+                      {isKa ? "მოედანი" : "Yard"}
+                    </span>
+                    <span className="block whitespace-nowrap text-[11px] text-gray-400">
+                      {isKa ? "გაკვეთილი" : "lesson"}
+                    </span>
+                  </div>
                 </div>
               )}
-            </>
+            </div>
           ) : (
-            <div className="flex items-center gap-1">
-              <span className="text-xl font-bold text-gray-900">{PRICING.CURRENCY_SYMBOL}{price}/{isKa ? "საათი" : "hour"}</span>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
+              <span className="whitespace-nowrap text-xl font-bold text-gray-900">{PRICING.CURRENCY_SYMBOL}{price}</span>
+              <span className="block whitespace-nowrap text-xs font-medium text-gray-500">
+                {isKa ? "გაკვეთილი" : "lesson"}
+              </span>
             </div>
           )}
         </div>
         <Link
           href={profileHref}
-          className="w-[48%] after:content-[''] after:absolute after:inset-0 after:z-[1] after:rounded-2xl"
+          className="block w-full after:content-[''] after:absolute after:inset-0 after:z-[1] after:rounded-2xl"
           onClick={handleCardClick}
         >
           <button className="w-full whitespace-nowrap py-2.5 px-4 bg-white border-2 border-[#F03D3D] text-[#F03D3D] rounded-xl font-bold text-sm hover:bg-[#F03D3D] hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95">

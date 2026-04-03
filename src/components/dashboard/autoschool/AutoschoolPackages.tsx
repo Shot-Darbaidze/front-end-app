@@ -16,14 +16,29 @@ import {
   Plus, Pencil, Trash2, Star, X, AlertCircle, CheckCircle,
   Package, Percent, MapPin, SquareParking, Car,
 } from "lucide-react";
+import {
+  applyPackagePercentage,
+  clampPackageDiscountPercentage,
+  DEFAULT_PACKAGE_DISCOUNT_PERCENTAGE,
+  formatPackageAdjustment,
+  MAX_PACKAGE_DISCOUNT_PERCENTAGE,
+  MIN_PACKAGE_DISCOUNT_PERCENTAGE,
+} from "@/utils/packages";
 
 interface AutoschoolPackagesProps {
   schoolId: string;
 }
 
+export interface PackagePricingSource {
+  manual_city_price?: number | null;
+  manual_yard_price?: number | null;
+  automatic_city_price?: number | null;
+  automatic_yard_price?: number | null;
+}
+
 // ─── Form state ───────────────────────────────────────────────────────────────
 
-interface PackageFormState {
+export interface PackageFormState {
   name: string;
   lessons: string;
   percentage: string;
@@ -36,97 +51,151 @@ interface PackageFormState {
 const emptyForm = (): PackageFormState => ({
   name: "",
   lessons: "",
-  percentage: "",
+  percentage: String(DEFAULT_PACKAGE_DISCOUNT_PERCENTAGE),
   popular: false,
   description: "",
   mode: "city",
   transmission: "manual",
 });
 
+const DISCOUNT_PRESET_VALUES = [5, 10, 15, 20, 25] as const;
+const DEFAULT_PACKAGE_TRANSMISSIONS = ["manual", "automatic", "both"] as const;
+
+function getSelectableTransmissions(
+  availableTransmissions: readonly PackageFormState["transmission"][] | undefined,
+  canSelectBoth: boolean,
+): PackageFormState["transmission"][] {
+  const source = availableTransmissions && availableTransmissions.length > 0
+    ? [...availableTransmissions]
+    : [...DEFAULT_PACKAGE_TRANSMISSIONS];
+
+  return source.filter(
+    (value, index) => source.indexOf(value) === index && (value !== "both" || canSelectBoth),
+  );
+}
+
 // ─── Helper: derive computed price from school prices ─────────────────────────
 
 function computePrice(
-  school: AutoschoolDetail | null,
+  pricing: PackagePricingSource | null,
   form: PackageFormState,
 ): number | null {
-  if (!school) return null;
+  if (!pricing) return null;
   const lessons = parseInt(form.lessons, 10);
   const pct = parseFloat(form.percentage);
   if (isNaN(lessons) || lessons < 1) return null;
-  if (isNaN(pct) || pct < 0 || pct > 200) return null;
+  if (isNaN(pct) || pct < MIN_PACKAGE_DISCOUNT_PERCENTAGE || pct >= 100) return null;
 
   let unitPrice: number | null | undefined;
   if (form.mode === "city") {
-    if (form.transmission === "manual") unitPrice = school.manual_city_price != null ? Number(school.manual_city_price) : null;
-    else if (form.transmission === "automatic") unitPrice = school.automatic_city_price != null ? Number(school.automatic_city_price) : null;
+    if (form.transmission === "manual") unitPrice = pricing.manual_city_price != null ? Number(pricing.manual_city_price) : null;
+    else if (form.transmission === "automatic") unitPrice = pricing.automatic_city_price != null ? Number(pricing.automatic_city_price) : null;
     else {
       // "both" — only valid when both prices match
-      const m = school.manual_city_price != null ? Number(school.manual_city_price) : null;
-      const a = school.automatic_city_price != null ? Number(school.automatic_city_price) : null;
+      const m = pricing.manual_city_price != null ? Number(pricing.manual_city_price) : null;
+      const a = pricing.automatic_city_price != null ? Number(pricing.automatic_city_price) : null;
       unitPrice = (m != null && a != null && m === a) ? m : null;
     }
   } else {
-    if (form.transmission === "manual") unitPrice = school.manual_yard_price != null ? Number(school.manual_yard_price) : null;
-    else if (form.transmission === "automatic") unitPrice = school.automatic_yard_price != null ? Number(school.automatic_yard_price) : null;
+    if (form.transmission === "manual") unitPrice = pricing.manual_yard_price != null ? Number(pricing.manual_yard_price) : null;
+    else if (form.transmission === "automatic") unitPrice = pricing.automatic_yard_price != null ? Number(pricing.automatic_yard_price) : null;
     else {
-      const m = school.manual_yard_price != null ? Number(school.manual_yard_price) : null;
-      const a = school.automatic_yard_price != null ? Number(school.automatic_yard_price) : null;
+      const m = pricing.manual_yard_price != null ? Number(pricing.manual_yard_price) : null;
+      const a = pricing.automatic_yard_price != null ? Number(pricing.automatic_yard_price) : null;
       unitPrice = (m != null && a != null && m === a) ? m : null;
     }
   }
   if (unitPrice == null) return null;
-  return Number((unitPrice * lessons * (pct / 100)).toFixed(2));
+  return applyPackagePercentage(unitPrice * lessons, pct);
 }
 
 /** "both" is only selectable when city/yard prices match for manual vs automatic */
-function bothEnabled(school: AutoschoolDetail | null, mode: "city" | "yard"): boolean {
-  if (!school) return false;
+function bothEnabled(pricing: PackagePricingSource | null, mode: "city" | "yard"): boolean {
+  if (!pricing) return false;
   if (mode === "city") {
-    const m = school.manual_city_price != null ? Number(school.manual_city_price) : null;
-    const a = school.automatic_city_price != null ? Number(school.automatic_city_price) : null;
+    const m = pricing.manual_city_price != null ? Number(pricing.manual_city_price) : null;
+    const a = pricing.automatic_city_price != null ? Number(pricing.automatic_city_price) : null;
     return m != null && a != null && m === a;
   } else {
-    const m = school.manual_yard_price != null ? Number(school.manual_yard_price) : null;
-    const a = school.automatic_yard_price != null ? Number(school.automatic_yard_price) : null;
+    const m = pricing.manual_yard_price != null ? Number(pricing.manual_yard_price) : null;
+    const a = pricing.automatic_yard_price != null ? Number(pricing.automatic_yard_price) : null;
     return m != null && a != null && m === a;
   }
 }
 
 // ─── PackageForm ──────────────────────────────────────────────────────────────
 
-function PackageForm({
+export function PackageForm({
   initial,
-  school,
+  pricing,
   onSave,
   onCancel,
   isSaving,
   language,
   popularTakenBy,
+  availableTransmissions,
+  defaultTransmission,
 }: {
   initial?: PackageFormState;
-  school: AutoschoolDetail | null;
+  pricing: PackagePricingSource | null;
   onSave: (form: PackageFormState) => Promise<void>;
   onCancel: () => void;
   isSaving: boolean;
   language: string;
   popularTakenBy?: string | null;
+  availableTransmissions?: readonly PackageFormState["transmission"][];
+  defaultTransmission?: PackageFormState["transmission"];
 }) {
-  const [form, setForm] = useState<PackageFormState>(initial ?? emptyForm());
+  const [form, setForm] = useState<PackageFormState>(() => {
+    if (initial) {
+      return initial;
+    }
+
+    const nextDefaultTransmission = defaultTransmission ?? availableTransmissions?.[0] ?? "manual";
+    return { ...emptyForm(), transmission: nextDefaultTransmission };
+  });
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
 
   const set = <K extends keyof PackageFormState>(field: K, value: PackageFormState[K]) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  const canSelectBoth = bothEnabled(school, form.mode);
-  const computedPrice = computePrice(school, form);
+  const canSelectBoth = bothEnabled(pricing, form.mode);
+  const selectableTransmissions = getSelectableTransmissions(availableTransmissions, canSelectBoth);
+  const selectableTransmissionsKey = selectableTransmissions.join("|");
+  const fallbackTransmission = selectableTransmissions[0] ?? "manual";
+  const computedPrice = computePrice(pricing, form);
+  const rawDiscount = Number(form.percentage);
+  const sliderValue = clampPackageDiscountPercentage(
+    Number.isFinite(rawDiscount) ? rawDiscount : DEFAULT_PACKAGE_DISCOUNT_PERCENTAGE,
+  );
+  const discountPreview = formatPackageAdjustment(
+    Number.isFinite(rawDiscount) ? rawDiscount : sliderValue,
+  );
+
+  const setDiscount = (value: number) => {
+    set("percentage", String(clampPackageDiscountPercentage(value)));
+  };
+
+  useEffect(() => {
+    setForm((prev) => (
+      selectableTransmissions.includes(prev.transmission)
+        ? prev
+        : { ...prev, transmission: fallbackTransmission }
+    ));
+  }, [fallbackTransmission, selectableTransmissionsKey]);
 
   // If "both" was selected but now prices diverge, reset to "manual"
   const handleModeChange = (newMode: "city" | "yard") => {
-    const newBothEnabled = bothEnabled(school, newMode);
+    const nextSelectableTransmissions = getSelectableTransmissions(
+      availableTransmissions,
+      bothEnabled(pricing, newMode),
+    );
     setForm((prev) => ({
       ...prev,
       mode: newMode,
-      transmission: prev.transmission === "both" && !newBothEnabled ? "manual" : prev.transmission,
+      transmission: nextSelectableTransmissions.includes(prev.transmission)
+        ? prev.transmission
+        : (nextSelectableTransmissions[0] ?? "manual"),
     }));
   };
 
@@ -139,14 +208,19 @@ function PackageForm({
     if (
       !form.percentage ||
       isNaN(Number(form.percentage)) ||
-      Number(form.percentage) < 0 ||
-      Number(form.percentage) > 200
+      Number(form.percentage) < MIN_PACKAGE_DISCOUNT_PERCENTAGE ||
+      Number(form.percentage) >= 100
     )
-      errs.percentage = language === "ka" ? "0–200 შორის" : "Must be 0–200";
-    if (form.transmission === "both" && !bothEnabled(school, form.mode))
-      errs.transmission = language === "ka"
-        ? '"ორივე" ხელმისაწვდომია მხოლოდ ფასების დამთხვევისას'
-        : '"Both" is only available when prices match';
+      errs.percentage = language === "ka" ? "1–99% შორის" : "Must be between 1% and 99%";
+    if (!selectableTransmissions.includes(form.transmission)) {
+      errs.transmission = form.transmission === "both"
+        ? language === "ka"
+          ? '"ორივე" ხელმისაწვდომია მხოლოდ ფასების დამთხვევისას'
+          : '"Both" is only available when prices match'
+        : language === "ka"
+          ? "აირჩიეთ მხოლოდ ხელმისაწვდომი გადაცემათა კოლოფი"
+          : "Choose a transmission this instructor can actually offer";
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -188,8 +262,8 @@ function PackageForm({
         {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
       </div>
 
-      {/* Lessons + Percentage */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Lessons + Discount */}
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-3">
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">
             {language === "ka" ? "გაკვეთილები" : "Lessons"}
@@ -209,24 +283,82 @@ function PackageForm({
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">
-            {language === "ka" ? "პროცენტი (%)" : "Percentage (%)"}
+            {language === "ka" ? "ფასდაკლება (%)" : "Discount off (%)"}
           </label>
-          <div className="relative">
+          <div
+            className={`rounded-2xl border p-4 sm:p-5 ${
+              errors.percentage ? "border-red-400 bg-red-50" : "border-slate-200 bg-slate-50/80"
+            }`}
+          >
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                  {language === "ka" ? "მოსაჭრელი ნაწილი" : "Discount applied"}
+                </p>
+                <div className="mt-1 flex items-center gap-2 text-[#F03D3D]">
+                  <Percent className="w-4 h-4" />
+                  <span className="text-2xl font-bold">{discountPreview ?? "-0%"}</span>
+                </div>
+              </div>
+              <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
+                <button
+                  type="button"
+                  onClick={() => setDiscount(sliderValue - 1)}
+                  className="h-10 w-10 shrink-0 rounded-xl border border-slate-200 bg-white text-lg font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
+                >
+                  -
+                </button>
+                <div className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-sm font-semibold text-slate-900 sm:min-w-[72px] sm:flex-none">
+                  {sliderValue}%
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDiscount(sliderValue + 1)}
+                  className="h-10 w-10 shrink-0 rounded-xl border border-slate-200 bg-white text-lg font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
             <input
-              type="number"
-              min={0}
-              max={200}
-              step={0.01}
-              value={form.percentage}
-              onChange={(e) => set("percentage", e.target.value)}
-              placeholder="90"
-              className={`w-full pl-3 pr-8 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/30 ${
-                errors.percentage ? "border-red-400 bg-red-50" : "border-slate-200 bg-white"
-              }`}
+              type="range"
+              min={MIN_PACKAGE_DISCOUNT_PERCENTAGE}
+              max={MAX_PACKAGE_DISCOUNT_PERCENTAGE}
+              step={1}
+              value={sliderValue}
+              onChange={(e) => setDiscount(Number(e.target.value))}
+              className="w-full accent-[#F03D3D]"
             />
-            <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+
+            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+              <span>{MIN_PACKAGE_DISCOUNT_PERCENTAGE}%</span>
+              <span>{MAX_PACKAGE_DISCOUNT_PERCENTAGE}%</span>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              {DISCOUNT_PRESET_VALUES.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setDiscount(value)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors sm:min-w-[72px] ${
+                    sliderValue === value
+                      ? "bg-[#F03D3D] text-white"
+                      : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  {formatPackageAdjustment(value)}
+                </button>
+              ))}
+            </div>
           </div>
           {errors.percentage && <p className="text-xs text-red-500 mt-1">{errors.percentage}</p>}
+          <p className="text-[11px] text-slate-400 mt-1">
+            {language === "ka"
+              ? "10 ნიშნავს 10%-იან ფასდაკლებას. მოსწავლე იხდის საწყისი ფასის 90%-ს."
+              : "10 means a 10% discount, so the student pays 90% of the base price."}
+          </p>
         </div>
       </div>
 
@@ -235,13 +367,13 @@ function PackageForm({
         <p className="text-xs font-semibold text-slate-700 mb-2">
           {language === "ka" ? "გაკვეთილის ადგილი" : "Lesson mode"}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {modeButtons.map(({ value, labelKa, labelEn, Icon }) => (
             <button
               key={value}
               type="button"
               onClick={() => handleModeChange(value)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all ${
+              className={`flex min-h-[42px] flex-1 items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all sm:flex-none ${
                 form.mode === value
                   ? "bg-[#F03D3D] text-white border-[#F03D3D] shadow-sm"
                   : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
@@ -261,7 +393,7 @@ function PackageForm({
         </p>
         <div className="flex gap-2 flex-wrap">
           {transmissionButtons.map(({ value, labelKa, labelEn }) => {
-            const disabled = value === "both" && !canSelectBoth;
+            const disabled = !selectableTransmissions.includes(value);
             return (
               <button
                 key={value}
@@ -275,7 +407,7 @@ function PackageForm({
                         : "Only available when prices match")
                     : undefined
                 }
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                className={`flex min-h-[40px] items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all sm:flex-none ${
                   form.transmission === value
                     ? "bg-[#F03D3D] text-white border-[#F03D3D] shadow-sm"
                     : disabled
@@ -290,6 +422,13 @@ function PackageForm({
           })}
         </div>
         {errors.transmission && <p className="text-xs text-red-500 mt-1">{errors.transmission}</p>}
+        {availableTransmissions?.length === 1 && (
+          <p className="text-[11px] text-slate-400 mt-1">
+            {language === "ka"
+              ? "დამოუკიდებელი ინსტრუქტორის პაკეტი უნდა ემთხვეოდეს პროფილში მითითებულ კოლოფს."
+              : "Independent instructor packages must match the transmission set on the profile."}
+          </p>
+        )}
       </div>
 
       {/* Price preview */}
@@ -340,7 +479,7 @@ function PackageForm({
         )}
       </div>
 
-      <div className="flex gap-2 pt-1">
+      <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row">
         <button
           type="submit"
           disabled={isSaving}
@@ -353,7 +492,7 @@ function PackageForm({
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors sm:w-auto"
         >
           {language === "ka" ? "გაუქმება" : "Cancel"}
         </button>
@@ -364,16 +503,16 @@ function PackageForm({
 
 // ─── PackageCard ──────────────────────────────────────────────────────────────
 
-function PackageCard({
+export function PackageCard({
   pkg,
-  school,
+  pricing,
   onEdit,
   onDelete,
   isDeleting,
   language,
 }: {
   pkg: CoursePackage;
-  school: AutoschoolDetail | null;
+  pricing: PackagePricingSource | null;
   onEdit: () => void;
   onDelete: () => void;
   isDeleting: boolean;
@@ -383,23 +522,26 @@ function PackageCard({
   const lessons = pkg.lessons;
   const pct = Number(pkg.percentage);
   let unitPrice: number | null = null;
-  if (school) {
+  if (pricing) {
     if (pkg.mode === "city") {
-      if (pkg.transmission === "manual") unitPrice = school.manual_city_price != null ? Number(school.manual_city_price) : null;
-      else if (pkg.transmission === "automatic") unitPrice = school.automatic_city_price != null ? Number(school.automatic_city_price) : null;
-      else unitPrice = school.manual_city_price != null ? Number(school.manual_city_price) : null;
+      if (pkg.transmission === "manual") unitPrice = pricing.manual_city_price != null ? Number(pricing.manual_city_price) : null;
+      else if (pkg.transmission === "automatic") unitPrice = pricing.automatic_city_price != null ? Number(pricing.automatic_city_price) : null;
+      else unitPrice = pricing.manual_city_price != null ? Number(pricing.manual_city_price) : null;
     } else {
-      if (pkg.transmission === "manual") unitPrice = school.manual_yard_price != null ? Number(school.manual_yard_price) : null;
-      else if (pkg.transmission === "automatic") unitPrice = school.automatic_yard_price != null ? Number(school.automatic_yard_price) : null;
-      else unitPrice = school.manual_yard_price != null ? Number(school.manual_yard_price) : null;
+      if (pkg.transmission === "manual") unitPrice = pricing.manual_yard_price != null ? Number(pricing.manual_yard_price) : null;
+      else if (pkg.transmission === "automatic") unitPrice = pricing.automatic_yard_price != null ? Number(pricing.automatic_yard_price) : null;
+      else unitPrice = pricing.manual_yard_price != null ? Number(pricing.manual_yard_price) : null;
     }
   }
-  const computedPrice = unitPrice != null && !isNaN(pct) ? Number((unitPrice * lessons * (pct / 100)).toFixed(2)) : null;
+  const computedPrice = unitPrice != null && !isNaN(pct)
+    ? applyPackagePercentage(unitPrice * lessons, pct)
+    : null;
+  const adjustmentLabel = formatPackageAdjustment(pkg.percentage);
 
   const ModeIcon = pkg.mode === "yard" ? SquareParking : MapPin;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 relative">
+    <div className="relative bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">
       {pkg.popular && (
         <div className="absolute -top-2 left-4">
           <span className="bg-gradient-to-r from-[#F03D3D] to-[#e04545] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
@@ -411,14 +553,14 @@ function PackageCard({
 
       <div className="mt-1 space-y-2">
         <h4 className="font-bold text-slate-900 truncate">{pkg.name}</h4>
-        <div className="flex items-center gap-3 text-sm text-slate-600">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm text-slate-600">
           <span className="flex items-center gap-1">
             <Package className="w-3.5 h-3.5 text-slate-400" />
             {pkg.lessons} {language === "ka" ? "გაკვ." : "lessons"}
           </span>
           <span className="flex items-center gap-1 font-semibold text-[#F03D3D]">
             <Percent className="w-3.5 h-3.5" />
-            {Number(pkg.percentage).toFixed(0)}%
+            {adjustmentLabel ?? "-"}
           </span>
         </div>
         {/* Mode + Transmission badges */}
@@ -451,10 +593,10 @@ function PackageCard({
         )}
       </div>
 
-      <div className="flex gap-2 mt-4 pt-3 border-t border-slate-100">
+      <div className="mt-4 grid grid-cols-1 gap-2 border-t border-slate-100 pt-3 sm:flex sm:flex-wrap">
         <button
           onClick={onEdit}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors px-2 py-1 rounded-lg hover:bg-slate-100"
+          className="flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 sm:justify-start sm:py-1"
         >
           <Pencil className="w-3.5 h-3.5" />
           {language === "ka" ? "რედაქტირება" : "Edit"}
@@ -462,7 +604,7 @@ function PackageCard({
         <button
           onClick={onDelete}
           disabled={isDeleting}
-          className="flex items-center gap-1.5 text-xs font-semibold text-red-400 hover:text-red-600 transition-colors px-2 py-1 rounded-lg hover:bg-red-50 disabled:opacity-40"
+          className="flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-40 sm:justify-start sm:py-1"
         >
           <Trash2 className="w-3.5 h-3.5" />
           {isDeleting
@@ -604,7 +746,7 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 flex items-center justify-between">
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-bold text-slate-900">
             {language === "ka" ? "კურსის პაკეტები" : "Course Packages"}
@@ -616,7 +758,7 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
         {!showAddForm && (
           <button
             onClick={() => { setShowAddForm(true); setEditingId(null); }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#F03D3D] to-[#e04545] text-white text-sm font-semibold shadow shadow-red-500/20 hover:opacity-90 transition-opacity"
+            className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#F03D3D] to-[#e04545] text-white text-sm font-semibold shadow shadow-red-500/20 hover:opacity-90 transition-opacity sm:w-auto"
           >
             <Plus className="w-4 h-4" />
             {language === "ka" ? "პაკეტის დამატება" : "Add Package"}
@@ -643,17 +785,17 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
 
       {/* Add form */}
       {showAddForm && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">
+          <div className="mb-4 flex items-start justify-between gap-3 sm:items-center">
             <h3 className="text-sm font-bold text-slate-900">
               {language === "ka" ? "ახალი პაკეტი" : "New Package"}
             </h3>
-            <button onClick={() => setShowAddForm(false)}>
+            <button onClick={() => setShowAddForm(false)} className="shrink-0">
               <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
             </button>
           </div>
           <PackageForm
-            school={school}
+            pricing={school}
             onSave={handleAdd}
             onCancel={() => setShowAddForm(false)}
             isSaving={isSaving}
@@ -670,19 +812,19 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
             editingId === pkg.id ? (
               <div
                 key={pkg.id}
-                className="bg-white rounded-2xl border border-[#F03D3D]/30 p-5 col-span-1 sm:col-span-2"
+                className="bg-white rounded-2xl border border-[#F03D3D]/30 p-4 sm:p-5 col-span-1 sm:col-span-2"
               >
-                <div className="flex items-center justify-between mb-4">
+                <div className="mb-4 flex items-start justify-between gap-3 sm:items-center">
                   <h3 className="text-sm font-bold text-slate-900">
                     {language === "ka" ? "პაკეტის რედაქტირება" : "Edit Package"}
                   </h3>
-                  <button onClick={() => setEditingId(null)}>
+                  <button onClick={() => setEditingId(null)} className="shrink-0">
                     <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
                   </button>
                 </div>
                 <PackageForm
                   initial={pkgToForm(pkg)}
-                  school={school}
+                  pricing={school}
                   onSave={(form) => handleEdit(pkg, form)}
                   onCancel={() => setEditingId(null)}
                   isSaving={isSaving}
@@ -694,7 +836,7 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
               <PackageCard
                 key={pkg.id}
                 pkg={pkg}
-                school={school}
+                pricing={school}
                 onEdit={() => { setEditingId(pkg.id); setShowAddForm(false); }}
                 onDelete={() => handleDelete(pkg)}
                 isDeleting={deletingId === pkg.id}

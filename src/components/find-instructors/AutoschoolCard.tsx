@@ -80,13 +80,21 @@ const AutoschoolCard = ({
       </div>
 
       {/* Footer */}
-      <div className="mt-auto pt-4 border-t border-gray-50 flex items-center justify-between">
-        <div className="flex flex-col pl-1">
-          <span className="text-xl font-bold text-gray-900">₾50/{isKa ? "საათი" : "hour"}</span>
+      <div className="mt-auto pt-4 border-t border-gray-50 space-y-3">
+        <div className="pl-1">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            {isKa ? "თითო გაკვეთილის ფასი" : "Price per lesson"}
+          </p>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
+            <span className="whitespace-nowrap text-xl font-bold text-gray-900">₾50</span>
+            <span className="block whitespace-nowrap text-xs font-medium text-gray-500">
+              {isKa ? "გაკვეთილი" : "lesson"}
+            </span>
+          </div>
         </div>
         <Link
           href={localeHref(`/autoschools/${id}`)}
-          className="w-[48%] after:content-[''] after:absolute after:inset-0 after:z-[1] after:rounded-2xl"
+          className="block w-full after:content-[''] after:absolute after:inset-0 after:z-[1] after:rounded-2xl"
         >
           <button className="w-full whitespace-nowrap py-2.5 px-4 bg-white border-2 border-[#F03D3D] text-[#F03D3D] rounded-xl font-bold text-sm hover:bg-[#F03D3D] hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95">
             {isKa ? "პროფილის ნახვა" : "View Profile"}
