@@ -161,7 +161,7 @@ function StudentProfileSettings({ user, getToken }: { user: ClerkUser; getToken:
         const err = validateGeorgianPhone(phone);
         if (err) { setPhoneError(err); return; }
         if (!phone.trim()) {
-            setPhoneError(t("booking.phoneRequired") || "Phone number is required");
+            setPhoneError(t("settings.profile.phoneRequired"));
             return;
         }
         setIsSaving(true);

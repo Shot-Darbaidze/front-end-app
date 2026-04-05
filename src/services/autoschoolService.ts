@@ -52,6 +52,7 @@ export interface SchoolInstructor {
   rating?: number | null;
   transmission?: string | null;
   language_skills?: string | null;
+  license_category?: string | null;
   /** Effective city price derived from school-level pricing */
   city_price?: number | null;
   /** Effective yard price derived from school-level pricing */
@@ -97,7 +98,12 @@ export interface AutoschoolSummary {
   rating?: number | null;
   instructor_count: number;
   package_count: number;
+  license_categories?: string[];
   languages?: string | null;
+  manual_city_price?: number | string | null;
+  manual_yard_price?: number | string | null;
+  automatic_city_price?: number | string | null;
+  automatic_yard_price?: number | string | null;
 }
 
 export interface AutoschoolInvite {
@@ -138,12 +144,28 @@ async function apiFetch<T>(
 
 /** List approved autoschools. */
 export async function getAutoschools(params?: {
+  search?: string;
   city?: string;
+  transmission?: "manual" | "automatic";
+  languages?: string[];
+  license_category?: string;
+  mode?: "city" | "yard";
+  sort?: "rating" | "price-asc" | "price-desc";
+  min_price?: number;
+  max_price?: number;
   limit?: number;
   offset?: number;
 }): Promise<AutoschoolSummary[]> {
   const qs = new URLSearchParams();
+  if (params?.search) qs.set("search", params.search);
   if (params?.city) qs.set("city", params.city);
+  if (params?.transmission) qs.set("transmission", params.transmission);
+  if (params?.languages && params.languages.length > 0) qs.set("languages", params.languages.join(","));
+  if (params?.license_category) qs.set("license_category", params.license_category);
+  if (params?.mode) qs.set("mode", params.mode);
+  if (params?.sort && params.sort !== "rating") qs.set("sort", params.sort);
+  if (params?.min_price != null) qs.set("min_price", String(params.min_price));
+  if (params?.max_price != null) qs.set("max_price", String(params.max_price));
   if (params?.limit != null) qs.set("limit", String(params.limit));
   if (params?.offset != null) qs.set("offset", String(params.offset));
   return apiFetch<AutoschoolSummary[]>(`/api/autoschools?${qs}`);
@@ -454,12 +476,33 @@ export interface AutoschoolFinancesData {
   bookings: AutoschoolFinanceBooking[];
 }
 
+export type AutoschoolFinanceMetric =
+  | "total_earned"
+  | "total_withdrawn"
+  | "available_to_withdraw"
+  | "pending_release";
+
+export interface AutoschoolFinancesQuery {
+  fromDate?: string;
+  toDate?: string;
+  instructorPostId?: string;
+  metric?: AutoschoolFinanceMetric;
+}
+
 export async function getAutoschoolFinances(
   schoolId: string,
   token: string,
+  query?: AutoschoolFinancesQuery,
 ): Promise<AutoschoolFinancesData> {
+  const params = new URLSearchParams();
+  if (query?.fromDate) params.set("from_date", query.fromDate);
+  if (query?.toDate) params.set("to_date", query.toDate);
+  if (query?.instructorPostId) params.set("instructor_post_id", query.instructorPostId);
+  if (query?.metric) params.set("metric", query.metric);
+
+  const qs = params.toString();
   return apiFetch<AutoschoolFinancesData>(
-    `/api/autoschools/${schoolId}/finances`,
+    `/api/autoschools/${schoolId}/finances${qs ? `?${qs}` : ""}`,
     { cache: "no-store" },
     token,
   );

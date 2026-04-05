@@ -232,6 +232,10 @@ function enrichLessonsActionUrl(notification: Notification): string | undefined 
   return query ? `${basePath}?${query}` : basePath;
 }
 
+function isApplicationNotification(id: string): boolean {
+  return id.startsWith("application-") || id.startsWith("autoschool-application-");
+}
+
 export function useDashboardNotifications(options?: {
   enabled?: boolean;
   localeHref?: (path: string) => string;
@@ -267,8 +271,6 @@ export function useDashboardNotifications(options?: {
     if (!enabled) return;
     void fetchNotifications(getToken, false);
   }, [enabled, getToken]);
-
-  const isApplicationNotification = (id: string) => id.startsWith("application-");
 
   const markAsRead = useCallback((id: string) => {
     if (isApplicationNotification(id)) return;

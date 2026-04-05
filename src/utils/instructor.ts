@@ -38,15 +38,17 @@ export const extractCityName = (
  * Formats language codes into readable labels
  */
 const LANGUAGE_LABELS: Record<string, string> = {
-  en: "ინგლისური",
+  en: "English",
   ka: "ქართული",
-  ru: "რუსული",
-  fr: "ფრანგული",
-  de: "გერმანული",
-  es: "ესპანური",
-  it: "იტალიური",
-  tr: "თურქული",
-  ar: "არაბული",
+  ru: "Русский",
+  fr: "Français",
+  de: "Deutsch",
+  es: "Español",
+  it: "Italiano",
+  tr: "Türkçe",
+  ar: "العربية",
+  hy: "Հայերեն",
+  az: "Azərbaycan dili",
 };
 
 /**
@@ -67,6 +69,17 @@ export const normalizeLanguageCodes = (value?: string | null): string[] =>
  */
 export const formatLanguages = (value?: string | null): string[] =>
   normalizeLanguageCodes(value).map((code) => LANGUAGE_LABELS[code] || code);
+
+/**
+ * Formats normalized language codes into readable names
+ * @param codes - Array of language codes
+ * @returns Array of readable language names
+ */
+export const formatLanguageCodes = (codes: string[]): string[] =>
+  codes.map((code) => {
+    const normalizedCode = code.trim().toLowerCase();
+    return LANGUAGE_LABELS[normalizedCode] || code;
+  });
 
 /**
  * Picks the first non-null price from an array of prices

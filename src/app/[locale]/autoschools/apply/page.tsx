@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, FormEvent } from "react";
-import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { X } from "lucide-react";
 import { CITIES, PRIMARY_LANGUAGE_OPTIONS, OTHER_LANGUAGE_OPTIONS, ALL_LANGUAGE_OPTIONS } from "@/config/constants";
@@ -31,9 +30,6 @@ const INITIAL: FormState = {
 
 export default function AutoschoolApplyPage() {
   const { getToken } = useAuth();
-  const router = useRouter();
-  const params = useParams<{ locale: string }>();
-  const locale = params?.locale ?? "ka";
 
   const [form, setForm] = useState<FormState>(INITIAL);
   const [selectedCity, setSelectedCity] = useState("");
@@ -165,10 +161,19 @@ export default function AutoschoolApplyPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.detail ?? data?.error ?? "Submission failed.");
+      if (!res.ok) {
+        const detail = data?.detail ?? data?.error ?? "Submission failed.";
+        if (typeof detail === "string" && detail.toLowerCase().includes("phone number is required in your profile")) {
+          setPhoneInput("");
+          setPhoneConfirmed(false);
+          setPhoneError(null);
+          setShowPhoneModal(true);
+          return;
+        }
+        throw new Error(detail);
+      }
 
       setSuccess(true);
-      setTimeout(() => router.push(`/${locale}/autoschools/${data.id}`), 2000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -249,9 +254,9 @@ export default function AutoschoolApplyPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-gray-900">Application Submitted!</h2>
+          <h2 className="text-xl font-bold text-gray-900">Application Is Being Processed</h2>
           <p className="text-gray-500 text-sm">
-            Your autoschool application is under review. We&apos;ll notify you once it&apos;s approved.
+            Your autoschool application was submitted successfully and is now under review. We&apos;ll notify you as soon as it&apos;s approved.
           </p>
         </div>
       </div>

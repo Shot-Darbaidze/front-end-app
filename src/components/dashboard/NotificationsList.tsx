@@ -32,22 +32,24 @@ export const NotificationsList: React.FC<NotificationsListProps> = ({
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+  const isApplicationNotification = useCallback(
+    (id: string) => id.startsWith("application-") || id.startsWith("autoschool-application-"),
+    []
+  );
 
   const { filteredNotifications, unreadCount } = useMemo(() => {
     const unread = notifications.filter(n => !n.isRead);
-    const application = notifications.filter((n) => n.id.startsWith("application-"));
-    const regular = notifications.filter((n) => !n.id.startsWith("application-"));
+    const application = notifications.filter((n) => isApplicationNotification(n.id));
+    const regular = notifications.filter((n) => !isApplicationNotification(n.id));
     const filteredRegular = filter === "unread" ? regular.filter((n) => !n.isRead) : regular;
     return {
       unreadCount: unread.length,
       filteredNotifications: [...application, ...filteredRegular]
     };
-  }, [notifications, filter]);
+  }, [notifications, filter, isApplicationNotification]);
 
   const handleFilterAll = useCallback(() => setFilter("all"), []);
   const handleFilterUnread = useCallback(() => setFilter("unread"), []);
-
-  const isApplicationNotification = useCallback((id: string) => id.startsWith("application-"), []);
 
   const handleWithdrawApplication = useCallback(async (notificationId: string) => {
     setWithdrawError(null);
@@ -59,7 +61,11 @@ export const NotificationsList: React.FC<NotificationsListProps> = ({
         return;
       }
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine/application`, {
+      const endpoint = notificationId.startsWith("autoschool-application-")
+        ? `${API_CONFIG.BASE_URL}/api/autoschools/mine/application`
+        : `${API_CONFIG.BASE_URL}/api/posts/mine/application`;
+
+      const response = await fetch(endpoint, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

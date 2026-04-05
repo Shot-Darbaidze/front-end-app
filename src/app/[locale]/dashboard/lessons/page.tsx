@@ -184,11 +184,13 @@ export default function LessonsPage() {
           return;
         }
 
+        const nowIso = new Date().toISOString();
+
         if (currentTab === "cancelled") {
           const cancelledResponses = await Promise.all(
             postIds.map(async (postId) => {
               const res = await fetch(
-                `${API_CONFIG.BASE_URL}/api/bookings/by-post/${postId}?status=cancelled`,
+                `${API_CONFIG.BASE_URL}/api/bookings/by-post/${postId}?statuses=cancelled&limit=1000`,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
               if (!res.ok) return [] as BookingResponse[];
@@ -240,10 +242,14 @@ export default function LessonsPage() {
           return;
         }
 
+        const bookingsQuery = currentTab === "upcoming"
+          ? `statuses=booked&from_date=${encodeURIComponent(nowIso)}&limit=1000`
+          : `statuses=booked,completed&to_date=${encodeURIComponent(nowIso)}&limit=1000`;
+
         const bookingResponses = await Promise.all(
           postIds.map(async (postId) => {
             const res = await fetch(
-              `${API_CONFIG.BASE_URL}/api/bookings/by-post/${postId}`,
+              `${API_CONFIG.BASE_URL}/api/bookings/by-post/${postId}?${bookingsQuery}`,
               { headers: { Authorization: `Bearer ${token}` } }
             );
             if (!res.ok) return [] as BookingResponse[];

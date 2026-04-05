@@ -263,20 +263,26 @@ export const CITY_LABELS: Record<string, { ka: string; en: string }> = {
 
 export const PRIMARY_LANGUAGE_OPTIONS: Array<{ code: string; label: string }> = [
   { code: "en", label: "English" },
-  { code: "ka", label: "Georgian" },
-  { code: "ru", label: "Russian" },
+  { code: "ka", label: "ქართული" },
+  { code: "ru", label: "Русский" },
 ];
 
 export const OTHER_LANGUAGE_OPTIONS: Array<{ code: string; label: string }> = [
-  { code: "de", label: "German" },
-  { code: "fr", label: "French" },
-  { code: "es", label: "Spanish" },
-  { code: "it", label: "Italian" },
-  { code: "tr", label: "Turkish" },
-  { code: "ar", label: "Arabic" },
+  { code: "de", label: "Deutsch" },
+  { code: "fr", label: "Français" },
+  { code: "es", label: "Español" },
+  { code: "it", label: "Italiano" },
+  { code: "tr", label: "Türkçe" },
+  { code: "ar", label: "العربية" },
+  { code: "hy", label: "Հայերեն" },
+  { code: "az", label: "Azərbaycan dili" },
 ];
 
 export const ALL_LANGUAGE_OPTIONS = [...PRIMARY_LANGUAGE_OPTIONS, ...OTHER_LANGUAGE_OPTIONS];
+
+export const LICENSE_CATEGORIES = ['A1', 'A', 'B', 'C', 'D', 'BE', 'CE', 'DE'] as const;
+export type LicenseCategory = (typeof LICENSE_CATEGORIES)[number];
+export const DEFAULT_LICENSE_CATEGORY: LicenseCategory = 'B';
 
 export const TRANSMISSION_TYPES = ['Manual', 'Automatic'] as const;
 

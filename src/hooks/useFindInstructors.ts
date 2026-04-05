@@ -4,10 +4,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { InstructorCardData, SearchResult } from '@/types/find-instructors';
 import { useInstructorFilters, type FilterOptions } from '@/hooks/useInstructorFilters';
 import { api } from '@/services/api';
-import { LIMITS, ERROR_MESSAGES, PRICING, TIME_CONFIG, API_ENDPOINTS } from '@/config/constants';
+import { LIMITS, ERROR_MESSAGES, PRICING, TIME_CONFIG, API_ENDPOINTS, DEFAULT_LICENSE_CATEGORY, LICENSE_CATEGORIES } from '@/config/constants';
 import { trackSearch, trackFilterChange } from '@/utils/analytics';
 import { resolveMediaUrl } from '@/utils/media';
-import type { AutoschoolSummary } from '@/services/autoschoolService';
+import { getAutoschools, type AutoschoolSummary } from '@/services/autoschoolService';
 
 const PAGE_SIZE = 12;
 const DEBOUNCE_DELAY = TIME_CONFIG.DEBOUNCE_DELAY;
@@ -48,24 +48,6 @@ function clearState(): void {
   }
 }
 
-/** Sort instructors on the client side */
-const sortInstructors = (
-  instructors: InstructorCardData[],
-  sortBy: 'rating' | 'price-asc' | 'price-desc'
-): InstructorCardData[] => {
-  return [...instructors].sort((a, b) => {
-    switch (sortBy) {
-      case 'price-asc':
-        return a.price - b.price;
-      case 'price-desc':
-        return b.price - a.price;
-      case 'rating':
-      default:
-        return b.rating - a.rating || b.reviewCount - a.reviewCount;
-    }
-  });
-};
-
 /** Map API search results to InstructorCardData */
 const mapResults = (results: SearchResult[]): InstructorCardData[] => {
   return results.map((item) => {
@@ -73,6 +55,10 @@ const mapResults = (results: SearchResult[]): InstructorCardData[] => {
 
     if (item.located_at) {
       tags.push(`Location: ${item.located_at}`);
+    }
+
+    if (item.license_category) {
+      tags.push(`Category: ${item.license_category}`);
     }
 
     if (item.transmission) {
@@ -117,13 +103,15 @@ export const useFindInstructors = () => {
     const urlSearch = searchParams.get('search') || '';
     const urlCity = searchParams.get('city') || '';
     const urlTransmission = searchParams.get('transmission') || '';
+    const urlLanguages = searchParams.get('languages') || '';
+    const urlLicenseCategory = searchParams.get('license_category') || '';
     const urlInstructorType = searchParams.get('instructor_type') as 'solo' | 'school' | null;
     const urlMinPrice = searchParams.get('min_price');
     const urlMaxPrice = searchParams.get('max_price');
     const urlSort = searchParams.get('sort') as 'rating' | 'price-asc' | 'price-desc' | null;
     const urlPage = searchParams.get('page');
     const urlMode = searchParams.get('mode') as 'city' | 'yard' | null;
-    const hasUrlParams = !!(urlSearch || urlCity || urlTransmission || urlInstructorType || urlMinPrice || urlMaxPrice || urlSort || urlPage || urlMode);
+    const hasUrlParams = !!(urlSearch || urlCity || urlTransmission || urlLanguages || urlLicenseCategory || urlInstructorType || urlMinPrice || urlMaxPrice || urlSort || urlPage || urlMode);
 
     // 2. Check sessionStorage
     const saved = loadState();
@@ -137,6 +125,18 @@ export const useFindInstructors = () => {
           urlTransmission.toLowerCase() === 'manual' ? 'Manual' :
           urlTransmission.toLowerCase() === 'automatic' ? 'Automatic' :
           urlTransmission.charAt(0).toUpperCase() + urlTransmission.slice(1).toLowerCase();
+      }
+      if (urlLanguages) {
+        filterValues.languageCodes = urlLanguages
+          .split(',')
+          .map((code) => code.trim().toLowerCase())
+          .filter(Boolean);
+      }
+      if (urlLicenseCategory) {
+        const normalizedLicenseCategory = urlLicenseCategory.trim().toUpperCase();
+        if (LICENSE_CATEGORIES.includes(normalizedLicenseCategory as typeof LICENSE_CATEGORIES[number])) {
+          filterValues.licenseCategory = normalizedLicenseCategory as typeof LICENSE_CATEGORIES[number];
+        }
       }
       if (urlInstructorType && ['solo', 'school'].includes(urlInstructorType)) {
         filterValues.instructorType = urlInstructorType;
@@ -166,6 +166,8 @@ export const useFindInstructors = () => {
         filterValues: {
           city: saved.filters?.city || '',
           transmissionType: saved.filters?.transmissionType || '',
+          languageCodes: saved.filters?.languageCodes ?? [],
+          licenseCategory: saved.filters?.licenseCategory ?? DEFAULT_LICENSE_CATEGORY,
           budget: saved.filters?.budget ?? [PRICING.MIN_PRICE_FILTER, PRICING.MAX_PRICE_FILTER],
           instructorType: saved.filters?.instructorType ?? 'all',
           mode: saved.filters?.mode ?? '',
@@ -231,6 +233,12 @@ export const useFindInstructors = () => {
           options.forAPI ? filters.transmissionType.toLowerCase() : filters.transmissionType
         );
       }
+      if (filters.languageCodes.length > 0) {
+        params.set('languages', filters.languageCodes.join(','));
+      }
+      if (options.forAPI || filters.licenseCategory !== DEFAULT_LICENSE_CATEGORY) {
+        params.set('license_category', filters.licenseCategory);
+      }
       if (filters.budget[0] !== PRICING.MIN_PRICE_FILTER) {
         params.set('min_price', String(filters.budget[0]));
       }
@@ -257,11 +265,51 @@ export const useFindInstructors = () => {
     [debouncedSearchTerm, filters, sortBy]
   );
 
+  const buildAutoschoolParams = useCallback(
+    (options: { page?: number; search?: string }): URLSearchParams => {
+      const params = new URLSearchParams();
+      const trimmedSearch = (options.search ?? debouncedSearchTerm).trim().slice(0, LIMITS.MAX_SEARCH_LENGTH);
+
+      if (trimmedSearch) params.set('search', trimmedSearch);
+      if (filters.city) params.set('city', filters.city);
+      if (filters.transmissionType) {
+        params.set('transmission', filters.transmissionType.toLowerCase());
+      }
+      if (filters.languageCodes.length > 0) {
+        params.set('languages', filters.languageCodes.join(','));
+      }
+      params.set('license_category', filters.licenseCategory);
+      if (filters.mode) {
+        params.set('mode', filters.mode);
+      }
+      if (filters.budget[0] !== PRICING.MIN_PRICE_FILTER) {
+        params.set('min_price', String(filters.budget[0]));
+      }
+      if (filters.budget[1] !== PRICING.MAX_PRICE_FILTER) {
+        params.set('max_price', String(filters.budget[1]));
+      }
+      if (sortBy !== 'rating') {
+        params.set('sort', sortBy);
+      }
+
+      params.set('limit', String(PAGE_SIZE));
+      params.set('offset', String(((options.page ?? 1) - 1) * PAGE_SIZE));
+
+      return params;
+    },
+    [debouncedSearchTerm, filters, sortBy]
+  );
+
   // Create stable query key for React Query caching (includes pathname for locale separation)
   const queryKey = useMemo(() => {
+    if (filters.instructorType === 'school') {
+      const params = buildAutoschoolParams({ page: currentPage });
+      return ['instructors', 'autoschools', pathname, params.toString()];
+    }
+
     const params = buildParams({ forAPI: true, page: currentPage });
-    return ['instructors', pathname, params.toString()];
-  }, [buildParams, currentPage, pathname]);
+    return ['instructors', 'instructors', pathname, params.toString()];
+  }, [buildAutoschoolParams, buildParams, currentPage, filters.instructorType, pathname]);
 
   // Fetch function for React Query
   const fetchInstructors = useCallback(async (): Promise<{
@@ -272,12 +320,20 @@ export const useFindInstructors = () => {
   }> => {
     // ── Autoschool mode: query /api/autoschools ──
     if (filters.instructorType === 'school') {
-      const params = new URLSearchParams();
-      if (filters.city) params.set('city', filters.city);
-      params.set('limit', String(PAGE_SIZE));
-      params.set('offset', String(((currentPage ?? 1) - 1) * PAGE_SIZE));
-      const endpoint = `/api/autoschools?${params.toString()}`;
-      const results = await api.get<AutoschoolSummary[]>(endpoint);
+      const results = await getAutoschools({
+        search: debouncedSearchTerm.trim().slice(0, LIMITS.MAX_SEARCH_LENGTH) || undefined,
+        city: filters.city || undefined,
+        transmission: filters.transmissionType ? filters.transmissionType.toLowerCase() as 'manual' | 'automatic' : undefined,
+        languages: filters.languageCodes.length ? filters.languageCodes : undefined,
+        license_category: filters.licenseCategory,
+        mode: filters.mode || undefined,
+        sort: sortBy,
+        min_price: filters.budget[0] !== PRICING.MIN_PRICE_FILTER ? filters.budget[0] : undefined,
+        max_price: filters.budget[1] !== PRICING.MAX_PRICE_FILTER ? filters.budget[1] : undefined,
+        limit: PAGE_SIZE,
+        offset: ((currentPage ?? 1) - 1) * PAGE_SIZE,
+      });
+
       return {
         instructors: [],
         autoschools: results,
@@ -291,16 +347,13 @@ export const useFindInstructors = () => {
     const endpoint = `${API_ENDPOINTS.INSTRUCTOR_SEARCH}?${params.toString()}`;
     const results = await api.get<SearchResult[]>(endpoint);
 
-    const mapped = mapResults(results);
-    const sorted = sortInstructors(mapped, sortBy);
-
     return {
-      instructors: sorted,
+      instructors: mapResults(results),
       autoschools: [],
       hasMore: results.length >= PAGE_SIZE,
       totalCount: results.length,
     };
-  }, [buildParams, currentPage, sortBy, filters.instructorType, filters.city]);
+  }, [buildParams, currentPage, debouncedSearchTerm, filters, sortBy]);
 
   // Use React Query for data fetching with caching
   const {
@@ -320,16 +373,31 @@ export const useFindInstructors = () => {
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
 
+  const isSchoolMode = filters.instructorType === 'school';
   const currentInstructors = data?.instructors ?? [];
   const currentAutoschools = data?.autoschools ?? [];
-  const isSchoolMode = filters.instructorType === 'school';
   const hasMore = data?.hasMore ?? false;
   const errorMessage = error ? (error instanceof Error ? error.message : ERROR_MESSAGES.GENERIC_ERROR) : null;
 
   // Fetch total count in background (not cached with main query)
   const totalCountQuery = useQuery({
-    queryKey: ['instructors-total-count', pathname, buildParams({ forAPI: true, page: 1 }).toString()],
+    queryKey: [
+      'instructors-total-count',
+      isSchoolMode ? 'autoschools' : 'instructors',
+      pathname,
+      isSchoolMode
+        ? buildAutoschoolParams({ page: 1 }).toString()
+        : buildParams({ forAPI: true, page: 1 }).toString(),
+    ],
     queryFn: async () => {
+      if (isSchoolMode) {
+        const params = buildAutoschoolParams({ page: 1 });
+        params.set('limit', String(LIMITS.MAX_PAGE_SIZE));
+        params.set('offset', '0');
+        const results = await api.get<AutoschoolSummary[]>(`/api/autoschools?${params.toString()}`);
+        return results.length;
+      }
+
       const params = buildParams({ forAPI: true, page: 1 });
       params.set('limit', String(LIMITS.MAX_PAGE_SIZE));
       params.set('offset', '0');

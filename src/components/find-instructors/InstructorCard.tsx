@@ -1,4 +1,4 @@
-import { Star, ShieldCheck, Car, MapPin, Route } from "lucide-react";
+import { Star, ShieldCheck, Car, MapPin, Route, BadgeCheck } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCallback, memo } from "react";
@@ -177,6 +177,11 @@ const InstructorCard = ({
       return isKa ? value.replace("City", "ქალაქი").replace("Yard", "მოედანი") : value;
     }
 
+    if (tag.startsWith("Category:")) {
+      const value = tag.replace("Category:", "").trim();
+      return isKa ? `კატეგორია ${value}` : `Category ${value}`;
+    }
+
     if (tag.startsWith("Location:")) {
       const location = tag.replace("Location:", "").trim();
       return isKa ? CITY_LABELS[location]?.ka ?? location : location;
@@ -238,6 +243,7 @@ const InstructorCard = ({
       <div className="flex flex-wrap gap-2 mb-6">
         {tags.map((tag, index) => {
           const isMode = tag.startsWith('Mode:');
+          const isCategory = tag.startsWith('Category:');
           const isLocation = tag.startsWith('Location:');
           const isTransmission = tag.includes('Manual') || tag.includes('Automatic');
           const label = translateTag(tag);
@@ -245,6 +251,7 @@ const InstructorCard = ({
           return (
             <span key={index} className="px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-100 text-xs font-medium text-gray-600 flex items-center gap-1">
               {isMode ? <Route className="w-3 h-3" /> : null}
+              {isCategory ? <BadgeCheck className="w-3 h-3" /> : null}
               {isLocation ? <MapPin className="w-3 h-3" /> : null}
               {isTransmission ? <Car className="w-3 h-3" /> : null}
               {label}

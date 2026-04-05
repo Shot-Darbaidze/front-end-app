@@ -52,7 +52,8 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
   const [withdrawingNotificationId, setWithdrawingNotificationId] = React.useState<string | null>(null);
   const [withdrawError, setWithdrawError] = React.useState<string | null>(null);
 
-  const isApplicationNotification = (notificationId: string) => notificationId.startsWith("application-");
+  const isApplicationNotification = (notificationId: string) =>
+    notificationId.startsWith("application-") || notificationId.startsWith("autoschool-application-");
   const applicationNotifications = notifications.filter((n) => isApplicationNotification(n.id));
   const regularNotifications = notifications.filter((n) => !isApplicationNotification(n.id));
 
@@ -125,7 +126,11 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
         return;
       }
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine/application`, {
+      const endpoint = notificationId.startsWith("autoschool-application-")
+        ? `${API_CONFIG.BASE_URL}/api/autoschools/mine/application`
+        : `${API_CONFIG.BASE_URL}/api/posts/mine/application`;
+
+      const response = await fetch(endpoint, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -279,7 +284,7 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({
             {applicationNotifications.length > 0 && (
               <div className="px-4 py-3 border-b border-gray-100 bg-blue-50/40 space-y-2">
                 <p className="text-xs font-semibold tracking-wide text-blue-700 uppercase">
-                  Instructor application
+                  Application updates
                 </p>
                 {applicationNotifications.map((notification) => (
                   <div key={notification.id} className="rounded-lg border border-blue-100 bg-white p-3">

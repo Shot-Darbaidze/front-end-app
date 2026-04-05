@@ -38,6 +38,7 @@ const ModernStep4 = ({ data, updateData, onEditStep, errors = {} }: ReviewStepPr
           <p><span className="font-medium text-gray-900">{t("signup.registrationLabel")}</span> {data.vehicleRegistration}</p>
           <p><span className="font-medium text-gray-900">{t("signup.yearLabel")}</span> {data.vehicleYear}</p>
           <p><span className="font-medium text-gray-900">{t("signup.transmissionLabel")}</span> {data.transmission}</p>
+          <p><span className="font-medium text-gray-900">{t("signup.licenseCategoryLabel")}</span> {data.licenseCategory || "-"}</p>
           <p><span className="font-medium text-gray-900">{t("signup.allowedModeLabel")}</span> {data.allowedMode}</p>
           <p>
             <span className="font-medium text-gray-900">{t("signup.photos")}</span>{' '}
@@ -53,6 +54,9 @@ const ModernStep4 = ({ data, updateData, onEditStep, errors = {} }: ReviewStepPr
 
         <Section title={t("signup.step3")} step={3}>
           <p>
+            <span className="font-medium text-gray-900">{t("signup.ibanLabel")}</span> {data.iban || "-"}
+          </p>
+          <p>
             <span className="font-medium text-gray-900">{t("signup.license")}</span>{' '}
             {data.instructorLicense && data.instructorLicense.length > 0 ? (
               <span className="text-green-600 flex items-center gap-1 inline-flex">
@@ -65,6 +69,16 @@ const ModernStep4 = ({ data, updateData, onEditStep, errors = {} }: ReviewStepPr
           <p>
             <span className="font-medium text-gray-900">{t("signup.professionalCertificateLabel")}</span>{' '}
             {data.professionalCertificate ? (
+              <span className="text-green-600 flex items-center gap-1 inline-flex">
+                <Check className="w-3 h-3" /> {t("signup.uploaded")}
+              </span>
+            ) : (
+              <span className="text-red-500">{t("signup.notUploaded")}</span>
+            )}
+          </p>
+          <p>
+            <span className="font-medium text-gray-900">{t("signup.bankRequisitesLabel")}</span>{' '}
+            {data.bankRequisites ? (
               <span className="text-green-600 flex items-center gap-1 inline-flex">
                 <Check className="w-3 h-3" /> {t("signup.uploaded")}
               </span>

@@ -1,9 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
-import { PRICING } from '@/config/constants';
+import { DEFAULT_LICENSE_CATEGORY, PRICING, type LicenseCategory } from '@/config/constants';
 
 export interface FilterOptions {
   budget: [number, number];
   transmissionType: string;
+  languageCodes: string[];
+  licenseCategory: LicenseCategory;
   city: string;
   instructorType: 'all' | 'solo' | 'school';
   mode: '' | 'city' | 'yard';
@@ -12,6 +14,8 @@ export interface FilterOptions {
 const getInitialFilters = (): FilterOptions => ({
   budget: [PRICING.MIN_PRICE_FILTER, PRICING.MAX_PRICE_FILTER],
   transmissionType: '',
+  languageCodes: [],
+  licenseCategory: DEFAULT_LICENSE_CATEGORY,
   city: '',
   instructorType: 'all',
   mode: '',
@@ -40,6 +44,8 @@ export const useInstructorFilters = (initialValues?: Partial<FilterOptions>) => 
       filters.budget[0] !== defaultFilters.budget[0] ||
       filters.budget[1] !== defaultFilters.budget[1] ||
       filters.transmissionType !== '' ||
+      filters.languageCodes.length > 0 ||
+      filters.licenseCategory !== defaultFilters.licenseCategory ||
       filters.city !== '' ||
       filters.mode !== ''
     );

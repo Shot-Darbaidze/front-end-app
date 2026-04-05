@@ -16,16 +16,16 @@ import { useAuth, useClerk } from "@clerk/nextjs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { UPLOAD_LIMITS } from "@/config/constants";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
+import { normalizePhone } from "@/utils/validation/georgianPhone";
+import type { InstructorSignupFormData } from "@/types/instructor-signup";
 
 // File upload limits (from .env via constants)
 const MAX_VEHICLE_PHOTOS = UPLOAD_LIMITS.MAX_VEHICLE_PHOTOS;
 const MAX_LICENSE_FILES = UPLOAD_LIMITS.MAX_LICENSE_FILES;
-const MAX_CERTIFICATE_FILES = UPLOAD_LIMITS.MAX_CERTIFICATE_FILES;
-const MAX_FILE_SIZE_MB = UPLOAD_LIMITS.MAX_FILE_SIZE_MB;
-const MAX_FILE_SIZE_BYTES = UPLOAD_LIMITS.MAX_FILE_SIZE_BYTES;
 
 // Backend API URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const IBAN_REGEX = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/;
 
 const SignupPage = () => {
   const { getToken, isSignedIn } = useAuth();
@@ -40,10 +40,12 @@ const SignupPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showPhonePrompt, setShowPhonePrompt] = useState(false);
-  const [apiStatus, setApiStatus] = useState<"checking" | "connected" | "degraded">("checking");
-  const [apiStatusMessage, setApiStatusMessage] = useState("Checking backend connection...");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneConfirmed, setPhoneConfirmed] = useState(false);
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   
-  const initialFormData = {
+  const initialFormData: InstructorSignupFormData = {
     firstName: "",
     lastName: "",
     city: "",
@@ -54,10 +56,13 @@ const SignupPage = () => {
     vehicleBrand: "",
     vehicleYear: new Date().getFullYear(),
     transmission: "",
+    licenseCategory: "B",
     allowedMode: "",
     vehiclePhotos: [] as File[],
     instructorLicense: [] as File[],
     professionalCertificate: null as File | null,
+    iban: "",
+    bankRequisites: null as File | null,
     backgroundCheckConsent: false,
     termsAccepted: false,
     privacyAccepted: false,
@@ -81,18 +86,6 @@ const SignupPage = () => {
     { number: 4, title: t("signup.step4") },
   ];
 
-  const statusStyles = {
-    checking: "border-yellow-200 bg-yellow-50 text-yellow-800",
-    connected: "border-green-200 bg-green-50 text-green-800",
-    degraded: "border-red-200 bg-red-50 text-red-700",
-  } as const;
-
-  const statusTitles = {
-    checking: t("signup.verifyingBackend"),
-    connected: t("signup.backendConnected"),
-    degraded: t("signup.backendUnreachable"),
-  };
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -104,45 +97,62 @@ const SignupPage = () => {
     }
   }, [localeHref, pathname, router]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const normalizeIban = (value: string) => value.replace(/\s/g, "").toUpperCase();
+  const openPhonePrompt = (initialPhone = "") => {
+    setPhoneInput(initialPhone);
+    setPhoneConfirmed(false);
+    setPhoneError(null);
+    setShowPhonePrompt(true);
+  };
 
-    const checkHealth = async () => {
-      const healthEndpoints = [
-        `${API_BASE_URL}/api/health`,
-        `${API_BASE_URL}/health`,
-      ];
+  const isPhoneRequiredProfileError = (message: string) => {
+    const lowered = message.toLowerCase();
+    return lowered.includes("phone number is required in your profile")
+      || lowered.includes("phone number is required before applying");
+  };
 
-      for (const url of healthEndpoints) {
-        try {
-          const response = await fetch(url);
-          if (response.ok) {
-            const payload = await response.json().catch(() => ({}));
-            if (!cancelled) {
-              setApiStatus("connected");
-              setApiStatusMessage(payload.message || t("signup.apiReachable"));
-            }
-            return;
-          }
-        } catch (_error) {
-          continue;
+  const validatePromptPhone = (value: string): string | null => {
+    const digits = normalizePhone(value);
+    if (!digits) return t("signup.phoneRequired");
+    if (digits.length !== 9) return t("signup.phone9Digits");
+    if (!digits.startsWith("5")) return t("signup.phoneStart5");
+    return null;
+  };
+
+  const readErrorMessage = async (response: Response) => {
+    const fallback = `Server error: ${response.status}`;
+
+    try {
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const payload = await response.json();
+        const detail = payload?.detail;
+
+        if (typeof detail === "string" && detail.trim()) {
+          return detail;
         }
+
+        if (Array.isArray(detail) && detail.length > 0) {
+          const first = detail[0];
+          if (typeof first === "string") return first;
+          if (first && typeof first.msg === "string") return first.msg;
+        }
+
+        if (typeof payload?.message === "string" && payload.message.trim()) {
+          return payload.message;
+        }
+      } else {
+        const text = (await response.text()).trim();
+        if (text) return text;
       }
+    } catch {
+      // Ignore parser errors and return fallback
+    }
 
-      if (!cancelled) {
-        setApiStatus("degraded");
-        setApiStatusMessage(t("signup.unableToReach"));
-      }
-    };
+    return fallback;
+  };
 
-    checkHealth();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleDataUpdate = (newData: any) => {
+  const handleDataUpdate = (newData: Partial<InstructorSignupFormData>) => {
     handleFormDataChange(newData);
     
     // Clear errors for fields that are being updated
@@ -198,6 +208,7 @@ const SignupPage = () => {
       if (!formData.vehicleRegistration) newErrors.vehicleRegistration = t("signup.registrationRequired");
       if (!formData.vehicleYear) newErrors.vehicleYear = t("signup.yearRequired");
       if (!formData.transmission) newErrors.transmission = t("signup.transmissionRequired");
+      if (!formData.licenseCategory) newErrors.licenseCategory = t("signup.licenseCategoryRequired");
       if (!formData.allowedMode) newErrors.allowedMode = t("signup.allowedModeRequired");
       
       // Registration Regex (XX-123-XX)
@@ -219,6 +230,17 @@ const SignupPage = () => {
         newErrors.instructorLicense = t("signup.licenseRequired");
       } else if (formData.instructorLicense.length > MAX_LICENSE_FILES) {
         newErrors.instructorLicense = t("signup.maxLicenseFiles");
+      }
+
+      const normalizedIban = normalizeIban(formData.iban || "");
+      if (!normalizedIban) {
+        newErrors.iban = t("signup.ibanRequired");
+      } else if (!IBAN_REGEX.test(normalizedIban)) {
+        newErrors.iban = t("signup.ibanInvalid");
+      }
+
+      if (!formData.bankRequisites) {
+        newErrors.bankRequisites = t("signup.bankRequisitesRequired");
       }
     }
 
@@ -249,45 +271,6 @@ const SignupPage = () => {
     setIsSubmitting(true);
     setSubmitError(null);
     
-    // Log all form data to console for debugging
-    console.log("========================================");
-    console.log("[INSTRUCTOR SIGNUP] Form Submission Data");
-    console.log("========================================");
-    console.log("[Personal Information]");
-    console.log("  First Name:", formData.firstName);
-    console.log("  Last Name:", formData.lastName);
-    console.log("  Phone:", formData.phone);
-    console.log("  City:", formData.city);
-    console.log("  Address:", formData.address);
-    console.log("  Date of Birth:", formData.dateOfBirth);
-    console.log("[Vehicle Information]");
-    console.log("  Vehicle Brand:", formData.vehicleBrand);
-    console.log("  Vehicle Registration:", formData.vehicleRegistration);
-    console.log("  Vehicle Year:", formData.vehicleYear);
-    console.log("  Transmission:", formData.transmission);
-    console.log("  Allowed Mode:", formData.allowedMode);
-    console.log("  Vehicle Photos:", formData.vehiclePhotos?.length || 0, "file(s)");
-    if (formData.vehiclePhotos?.length > 0) {
-      formData.vehiclePhotos.forEach((file: File, index: number) => {
-        console.log(`    Photo ${index + 1}: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
-      });
-    }
-    console.log("[Documents]");
-    console.log("  Instructor License:", formData.instructorLicense?.length || 0, "file(s)");
-    if (formData.instructorLicense?.length > 0) {
-      formData.instructorLicense.forEach((file: File, index: number) => {
-        console.log(`    License ${index + 1}: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
-      });
-    }
-    console.log("  Professional Certificate:", formData.professionalCertificate ? formData.professionalCertificate.name : "Not provided");
-    console.log("[Consents]");
-    console.log("  Background Check Consent:", formData.backgroundCheckConsent);
-    console.log("  Terms Accepted:", formData.termsAccepted);
-    console.log("  Privacy Accepted:", formData.privacyAccepted);
-    console.log("========================================");
-    console.log("[FULL FORM DATA OBJECT]", formData);
-    console.log("========================================");
-    
     try {
       if (!isSignedIn) {
         redirectToSignIn({ redirectUrl: pathname ?? undefined });
@@ -296,11 +279,12 @@ const SignupPage = () => {
 
       const token = await getToken();
       if (!token) {
-        setSubmitError("Session expired. Please refresh the page and try again.");
+        setSubmitError(t("signup.sessionExpired"));
         return;
       }
 
-      const normalizedPhone = (formData.phone || "").replace(/\s/g, "").trim();
+      const normalizedPhone = normalizePhone(formData.phone || "");
+      const normalizedIban = normalizeIban(formData.iban || "");
 
       // Enforce phone only at submit time.
       const profilePhoneResponse = await fetch(`${API_BASE_URL}/api/users/me/phone`, {
@@ -315,43 +299,10 @@ const SignupPage = () => {
       }
 
       if (!existingProfilePhone && !normalizedPhone) {
-        setShowPhonePrompt(true);
+        openPhonePrompt(formData.phone || "");
         setSubmitError(null);
         return;
       }
-
-      const readErrorMessage = async (response: Response) => {
-        const fallback = `Server error: ${response.status}`;
-
-        try {
-          const contentType = response.headers.get("content-type") || "";
-          if (contentType.includes("application/json")) {
-            const payload = await response.json();
-            const detail = payload?.detail;
-
-            if (typeof detail === "string" && detail.trim()) {
-              return detail;
-            }
-
-            if (Array.isArray(detail) && detail.length > 0) {
-              const first = detail[0];
-              if (typeof first === "string") return first;
-              if (first && typeof first.msg === "string") return first.msg;
-            }
-
-            if (typeof payload?.message === "string" && payload.message.trim()) {
-              return payload.message;
-            }
-          } else {
-            const text = (await response.text()).trim();
-            if (text) return text;
-          }
-        } catch {
-          // Ignore parser errors and return fallback
-        }
-
-        return fallback;
-      };
 
       // Phone now lives on user profile. Sync it before submitting the application.
       if (normalizedPhone) {
@@ -390,7 +341,9 @@ const SignupPage = () => {
       submitData.append("vehicleRegistration", formData.vehicleRegistration);
       submitData.append("vehicleYear", formData.vehicleYear.toString());
       submitData.append("transmission", formData.transmission);
+      submitData.append("licenseCategory", formData.licenseCategory);
       submitData.append("allowedMode", formData.allowedMode);
+      submitData.append("iban", normalizedIban);
 
       if (inviteId) {
         submitData.append("inviteId", inviteId);
@@ -419,8 +372,10 @@ const SignupPage = () => {
       if (formData.professionalCertificate) {
         submitData.append("professionalCertificate", formData.professionalCertificate);
       }
-      
-      console.log("[API] Sending application to backend...");
+
+      if (formData.bankRequisites) {
+        submitData.append("bankRequisites", formData.bankRequisites);
+      }
       
       const response = await fetch(`${API_BASE_URL}/api/instructor/apply`, {
         method: "POST",
@@ -432,25 +387,84 @@ const SignupPage = () => {
         const errorMessage = await readErrorMessage(response);
         throw new Error(errorMessage);
       }
-      
-      const result = await response.json();
-      console.log("[API] Application submitted successfully:", result);
+
+      await response.json();
       
       setIsSubmitted(true);
     } catch (error) {
-      console.error("[API] Failed to submit application:", error);
       if (error instanceof Error) {
         const lowered = error.message.toLowerCase();
+        if (isPhoneRequiredProfileError(lowered)) {
+          openPhonePrompt(formData.phone || "");
+          setSubmitError(null);
+          return;
+        }
         if (lowered.includes("failed to fetch") || lowered.includes("load failed")) {
-          setSubmitError(`Cannot reach backend (${API_BASE_URL}). Check server/CORS and try again.`);
+          setSubmitError(t("signup.cannotReachBackend"));
         } else {
           setSubmitError(error.message);
         }
       } else {
-        setSubmitError("Failed to submit application. Please try again.");
+        setSubmitError(t("signup.submitFailed"));
       }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSavePhoneAndContinue = async () => {
+    const validationError = validatePromptPhone(phoneInput);
+    if (validationError) {
+      setPhoneError(validationError);
+      return;
+    }
+
+    if (!phoneConfirmed) {
+      setPhoneError(t("signup.phoneConfirmRequired"));
+      return;
+    }
+
+    setPhoneSaving(true);
+    setPhoneError(null);
+
+    try {
+      if (!isSignedIn) {
+        redirectToSignIn({ redirectUrl: pathname ?? undefined });
+        return;
+      }
+
+      const token = await getToken();
+      if (!token) {
+        setPhoneError(t("signup.sessionExpired"));
+        return;
+      }
+
+      const digits = normalizePhone(phoneInput);
+      const phoneRes = await fetch(`${API_BASE_URL}/api/users/me/phone`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ mobile_number: digits, confirmed: true }),
+      });
+
+      if (!phoneRes.ok) {
+        const message = await readErrorMessage(phoneRes);
+        throw new Error(message);
+      }
+
+      setShowPhonePrompt(false);
+      setPhoneInput("");
+      setPhoneConfirmed(false);
+      setPhoneError(null);
+      setSubmitError(null);
+
+      await onSubmit();
+    } catch (error) {
+      setPhoneError(error instanceof Error ? error.message : t("signup.submitFailed"));
+    } finally {
+      setPhoneSaving(false);
     }
   };
 
@@ -534,34 +548,23 @@ const SignupPage = () => {
         <div className="max-w-2xl mx-auto w-full">
           {inviteId && (
             <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-800 shadow-sm">
-              You are accepting an autoschool invite. Complete this application to join as an employee instructor.
+              {t("signup.inviteBanner")}
             </div>
           )}
 
           {!isSignedIn && (
             <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 shadow-sm">
-              <span className="font-semibold">Sign in required.</span> You must be signed in to submit this application.{" "}
+              <span className="font-semibold">{t("signup.signInRequiredTitle")}</span> {t("signup.signInRequiredDescription")}{" "}
               <button
                 type="button"
                 onClick={() => redirectToSignIn({ redirectUrl: pathname ?? undefined })}
                 className="underline font-semibold hover:text-amber-900"
               >
-                Sign in now
+                {t("signup.signInNow")}
               </button>
             </div>
           )}
 
-          <div
-            className={`mb-6 rounded-2xl border px-5 py-4 text-sm shadow-sm ${statusStyles[apiStatus]}`}
-          >
-            <div className="flex items-center justify-between gap-4">
-              <div className="font-semibold">{statusTitles[apiStatus]}</div>
-              <span className="text-xs font-mono text-gray-600 truncate max-w-[200px]">
-                {API_BASE_URL}
-              </span>
-            </div>
-            <p className="mt-1 text-xs opacity-90">{apiStatusMessage}</p>
-          </div>
           <div className="mb-8 lg:hidden">
             <Link href="/" className="text-2xl font-bold tracking-tighter">
               Instruktori
@@ -605,7 +608,7 @@ const SignupPage = () => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Submitting...
+                  {t("signup.submitting")}
                 </>
               ) : isLastStep ? (
                 t("signup.submitApplication")
@@ -630,24 +633,46 @@ const SignupPage = () => {
       {showPhonePrompt && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-900">Phone number required</h3>
+            <h3 className="text-lg font-bold text-gray-900">{t("signup.phonePromptTitle")}</h3>
             <p className="mt-2 text-sm text-gray-600">
-              Please add your phone number in Profile Settings before submitting this application.
+              {t("signup.phonePromptDescription")}
             </p>
+            <label className="mt-4 block text-sm font-medium text-gray-700">{t("signup.phone")}</label>
+            <input
+              value={phoneInput}
+              onChange={(e) => setPhoneInput(e.target.value)}
+              placeholder={t("signup.phonePlaceholder")}
+              className="mt-2 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/30 focus:border-[#F03D3D]"
+            />
+            <label className="mt-4 flex items-start gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={phoneConfirmed}
+                onChange={(e) => setPhoneConfirmed(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>{t("signup.phoneConfirmText")}</span>
+            </label>
+            {phoneError && (
+              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {phoneError}
+              </div>
+            )}
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 onClick={() => setShowPhonePrompt(false)}
                 className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+                disabled={phoneSaving}
               >
-                Close
+                {t("signup.cancel")}
               </button>
-              <Link
-                href={localeHref("/dashboard/settings")}
-                onClick={() => setShowPhonePrompt(false)}
-                className="rounded-lg bg-[#F03D3D] px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              <button
+                onClick={handleSavePhoneAndContinue}
+                disabled={phoneSaving}
+                className="rounded-lg bg-[#F03D3D] px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
               >
-                Open profile settings
-              </Link>
+                {phoneSaving ? t("signup.saving") : t("signup.saveAndContinue")}
+              </button>
             </div>
           </div>
         </div>

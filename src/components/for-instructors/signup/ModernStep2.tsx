@@ -10,6 +10,7 @@ import { UPLOAD_LIMITS } from "@/config/constants";
 
 const MAX_VEHICLE_PHOTOS = UPLOAD_LIMITS.MAX_VEHICLE_PHOTOS;
 const MAX_FILE_SIZE_BYTES = UPLOAD_LIMITS.MAX_FILE_SIZE_BYTES;
+const LICENSE_CATEGORIES = ["A1", "A", "B", "C", "D", "BE", "CE", "DE"] as const;
 
 const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSignupFormData>) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -222,6 +223,27 @@ const ModernStep2 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
           ))}
         </div>
         {errors.allowedMode && <p className="text-xs text-red-500 font-medium mt-1">{errors.allowedMode}</p>}
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-bold text-gray-900">{t("signup.licenseCategory")} <span className="text-red-500">*</span></label>
+        <div className="grid grid-cols-4 gap-3">
+          {LICENSE_CATEGORIES.map((category) => (
+            <button
+              key={category}
+              type="button"
+              onClick={() => updateData({ licenseCategory: category })}
+              className={`w-full py-2.5 px-3 rounded-xl border-2 font-semibold transition text-center text-sm ${
+                data.licenseCategory === category
+                  ? "border-[#F03D3D] bg-[#F03D3D]/5 text-[#F03D3D]"
+                  : `bg-white text-gray-700 hover:border-gray-300 ${errors.licenseCategory ? "border-red-500 bg-red-50" : "border-gray-200"}`
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+        {errors.licenseCategory && <p className="text-xs text-red-500 font-medium mt-1">{errors.licenseCategory}</p>}
       </div>
 
       <div className="space-y-2">

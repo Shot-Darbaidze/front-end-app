@@ -13,6 +13,7 @@ import BookingCalendarCard from "@/components/autoschool-profile/BookingCalendar
 import BookingPricingCard, { type BookingOption } from "@/components/autoschool-profile/BookingPricingCard";
 import InstructorSelectionCard, { type InstructorOption } from "@/components/autoschool-profile/InstructorSelectionCard";
 import Button from "@/components/ui/Button";
+import { normalizePhone, validateGeorgianPhone } from "@/utils/validation/georgianPhone";
 import {
   formatPackagePrice,
   formatPackageAdjustment,
@@ -23,6 +24,7 @@ import {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 const TZ = "Asia/Tbilisi";
 type LessonMode = "city" | "yard";
+type PhoneContinuationAction = "reserve" | "confirm";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -103,7 +105,7 @@ type SelectedSlotDetail = {
 
 export default function AutoschoolBookingPage({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const { locale, id } = use(params);
-  const { getToken } = useAuth();
+  const { getToken, isSignedIn } = useAuth();
   const searchParams = useSearchParams();
   const reservationStorageKey = `autoschool-booking-reservation:${id}`;
 
@@ -142,9 +144,18 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
   const [reservationExpired, setReservationExpired] = useState(false);
   const [confirmedSlotIds, setConfirmedSlotIds] = useState<string[]>([]);
 
+  // ── phone requirement gate ──
+  const [userPhone, setUserPhone] = useState("");
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneConfirmed, setPhoneConfirmed] = useState(false);
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
   const hasMountedRef = useRef(false);
   const reservedSlotIdsRef = useRef<string[]>([]);
   const restoredReservationContextRef = useRef(false);
+  const phoneContinuationRef = useRef<PhoneContinuationAction | null>(null);
 
   const clearStoredReservation = useCallback(() => {
     if (typeof window === "undefined") {
@@ -189,6 +200,23 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
 
     window.sessionStorage.setItem(reservationStorageKey, JSON.stringify(value));
   }, [reservationStorageKey]);
+
+  const hasPhone = normalizePhone(userPhone).length > 0;
+
+  const isPhoneRequiredError = (message?: string | null) => {
+    const lowered = (message ?? "").toLowerCase();
+    return lowered.includes("phone number is required")
+      || lowered.includes("add and confirm your phone number before reservation")
+      || lowered.includes("required in your profile");
+  };
+
+  const openPhoneModal = (nextAction: PhoneContinuationAction, initialPhone = userPhone || "") => {
+    phoneContinuationRef.current = nextAction;
+    setPhoneInput(initialPhone);
+    setPhoneConfirmed(false);
+    setPhoneError(null);
+    setShowPhoneModal(true);
+  };
 
   // ── fetch school ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -242,6 +270,38 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
       .catch(() => {})
       .finally(() => setLoadingSchool(false));
   }, [id, initialPackageId, initialInstructorId]);
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      setUserPhone("");
+      return;
+    }
+
+    const loadPhone = async () => {
+      try {
+        const token = await getToken();
+        if (!token) {
+          return;
+        }
+
+        const response = await fetch(`${API_BASE}/api/users/me/phone`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        setUserPhone((data.mobile_number as string) || "");
+      } catch {
+        // Non-blocking: the modal can still collect the phone before booking.
+      }
+    };
+
+    void loadPhone();
+  }, [getToken, isSignedIn]);
 
   // ── fetch slots for selected instructor ───────────────────────────────────
   const fetchSlots = useCallback(async (postId: string) => {
@@ -668,6 +728,11 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
 
       const reserveData = await reserveRes.json().catch(() => ({}));
       if (!reserveRes.ok) {
+        const reserveDetail = typeof reserveData.detail === "string" ? reserveData.detail : "";
+        if (isPhoneRequiredError(reserveDetail)) {
+          openPhoneModal("reserve");
+          return;
+        }
         setBookingError(reserveData.detail ?? "სლოტების რეზერვაცია ვერ მოხერხდა.");
         return;
       }
@@ -733,6 +798,13 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
       setBookingError(`ამ პაკეტისთვის საჭიროა ზუსტად ${requiredSlots} გაკვეთილის არჩევა.`);
       return;
     }
+
+    if (!hasPhone) {
+      setBookingError(null);
+      openPhoneModal("reserve");
+      return;
+    }
+
     setBookingError(null);
     await reserveSelectedSlots();
   };
@@ -764,7 +836,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
     }
   };
 
-  const handleConfirm = async () => {
+  const confirmReservedSlots = async () => {
     if (secondsLeft <= 0 || !reservedUntilUtc) {
       clearStoredReservation();
       setReservationExpired(true);
@@ -793,6 +865,10 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
       if (!confirmRes.ok) {
         const err = await confirmRes.json().catch(() => ({}));
         const detail = typeof err.detail === "string" ? err.detail.toLowerCase() : "";
+        if (isPhoneRequiredError(detail)) {
+          openPhoneModal("confirm");
+          return;
+        }
         if (detail.includes("expired") || detail.includes("reserved slot not found")) {
           clearStoredReservation();
           reservedSlotIdsRef.current = [];
@@ -815,6 +891,75 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
       setBookingError("კავშირის შეცდომა. სცადეთ თავიდან.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!hasPhone) {
+      setBookingError(null);
+      openPhoneModal("confirm");
+      return;
+    }
+
+    await confirmReservedSlots();
+  };
+
+  const handleSavePhoneAndContinue = async () => {
+    const digits = normalizePhone(phoneInput);
+    const validationError = validateGeorgianPhone(digits, { required: true });
+
+    if (validationError) {
+      setPhoneError(validationError);
+      return;
+    }
+
+    if (!phoneConfirmed) {
+      setPhoneError("გთხოვთ მონიშნოთ, რომ ნომერი სწორია");
+      return;
+    }
+
+    setPhoneSaving(true);
+    setPhoneError(null);
+
+    try {
+      const token = await getToken();
+      if (!token) {
+        setPhoneError("გთხოვთ შეხვიდეთ სისტემაში.");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE}/api/users/me/phone`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ mobile_number: digits, confirmed: true }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: "Failed to save phone" }));
+        throw new Error(err.detail || "Failed to save phone");
+      }
+
+      const nextAction = phoneContinuationRef.current;
+      phoneContinuationRef.current = null;
+      setUserPhone(digits);
+      setShowPhoneModal(false);
+      setBookingError(null);
+
+      if (nextAction === "confirm") {
+        await confirmReservedSlots();
+        return;
+      }
+
+      if (nextAction === "reserve") {
+        await reserveSelectedSlots();
+      }
+    } catch (err) {
+      setPhoneError(err instanceof Error ? err.message : "Failed to save phone");
+    } finally {
+      setPhoneSaving(false);
     }
   };
 
@@ -1189,6 +1334,70 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {showPhoneModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/50"
+              onClick={() => {
+                phoneContinuationRef.current = null;
+                setShowPhoneModal(false);
+              }}
+            />
+            <div className="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">ტელეფონის ნომერი აუცილებელია</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                დაჯავშნამდე დაამატეთ თქვენი ტელეფონის ნომერი და დაადასტურეთ, რომ სწორია.
+              </p>
+
+              <label className="block text-sm font-medium text-gray-700 mb-2">ტელეფონის ნომერი</label>
+              <input
+                value={phoneInput}
+                onChange={(e) => setPhoneInput(e.target.value)}
+                placeholder="მაგ: 555123456"
+                className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#F03D3D]/30 focus:border-[#F03D3D]"
+              />
+
+              <label className="mt-4 flex items-start gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={phoneConfirmed}
+                  onChange={(e) => setPhoneConfirmed(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>ვადასტურებ, რომ ეს ნომერი სწორია</span>
+              </label>
+
+              {phoneError && (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {phoneError}
+                </div>
+              )}
+
+              <div className="mt-5 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    phoneContinuationRef.current = null;
+                    setShowPhoneModal(false);
+                  }}
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  disabled={phoneSaving}
+                >
+                  გაუქმება
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSavePhoneAndContinue}
+                  disabled={phoneSaving}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-white bg-[#F03D3D] hover:bg-[#d93333] disabled:opacity-60"
+                >
+                  {phoneSaving ? "ინახება..." : "შენახვა და გაგრძელება"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

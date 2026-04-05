@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Star, MapPin, BadgeCheck, Building2, Users, ChevronLeft, ChevronRight, X, Car } from "lucide-react";
 import RichTextContent from "@/components/ui/RichTextContent";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface AutoschoolProfileHeaderProps {
   name: string;
@@ -31,6 +32,8 @@ const AutoschoolProfileHeader = ({
   coverImageUrl,
   galleryImages = [],
 }: AutoschoolProfileHeaderProps) => {
+  const { language } = useLanguage();
+  const isKa = language === "ka";
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   return (
@@ -136,7 +139,7 @@ const AutoschoolProfileHeader = ({
           {/* Languages + Fleet */}
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">სწავლების ენები</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">{isKa ? "ენები" : "Languages"}</h3>
               <div className="flex flex-wrap gap-2">
                 {languages.map((lang, idx) => (
                   <span key={idx} className="px-3 py-1 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium">

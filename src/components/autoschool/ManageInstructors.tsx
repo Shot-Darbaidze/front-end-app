@@ -95,6 +95,8 @@ export default function ManageInstructors({ schoolId }: Props) {
   const [inviteId, setInviteId] = useState("");
   const [inviting, setInviting] = useState(false);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [showInvitePhonePrompt, setShowInvitePhonePrompt] = useState(false);
+  const [invitePhonePromptMessage, setInvitePhonePromptMessage] = useState("");
   const [sentInvites, setSentInvites] = useState<AdminInvite[]>([]);
   const [loadingInvites, setLoadingInvites] = useState(true);
   const [withdrawingInviteId, setWithdrawingInviteId] = useState<string | null>(null);
@@ -234,7 +236,16 @@ export default function ManageInstructors({ schoolId }: Props) {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) { setError(await readApiError(res, "Failed to send invite.")); return; }
+      if (!res.ok) {
+        const inviteError = await readApiError(res, "Failed to send invite.");
+        if (inviteError.toLowerCase().includes("must add a phone number")) {
+          setInvitePhonePromptMessage(inviteError);
+          setShowInvitePhonePrompt(true);
+          return;
+        }
+        setError(inviteError);
+        return;
+      }
       const data = await res.json().catch(() => ({}));
       setInviteSuccess(data?.id ? `Invite sent successfully. Invite ID: ${data.id}` : "Invite sent successfully.");
       setInviteId("");
@@ -622,6 +633,25 @@ export default function ManageInstructors({ schoolId }: Props) {
           <p className="text-xs text-slate-500">Only registered users can be invited via email or phone.</p>
         </form>
       </div>
+
+      {showInvitePhonePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900">Invitee phone number required</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              {invitePhonePromptMessage || "This user must add a phone number before they can be invited."}
+            </p>
+            <div className="mt-5 flex items-center justify-end">
+              <button
+                onClick={() => setShowInvitePhonePrompt(false)}
+                className="rounded-lg bg-[#F03D3D] px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

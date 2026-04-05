@@ -3,13 +3,11 @@
 import { User, Calendar, MapPin } from "lucide-react";
 import { StepProps, InstructorSignupFormData } from "@/types/instructor-signup";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CITIES } from "@/config/constants";
+import { CITIES, CITY_LABELS } from "@/config/constants";
 
 const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSignupFormData>) => {
-  const { t } = useLanguage();
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    updateData({ [e.target.name]: e.target.value });
-  };
+  const { t, language } = useLanguage();
+  const isKa = language === "ka";
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -80,7 +78,7 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
               <option value="" disabled>{t("signup.selectCity")}</option>
               {CITIES.map((city) => (
                 <option key={city} value={city}>
-                  {city}
+                  {CITY_LABELS[city]?.[isKa ? "ka" : "en"] ?? city}
                 </option>
               ))}
             </select>
@@ -92,9 +90,6 @@ const ModernStep1 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
           </div>
           {errors.city && <p className="text-xs text-red-500 font-medium mt-1">{errors.city}</p>}
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <label className="text-sm font-bold text-gray-900">{t("signup.dateOfBirth")} <span className="text-red-500">*</span></label>
           <div className="relative">

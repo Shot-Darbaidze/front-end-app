@@ -6,14 +6,14 @@ import WorkingHoursCard from "@/components/autoschool-profile/WorkingHoursCard";
 import LocationCard from "@/components/instructor-profile/LocationCard";
 import CommentSection from "@/components/instructor-profile/CommentSection";
 import BackToInstructorsButton from "@/components/instructor-profile/BackToInstructorsButton";
-import type { SchoolInstructor } from "@/components/autoschool-profile/InstructorGrid";
 import type { CoursePackage, InstructorMini } from "@/components/autoschool-profile/CoursePackagesSidebar";
 import type { AutoschoolDetail } from "@/services/autoschoolService";
+import type { InstructorCardData } from "@/types/find-instructors";
 import { resolveMediaUrl } from "@/utils/media";
+import { formatLanguageCodes } from "@/utils/instructor";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60;
 
 /**
  * Fetch autoschool data from the backend at build/request time.
@@ -22,8 +22,8 @@ export const revalidate = 0;
 async function fetchAutoschool(id: string): Promise<AutoschoolDetail | null> {
   try {
     const res = await fetch(`${API_BASE}/api/autoschools/${id}`, {
-      // Keep profile data fresh for client navigation and avoid stale prefetch payloads.
-      cache: "no-store",
+      // Keep the profile reasonably fresh while still allowing App Router caching and prefetching.
+      next: { revalidate: 60 },
     });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`API error ${res.status}`);
@@ -85,14 +85,21 @@ export default async function AutoschoolProfilePage({
     closed: h.is_closed,
   }));
 
-  const instructors: SchoolInstructor[] = (school.instructors ?? []).map((i) => ({
+  const instructors: InstructorCardData[] = (school.instructors ?? []).map((i) => ({
     id: i.id,
     name: [i.first_name, i.last_name].filter(Boolean).join(" ") || i.title,
     rating: i.rating != null ? Number(i.rating) : 0,
-    transmission: i.transmission ?? "Manual",
+    reviewCount: 0,
+    specialty: i.title || (locale === "ka" ? "მართვის ინსტრუქტორი" : "Driving Instructor"),
     price: i.city_price != null ? Number(i.city_price) : (i.yard_price != null ? Number(i.yard_price) : 0),
+    cityPrice: i.city_price != null ? Number(i.city_price) : null,
+    yardPrice: i.yard_price != null ? Number(i.yard_price) : null,
+    tags: [
+      ...(i.license_category ? [`Category: ${i.license_category}`] : []),
+      ...(i.transmission ? [i.transmission] : []),
+      ...formatLanguageCodes(csvToArray(i.language_skills)).slice(0, 3),
+    ],
     imageUrl: resolveMediaUrl(i.image_url),
-    languages: csvToArray(i.language_skills),
   }));
 
   const instructorRatings = (school.instructors ?? [])
@@ -125,7 +132,7 @@ export default async function AutoschoolProfilePage({
               reviewCount={overallReviewCount}
               location={school.city ?? ""}
               description={school.description ?? ""}
-              languages={csvToArray(school.languages)}
+              languages={formatLanguageCodes(csvToArray(school.languages))}
               fleet={csvToArray(school.fleet).length > 0 ? csvToArray(school.fleet) : ["Skoda Rapid", "Volkswagen Jetta"]}
               instructorCount={instructors.length}
               imageUrl={resolveMediaUrl(school.logo_url)}

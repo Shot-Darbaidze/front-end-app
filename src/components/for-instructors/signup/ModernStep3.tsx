@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Shield, X } from "lucide-react";
+import { FileText, Landmark, Shield, X } from "lucide-react";
 import { useRef } from "react";
 import { StepProps, InstructorSignupFormData } from "@/types/instructor-signup";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -9,6 +9,7 @@ import { UPLOAD_LIMITS } from "@/config/constants";
 const MAX_LICENSE_FILES = UPLOAD_LIMITS.MAX_LICENSE_FILES;
 const MAX_CERTIFICATE_FILES = UPLOAD_LIMITS.MAX_CERTIFICATE_FILES;
 const MAX_FILE_SIZE_BYTES = UPLOAD_LIMITS.MAX_FILE_SIZE_BYTES;
+const IBAN_MAX_LENGTH = 34;
 
 const FileUploadBox = ({ 
   label, 
@@ -25,7 +26,7 @@ const FileUploadBox = ({
   selectFileText = "Select File",
 }: { 
   label: React.ReactNode; 
-  icon: any; 
+  icon: React.ComponentType<{ className?: string }>;
   subtext: string;
   files: File | File[] | null;
   onFileSelect: (files: File[]) => void;
@@ -112,6 +113,10 @@ const FileUploadBox = ({
 
 const ModernStep3 = ({ data, updateData, errors = {} }: StepProps<InstructorSignupFormData>) => {
   const { t } = useLanguage();
+  const handleIbanChange = (value: string) => {
+    const sanitized = value.replace(/\s+/g, "").toUpperCase().slice(0, IBAN_MAX_LENGTH);
+    updateData({ iban: sanitized });
+  };
   
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
@@ -120,6 +125,24 @@ const ModernStep3 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
         <p className="text-sm text-blue-800">
           {t("signup.documentsSecure")}
         </p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-bold text-gray-900">{t("signup.iban")} <span className="text-red-500">*</span></label>
+        <div className="relative">
+          <Landmark className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            name="iban"
+            value={data.iban}
+            onChange={(e) => handleIbanChange(e.target.value)}
+            className={`w-full pl-12 pr-4 py-3 rounded-xl border focus:ring-2 focus:ring-[#F03D3D]/20 outline-none transition bg-gray-50 focus:bg-white font-mono uppercase tracking-wide ${errors.iban ? "border-red-500 bg-red-50" : "border-gray-200 focus:border-[#F03D3D]"}`}
+            placeholder={t("signup.ibanPlaceholder")}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+        <p className={`text-xs ${errors.iban ? "text-red-500" : "text-gray-500"}`}>{errors.iban || t("signup.ibanSubtext")}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6">
@@ -157,6 +180,20 @@ const ModernStep3 = ({ data, updateData, errors = {} }: StepProps<InstructorSign
           selectFileText={t("signup.selectFile")}
           onFileSelect={(files) => updateData({ professionalCertificate: files[0] })}
           onFileRemove={() => updateData({ professionalCertificate: null })}
+        />
+
+        <FileUploadBox
+          label={<span>{t("signup.bankRequisites")} <span className="text-red-500">*</span></span>}
+          icon={FileText}
+          subtext={t("signup.bankRequisitesSubtext")}
+          files={data.bankRequisites}
+          error={errors.bankRequisites}
+          maxFiles={1}
+          addMoreText={t("signup.addMore")}
+          changeText={t("signup.change")}
+          selectFileText={t("signup.selectFile")}
+          onFileSelect={(files) => updateData({ bankRequisites: files[0] })}
+          onFileRemove={() => updateData({ bankRequisites: null })}
         />
       </div>
     </div>

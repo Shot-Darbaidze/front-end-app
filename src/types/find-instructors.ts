@@ -23,6 +23,7 @@ export interface SearchResult {
   rating?: number | null;
   review_count?: number | null;
   located_at?: string | null;
+  license_category?: string | null;
   transmission?: string | null;
   hourly_rate?: number | null;
   city_price?: number | null;

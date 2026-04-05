@@ -5,13 +5,18 @@ import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   getAutoschoolFinances,
+  getSchoolInstructors,
   withdrawAutoschoolEarnings,
+  type AutoschoolFinanceMetric,
   type AutoschoolFinancesData,
   type AutoschoolInstructorFinances,
 } from "@/services/autoschoolService";
-import { Wallet, TrendingUp, Clock, CheckCircle, User, Users, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
+import { Wallet, TrendingUp, Clock, CheckCircle, User, Users, ChevronDown, ChevronUp, AlertCircle, CalendarDays, SlidersHorizontal } from "lucide-react";
 
 const LIVE_REFRESH_MS = 15000;
+const FINANCES_CACHE_TTL_MS = 2 * 60 * 1000;
+const FINANCES_CACHE_PREFIX = "autoschool-finances-v1";
+const MEMBER_CACHE_PREFIX = "autoschool-finances-members-v1";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -35,31 +40,135 @@ interface AutoschoolFinancesProps {
   schoolId: string;
 }
 
+type DateRange = {
+  fromDate: string;
+  toDate: string;
+};
+
+type RangePreset = "default" | "today" | "7d" | "30d" | "custom";
+
+function toDateInputValue(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+type FinancesCachePayload = {
+  timestamp: number;
+  data: AutoschoolFinancesData;
+};
+
+type MemberOptionsCachePayload = {
+  timestamp: number;
+  data: Array<{ postId: string; name: string }>;
+};
+
+function readFinancesCache(
+  schoolId: string,
+  scopeKey: string,
+): AutoschoolFinancesData | null {
+  if (typeof window === "undefined") return null;
+
+  const key = `${FINANCES_CACHE_PREFIX}:${schoolId}:${scopeKey}`;
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as FinancesCachePayload;
+    if (!parsed?.timestamp || Date.now() - parsed.timestamp > FINANCES_CACHE_TTL_MS) {
+      window.sessionStorage.removeItem(key);
+      return null;
+    }
+    return parsed.data ?? null;
+  } catch {
+    window.sessionStorage.removeItem(key);
+    return null;
+  }
+}
+
+function writeFinancesCache(
+  schoolId: string,
+  scopeKey: string,
+  data: AutoschoolFinancesData,
+) {
+  if (typeof window === "undefined") return;
+
+  const key = `${FINANCES_CACHE_PREFIX}:${schoolId}:${scopeKey}`;
+  try {
+    const payload: FinancesCachePayload = { timestamp: Date.now(), data };
+    window.sessionStorage.setItem(key, JSON.stringify(payload));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function readMemberOptionsCache(
+  schoolId: string,
+  language: string,
+): Array<{ postId: string; name: string }> | null {
+  if (typeof window === "undefined") return null;
+
+  const key = `${MEMBER_CACHE_PREFIX}:${schoolId}:${language}`;
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as MemberOptionsCachePayload;
+    if (!parsed?.timestamp || Date.now() - parsed.timestamp > FINANCES_CACHE_TTL_MS) {
+      window.sessionStorage.removeItem(key);
+      return null;
+    }
+    return parsed.data ?? null;
+  } catch {
+    window.sessionStorage.removeItem(key);
+    return null;
+  }
+}
+
+function writeMemberOptionsCache(
+  schoolId: string,
+  language: string,
+  data: Array<{ postId: string; name: string }>,
+) {
+  if (typeof window === "undefined") return;
+
+  const key = `${MEMBER_CACHE_PREFIX}:${schoolId}:${language}`;
+  try {
+    const payload: MemberOptionsCachePayload = { timestamp: Date.now(), data };
+    window.sessionStorage.setItem(key, JSON.stringify(payload));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
 function MoneyCard({
   label,
   amount,
   icon: Icon,
   color,
+  active,
 }: {
   label: string;
   amount: number;
   icon: typeof Wallet;
   color: "green" | "blue" | "amber" | "red";
+  active?: boolean;
 }) {
   const colorMap = {
-    green: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    blue:  "bg-blue-50   text-blue-600   border-blue-100",
-    amber: "bg-amber-50  text-amber-600  border-amber-100",
-    red:   "bg-red-50    text-[#F03D3D]  border-red-100",
+    green: "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white text-emerald-700",
+    blue:  "border-blue-200 bg-gradient-to-br from-blue-50 to-white text-blue-700",
+    amber: "border-amber-200 bg-gradient-to-br from-amber-50 to-white text-amber-700",
+    red:   "border-red-200 bg-gradient-to-br from-red-50 to-white text-[#F03D3D]",
   };
   const iconBg = {
-    green: "bg-emerald-100",
-    blue:  "bg-blue-100",
-    amber: "bg-amber-100",
-    red:   "bg-red-100",
+    green: "bg-emerald-100/90",
+    blue:  "bg-blue-100/90",
+    amber: "bg-amber-100/90",
+    red:   "bg-red-100/90",
   };
   return (
-    <div className={`rounded-2xl border p-5 ${colorMap[color]}`}>
+    <div
+      className={`relative overflow-hidden rounded-2xl border p-5 transition-all duration-200 ${colorMap[color]} ${
+        active ? "ring-2 ring-blue-200 shadow-md shadow-blue-100/50" : "hover:-translate-y-0.5 hover:shadow-sm"
+      }`}
+    >
+      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/60 blur-2xl" />
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-semibold uppercase tracking-wide opacity-70">{label}</span>
         <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${iconBg[color]}`}>
@@ -152,33 +261,96 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
   const { getToken } = useClerkAuth();
   const { language } = useLanguage();
 
+  const oldestAllowedDateString = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
   const [data, setData] = useState<AutoschoolFinancesData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPostIds, setSelectedPostIds] = useState<Set<string>>(new Set());
+  const [activeMetric, setActiveMetric] = useState<AutoschoolFinanceMetric>("available_to_withdraw");
+  const [draftRange, setDraftRange] = useState<DateRange>({ fromDate: "", toDate: "" });
+  const [appliedRange, setAppliedRange] = useState<DateRange>({ fromDate: "", toDate: "" });
+  const [selectedPreset, setSelectedPreset] = useState<RangePreset>("default");
+  const [selectedMemberPostId, setSelectedMemberPostId] = useState<string>("all");
+  const [memberOptions, setMemberOptions] = useState<Array<{ postId: string; name: string }>>([]);
   const [showInstructors, setShowInstructors] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawSuccess, setWithdrawSuccess] = useState<string | null>(null);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const hasLoadedDataRef = useRef(false);
+  const hasLoadedMembersRef = useRef(false);
 
   useEffect(() => {
     hasLoadedDataRef.current = data !== null;
   }, [data]);
 
   const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    const scopeKey = [
+      selectedMemberPostId || "all",
+      activeMetric,
+      appliedRange.fromDate || "",
+      appliedRange.toDate || "",
+    ].join("|");
+
+    let suppressLoading = silent;
+    let hasVisibleData = hasLoadedDataRef.current;
+    if (!silent) {
+      const cachedFinances = readFinancesCache(schoolId, scopeKey);
+      if (cachedFinances) {
+        setData(cachedFinances);
+        setIsLoading(false);
+        setError(null);
+        const withBalance = cachedFinances.instructors
+          .filter((i) => i.available_to_withdraw > 0 && !i.has_booked_lessons)
+          .map((i) => i.post_id);
+        setSelectedPostIds(new Set(withBalance));
+        hasVisibleData = true;
+        hasLoadedDataRef.current = true;
+        suppressLoading = true;
+      }
+    }
+
     try {
-      if (!silent) {
+      if (!suppressLoading) {
         setIsLoading(true);
       }
       const token = await getToken();
       if (!token) {
-        if (!silent || !hasLoadedDataRef.current) {
+        if (!suppressLoading || !hasVisibleData) {
           setError("Not authorized.");
         }
         return;
       }
-      const result = await getAutoschoolFinances(schoolId, token);
+
+      if (!hasLoadedMembersRef.current) {
+        const cachedMembers = readMemberOptionsCache(schoolId, language);
+        if (cachedMembers) {
+          setMemberOptions(cachedMembers);
+          hasLoadedMembersRef.current = true;
+        } else {
+          const members = await getSchoolInstructors(schoolId, token);
+          const options = members.map((member) => {
+            const name = `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim()
+              || member.title
+              || (language === "ka" ? "ინსტრუქტორი" : "Instructor");
+            return { postId: member.id, name };
+          });
+          setMemberOptions(options);
+          writeMemberOptionsCache(schoolId, language, options);
+          hasLoadedMembersRef.current = true;
+        }
+      }
+
+      const result = await getAutoschoolFinances(schoolId, token, {
+        fromDate: appliedRange.fromDate || undefined,
+        toDate: appliedRange.toDate || undefined,
+        instructorPostId: selectedMemberPostId !== "all" ? selectedMemberPostId : undefined,
+        metric: activeMetric,
+      });
+
+      writeFinancesCache(schoolId, scopeKey, result);
       setData(result);
       setError(null);
       // Auto-select all instructors with available balance
@@ -187,15 +359,23 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
         .map((i) => i.post_id);
       setSelectedPostIds(new Set(withBalance));
     } catch (e) {
-      if (!silent || !hasLoadedDataRef.current) {
+      if (!suppressLoading || !hasVisibleData) {
         setError(e instanceof Error ? e.message : "Failed to load finances.");
       }
     } finally {
-      if (!silent) {
+      if (!suppressLoading) {
         setIsLoading(false);
       }
     }
-  }, [getToken, schoolId]);
+  }, [
+    activeMetric,
+    appliedRange.fromDate,
+    appliedRange.toDate,
+    getToken,
+    language,
+    schoolId,
+    selectedMemberPostId,
+  ]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -239,6 +419,79 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
   };
 
   const deselectAll = () => setSelectedPostIds(new Set());
+
+  const metricLabels: Record<AutoschoolFinanceMetric, string> = {
+    total_earned: language === "ka" ? "სულ მოგება" : "Total Earned",
+    total_withdrawn: language === "ka" ? "გამოტანილი" : "Withdrawn",
+    available_to_withdraw: language === "ka" ? "გამოსატანი" : "Available",
+    pending_release: language === "ka" ? "მოლოდინში" : "Pending",
+  };
+
+  const activeMetricLabel = metricLabels[activeMetric];
+  const todayDateString = toDateInputValue(new Date());
+  const selectedMemberLabel = selectedMemberPostId === "all"
+    ? (language === "ka" ? "ყველა წევრი" : "All members")
+    : memberOptions.find((member) => member.postId === selectedMemberPostId)?.name
+      ?? (language === "ka" ? "ინსტრუქტორი" : "Instructor");
+
+  const applyPreset = (preset: RangePreset) => {
+    setError(null);
+    setSelectedPreset(preset);
+
+    if (preset === "default") {
+      const emptyRange = { fromDate: "", toDate: "" };
+      setDraftRange(emptyRange);
+      setAppliedRange(emptyRange);
+      return;
+    }
+
+    if (preset === "custom") {
+      return;
+    }
+
+    const now = new Date();
+    const toDate = toDateInputValue(now);
+    let fromDate = toDate;
+
+    if (preset === "7d") {
+      fromDate = toDateInputValue(new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000));
+    } else if (preset === "30d") {
+      fromDate = toDateInputValue(new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000));
+    }
+
+    const boundedFromDate = fromDate < oldestAllowedDateString ? oldestAllowedDateString : fromDate;
+    const nextRange = { fromDate: boundedFromDate, toDate };
+    setDraftRange(nextRange);
+    setAppliedRange(nextRange);
+  };
+
+  const applyRange = () => {
+    if (!draftRange.fromDate && !draftRange.toDate) {
+      setSelectedPreset("default");
+      setError(null);
+      setAppliedRange({ fromDate: "", toDate: "" });
+      return;
+    }
+    if (draftRange.fromDate && draftRange.toDate && draftRange.fromDate > draftRange.toDate) {
+      setError(language === "ka" ? "საწყისი თარიღი უნდა იყოს საბოლოოზე ადრე." : "From date must be before To date.");
+      return;
+    }
+    if (draftRange.fromDate && draftRange.fromDate < oldestAllowedDateString) {
+      setError(language === "ka" ? "საწყისი თარიღი არ შეიძლება იყოს 90 დღეზე ძველი." : "From date cannot be older than last 90 days.");
+      return;
+    }
+    if (draftRange.toDate && draftRange.toDate < oldestAllowedDateString) {
+      setError(language === "ka" ? "საბოლოო თარიღი არ შეიძლება იყოს 90 დღეზე ძველი." : "To date cannot be older than last 90 days.");
+      return;
+    }
+    setError(null);
+    setSelectedPreset("custom");
+    setAppliedRange(draftRange);
+  };
+
+  const resetToDefaultRange = () => {
+    applyPreset("default");
+  };
 
   const selectedAmount = data
     ? data.instructors
@@ -293,7 +546,7 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
         <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
@@ -309,47 +562,200 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
 
   const hasAnyAvailable = data.instructors.some((instructor) => instructor.available_to_withdraw > 0 && !instructor.has_booked_lessons);
   const bookingRows = data.bookings ?? [];
+  const cards: Array<{
+    key: AutoschoolFinanceMetric;
+    amount: number;
+    color: "green" | "blue" | "amber" | "red";
+  }> = [
+    { key: "total_earned", amount: data.total_earned, color: "blue" },
+    { key: "total_withdrawn", amount: data.total_withdrawn, color: "green" },
+    { key: "available_to_withdraw", amount: data.available_to_withdraw, color: "red" },
+    { key: "pending_release", amount: data.pending_release, color: "amber" },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h2 className="text-lg font-bold text-slate-900">
-          {language === "ka" ? "ფინანსური მიმოხილვა" : "Financial Overview"}
-        </h2>
-        <p className="text-sm text-slate-500 mt-0.5">
-          {language === "ka"
-            ? "ყველა წევრი ინსტრუქტორის შემოსავალი, ბოლო 90 დღის ჭრილში და მომავალი დაჯავშნილი გაკვეთილებით"
-            : "Aggregated earnings across all member instructors, with a 90-day lookback plus upcoming booked lessons"}
-        </p>
+      {/* Stats grid (first) */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        {cards.map((card) => (
+          <button
+            key={card.key}
+            type="button"
+            onClick={() => setActiveMetric(card.key)}
+            className={`rounded-2xl text-left transition ${
+              activeMetric === card.key
+                ? "ring-2 ring-blue-200"
+                : "hover:ring-1 hover:ring-slate-200"
+            }`}
+          >
+            <MoneyCard
+              label={metricLabels[card.key]}
+              amount={card.amount}
+              active={activeMetric === card.key}
+              icon={
+                card.key === "total_earned"
+                  ? TrendingUp
+                  : card.key === "total_withdrawn"
+                    ? CheckCircle
+                    : card.key === "available_to_withdraw"
+                      ? Wallet
+                      : Clock
+              }
+              color={card.color}
+            />
+          </button>
+        ))}
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-        <MoneyCard
-          label={language === "ka" ? "სულ მოგება" : "Total Earned"}
-          amount={data.total_earned}
-          icon={TrendingUp}
-          color="blue"
-        />
-        <MoneyCard
-          label={language === "ka" ? "გამოტანილი" : "Withdrawn"}
-          amount={data.total_withdrawn}
-          icon={CheckCircle}
-          color="green"
-        />
-        <MoneyCard
-          label={language === "ka" ? "გამოსატანი" : "Available"}
-          amount={data.available_to_withdraw}
-          icon={Wallet}
-          color="red"
-        />
-        <MoneyCard
-          label={language === "ka" ? "მოლოდინში" : "Pending"}
-          amount={data.pending_release}
-          icon={Clock}
-          color="amber"
-        />
+      {/* Financial overview (second, after price cards) */}
+      <div className="bg-white rounded-3xl border border-slate-200 p-5 lg:p-7 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-lg lg:text-xl font-bold text-slate-900">
+              {language === "ka" ? "ფინანსური მიმოხილვა" : "Financial Overview"}
+            </h2>
+            <p className="text-sm text-slate-500 mt-1">
+              {language === "ka"
+                ? "Desktop კალენდრის გამოცდილება განახლებულია: გამოიყენეთ სწრაფი დიაპაზონები და ინსტრუქტორის ფილტრი."
+                : "Desktop calendar experience is upgraded with quick ranges and member-specific filtering."}
+            </p>
+          </div>
+
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span>{language === "ka" ? `აქტიური ველი: ${activeMetricLabel}` : `Active metric: ${activeMetricLabel}`}</span>
+          </div>
+        </div>
+
+        {error && (
+          <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <div className="xl:col-span-7 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 lg:p-5">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-blue-600" />
+              <p className="text-sm font-semibold text-slate-800">
+                {language === "ka" ? "კალენდრის ფანჯარა" : "Calendar Window"}
+              </p>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                { id: "default", labelEn: "90d + Upcoming", labelKa: "90 დღე + მომავალი" },
+                { id: "today", labelEn: "Today", labelKa: "დღეს" },
+                { id: "7d", labelEn: "Last 7 Days", labelKa: "ბოლო 7 დღე" },
+                { id: "30d", labelEn: "Last 30 Days", labelKa: "ბოლო 30 დღე" },
+                { id: "custom", labelEn: "Custom", labelKa: "ხელით" },
+              ].map((preset) => {
+                const isActive = selectedPreset === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => applyPreset(preset.id as RangePreset)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      isActive
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "border border-slate-300 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700"
+                    }`}
+                  >
+                    {language === "ka" ? preset.labelKa : preset.labelEn}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                  {language === "ka" ? "დან" : "From"}
+                </span>
+                <input
+                  type="date"
+                  value={draftRange.fromDate}
+                  onChange={(e) => {
+                    setSelectedPreset("custom");
+                    setDraftRange((prev) => ({ ...prev, fromDate: e.target.value }));
+                  }}
+                  max={draftRange.toDate || todayDateString}
+                  min={oldestAllowedDateString}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                  {language === "ka" ? "მდე" : "To"}
+                </span>
+                <input
+                  type="date"
+                  value={draftRange.toDate}
+                  onChange={(e) => {
+                    setSelectedPreset("custom");
+                    setDraftRange((prev) => ({ ...prev, toDate: e.target.value }));
+                  }}
+                  min={draftRange.fromDate || oldestAllowedDateString}
+                  max={todayDateString}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="xl:col-span-5 rounded-2xl border border-slate-200 bg-white p-4 lg:p-5">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
+                {language === "ka" ? "ინსტრუქტორი" : "Member"}
+              </span>
+              <select
+                value={selectedMemberPostId}
+                onChange={(e) => setSelectedMemberPostId(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="all">{language === "ka" ? "ყველა წევრი" : "All members"}</option>
+                {memberOptions.map((member) => (
+                  <option key={member.postId} value={member.postId}>{member.name}</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={applyRange}
+                className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+              >
+                {language === "ka" ? "გამოყენება" : "Apply"}
+              </button>
+
+              <button
+                type="button"
+                onClick={resetToDefaultRange}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                {language === "ka" ? "ნაგულისხმევი" : "Default"}
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600 leading-relaxed">
+              <p>
+                {appliedRange.fromDate || appliedRange.toDate
+                  ? (language === "ka"
+                    ? `დიაპაზონი: ${appliedRange.fromDate || "..."} → ${appliedRange.toDate || "..."}`
+                    : `Range: ${appliedRange.fromDate || "..."} to ${appliedRange.toDate || "..."}`)
+                  : (language === "ka"
+                    ? "ნაგულისხმევი დიაპაზონი: ბოლო 90 დღე + მომავალი დაჯავშნილი გაკვეთილები"
+                    : "Default scope: last 90 days + upcoming booked lessons")}
+              </p>
+              <p className="mt-1">
+                {language === "ka" ? `ინსტრუქტორი: ${selectedMemberLabel}` : `Member: ${selectedMemberLabel}`}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Instructor breakdown */}
@@ -409,12 +815,12 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <div className="border-b border-slate-200 p-5">
           <h3 className="text-sm font-semibold text-slate-900">
-            {language === "ka" ? "ჯავშნების დეტალები" : "Booking Details"}
+            {language === "ka" ? "ჯავშნების დეტალები" : "Booking Details"} · {activeMetricLabel}
           </h3>
           <p className="mt-0.5 text-xs text-slate-500">
             {language === "ka"
-              ? "აქ ჩანს პაკეტის სახელი და ფასდაკლებული თანხა თითო ჯავშანზე."
-              : "Package names and discounted lesson amounts are shown per booking here."}
+              ? `ნაჩვენებია მხოლოდ "${activeMetricLabel}" კატეგორიის ჩანაწერები (${selectedMemberLabel}).`
+              : `Showing only "${activeMetricLabel}" rows for ${selectedMemberLabel}.`}
           </p>
         </div>
 
@@ -475,7 +881,9 @@ export function AutoschoolFinances({ schoolId }: AutoschoolFinancesProps) {
           </div>
         ) : (
           <div className="p-5 text-sm text-slate-500">
-            {language === "ka" ? "ჯერჯერობით ფინანსური ჯავშნები არ არის." : "No finance bookings yet."}
+            {language === "ka"
+              ? `"${activeMetricLabel}" კატეგორიაში ჩანაწერები ვერ მოიძებნა.`
+              : `No rows found for "${activeMetricLabel}".`}
           </div>
         )}
       </div>

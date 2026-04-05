@@ -16,12 +16,15 @@ export interface InstructorSignupFormData {
   vehicleBrand: string;
   vehicleYear: number | string;
   transmission: string;
+  licenseCategory: string;
   allowedMode: string;
   vehiclePhotos: File[];
 
   // Step 3: Documents
   instructorLicense: File[];
   professionalCertificate: File | null;
+  iban: string;
+  bankRequisites: File | null;
 
   // Step 4: Agreements
   backgroundCheckConsent: boolean;

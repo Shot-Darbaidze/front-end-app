@@ -2,7 +2,7 @@
 
 import { Users, Wallet, Package, DollarSign } from "lucide-react";
 
-export const AUTOSCHOOL_TAB_IDS = ["members", "finances", "packages", "pricing"] as const;
+export const AUTOSCHOOL_TAB_IDS = ["members", "pricing", "finances", "packages"] as const;
 export type AutoschoolTabId = (typeof AUTOSCHOOL_TAB_IDS)[number];
 
 const TAB_CONFIG: Record<AutoschoolTabId, { icon: typeof Users; labelEn: string; labelKa: string }> = {
