@@ -15,7 +15,6 @@ interface AutoschoolCardProps {
   rating?: number | string | null;
   instructor_count: number;
   package_count: number;
-  license_categories?: string[];
   languages?: string | null;
   manual_city_price?: number | string | null;
   manual_yard_price?: number | string | null;
@@ -31,7 +30,6 @@ const AutoschoolCard = ({
   rating,
   instructor_count,
   package_count,
-  license_categories,
   languages,
   manual_city_price,
   manual_yard_price,
@@ -111,11 +109,6 @@ const AutoschoolCard = ({
           <Package className="w-3 h-3" />
           {package_count} {isKa ? "პაკეტი" : "packages"}
         </span>
-        {(license_categories ?? []).map((category) => (
-          <span key={`${id}-${category}`} className="px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-100 text-xs font-medium text-gray-600">
-            {isKa ? `კატეგორია ${category}` : `Category ${category}`}
-          </span>
-        ))}
       </div>
 
       {/* Footer */}

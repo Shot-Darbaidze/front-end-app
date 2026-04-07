@@ -43,6 +43,7 @@ interface InstructorPost {
   address?: string | null;
   google_maps_url?: string | null;
   autoschool_id?: string | null;
+  allowed_modes?: AllowedModes;
   transmission?: string | null;
   packages?: CoursePackage[];
 }
@@ -58,12 +59,90 @@ interface CoursePackage {
   transmission: string;
 }
 
+type LessonMode = "city" | "yard";
+type AllowedModes = LessonMode | "both" | null | undefined;
+
 type SelectedSlot = {
   id: string;
   date: string;
   time: string;
   duration_minutes: number;
 };
+
+function isLessonModeAllowed(allowedModes: AllowedModes, mode: LessonMode): boolean {
+  // null/undefined = NOT configured → not bookable at any mode
+  return allowedModes === "both" || allowedModes === mode;
+}
+
+function getFallbackLessonMode(allowedModes: AllowedModes, preferredMode: LessonMode): LessonMode {
+  if (allowedModes === "city" || allowedModes === "yard") {
+    return allowedModes;
+  }
+
+  return preferredMode;
+}
+
+function getDisallowedModeMessage(
+  allowedModes: AllowedModes,
+  requestedMode: LessonMode,
+  language: string,
+): string {
+  if (allowedModes === "city" || allowedModes === "yard") {
+    if (language === "ka") {
+      return requestedMode === "yard"
+        ? "ეს ინსტრუქტორი მოედნის გაკვეთილებს არ სთავაზობს. ხელმისაწვდომია მხოლოდ ქალაქის გაკვეთილები."
+        : "ეს ინსტრუქტორი ქალაქის გაკვეთილებს არ სთავაზობს. ხელმისაწვდომია მხოლოდ მოედნის გაკვეთილები.";
+    }
+
+    return `This instructor does not offer ${requestedMode} lessons. Only ${allowedModes} lessons are available.`;
+  }
+
+  return language === "ka"
+    ? "არჩეული გაკვეთილის რეჟიმი ამ ინსტრუქტორისთვის ხელმისაწვდომი არ არის."
+    : "The selected lesson mode is not available for this instructor.";
+}
+
+function extractApiErrorMessage(errorData: unknown, fallback: string): string {
+  if (typeof errorData === "string" && errorData.trim()) {
+    return errorData;
+  }
+
+  if (!errorData || typeof errorData !== "object") {
+    return fallback;
+  }
+
+  const detail = (errorData as { detail?: unknown }).detail;
+  if (typeof detail === "string" && detail.trim()) {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((entry) => {
+        if (typeof entry === "string" && entry.trim()) {
+          return entry;
+        }
+
+        if (
+          entry &&
+          typeof entry === "object" &&
+          typeof (entry as { msg?: unknown }).msg === "string" &&
+          (entry as { msg: string }).msg.trim()
+        ) {
+          return (entry as { msg: string }).msg;
+        }
+
+        return null;
+      })
+      .filter((message): message is string => Boolean(message));
+
+    if (messages.length > 0) {
+      return messages.join(" ");
+    }
+  }
+
+  return fallback;
+}
 
 const extractGoogleMapsHref = (value?: string | null): string | null => {
   if (!value) return null;
@@ -110,7 +189,11 @@ function mapPackages(post: InstructorPost): BookingOption[] {
   const transmission = (post.transmission || "").toLowerCase();
   return (post.packages ?? [])
     .filter((pkg) => {
-      return isPackageTransmissionCompatible(pkg.transmission, transmission, { allowBoth: false });
+      const packageMode = pkg.mode === "yard" ? "yard" : "city";
+      return (
+        isPackageTransmissionCompatible(pkg.transmission, transmission, { allowBoth: false }) &&
+        isLessonModeAllowed(post.allowed_modes, packageMode)
+      );
     })
     .map((pkg) => ({
       id: pkg.id,
@@ -148,7 +231,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
   const { id, locale } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialLessonMode = (searchParams.get("mode") === "yard" ? "yard" : "city") as "city" | "yard";
+  const initialLessonMode = (searchParams.get("mode") === "yard" ? "yard" : "city") as LessonMode;
   const initialPackageId = searchParams.get("package") ?? "";
   const { getToken, isSignedIn } = useAuth();
   const { t, language } = useLanguage();
@@ -157,7 +240,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [viewingDate, setViewingDate] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [lessonMode, setLessonMode] = useState<"city" | "yard">(initialLessonMode);
+  const [lessonMode, setLessonMode] = useState<LessonMode>(initialLessonMode);
   const [packages, setPackages] = useState<BookingOption[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState(initialPackageId);
   
@@ -168,6 +251,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [modeNotice, setModeNotice] = useState<string | null>(null);
   const hasMountedStepRef = useRef(false);
 
   // Phone requirement gate before reservation
@@ -254,28 +338,49 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
 
   // Fetch data on mount — with module-level cache to survive locale switches
   const initialMonthSet = useRef(false);
+
+  const applyLoadedBookingData = useCallback((postData: InstructorPost, rawSlots: AvailableSlot[]) => {
+    const packageOptions = mapPackages(postData);
+    const initialPackage = initialPackageId
+      ? packageOptions.find((pkg) => pkg.id === initialPackageId) ?? null
+      : null;
+    const requestedMode: LessonMode = initialPackage?.mode === "yard"
+      ? "yard"
+      : initialPackage
+        ? "city"
+        : initialLessonMode;
+    const safeMode = isLessonModeAllowed(postData.allowed_modes, requestedMode)
+      ? requestedMode
+      : getFallbackLessonMode(postData.allowed_modes, requestedMode);
+
+    setInstructor(postData);
+    setPackages(packageOptions);
+    setSelectedPackageId(initialPackage?.id ?? "");
+    setLessonMode(safeMode);
+    setModeNotice(
+      safeMode === requestedMode
+        ? null
+        : getDisallowedModeMessage(postData.allowed_modes, requestedMode, language),
+    );
+
+    const now = new Date();
+    const futureSlots = rawSlots.filter((slot) => new Date(slot.start_time_utc) > now);
+    setAvailableSlots(futureSlots);
+    if (!initialMonthSet.current && futureSlots.length > 0) {
+      const earliest = futureSlots.reduce((a, b) =>
+        new Date(a.start_time_utc) < new Date(b.start_time_utc) ? a : b,
+      );
+      setCurrentMonth(new Date(new Date(earliest.start_time_utc).getFullYear(), new Date(earliest.start_time_utc).getMonth()));
+      initialMonthSet.current = true;
+    }
+  }, [initialLessonMode, initialPackageId, language]);
+
   useEffect(() => {
     const fetchData = async () => {
       // Check cache first
       const cached = bookingCache.get(id);
       if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-        setInstructor(cached.instructor);
-        const cachedPackages = mapPackages(cached.instructor);
-        setPackages(cachedPackages);
-        if (initialPackageId) {
-          const initialPackage = cachedPackages.find((pkg) => pkg.id === initialPackageId);
-          if (initialPackage?.mode) {
-            setLessonMode(initialPackage.mode === "yard" ? "yard" : "city");
-          }
-        }
-        const now = new Date();
-        const futureSlots = cached.slots.filter(slot => new Date(slot.start_time_utc) > now);
-        setAvailableSlots(futureSlots);
-        if (!initialMonthSet.current && futureSlots.length > 0) {
-          const earliest = futureSlots.reduce((a, b) => new Date(a.start_time_utc) < new Date(b.start_time_utc) ? a : b);
-          setCurrentMonth(new Date(new Date(earliest.start_time_utc).getFullYear(), new Date(earliest.start_time_utc).getMonth()));
-          initialMonthSet.current = true;
-        }
+        applyLoadedBookingData(cached.instructor, cached.slots);
         setLoading(false);
         return;
       }
@@ -304,16 +409,6 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
           return;
         }
 
-        setInstructor(postData);
-        const packageOptions = mapPackages(postData);
-        setPackages(packageOptions);
-        if (initialPackageId) {
-          const initialPackage = packageOptions.find((pkg) => pkg.id === initialPackageId);
-          if (initialPackage?.mode) {
-            setLessonMode(initialPackage.mode === "yard" ? "yard" : "city");
-          }
-        }
-
         let allSlots: AvailableSlot[] = [];
         if (slotsRes.ok) {
           allSlots = await slotsRes.json() as AvailableSlot[];
@@ -322,15 +417,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
         // Persist raw data in cache
         bookingCache.set(id, { instructor: postData, slots: allSlots, ts: Date.now() });
 
-        const now = new Date();
-        const futureSlots = allSlots.filter(slot => new Date(slot.start_time_utc) > now);
-        setAvailableSlots(futureSlots);
-          
-        if (!initialMonthSet.current && futureSlots.length > 0) {
-          const earliest = futureSlots.reduce((a, b) => new Date(a.start_time_utc) < new Date(b.start_time_utc) ? a : b);
-          setCurrentMonth(new Date(new Date(earliest.start_time_utc).getFullYear(), new Date(earliest.start_time_utc).getMonth()));
-          initialMonthSet.current = true;
-        }
+        applyLoadedBookingData(postData, allSlots);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load data");
       } finally {
@@ -339,7 +426,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
     };
 
     fetchData();
-  }, [id, initialLessonMode, initialPackageId, locale, router]);
+  }, [applyLoadedBookingData, id, initialLessonMode, initialPackageId, locale, router]);
 
   // ── Resume active reservation if user accidentally left ───────────
   const resumeChecked = useRef(false);
@@ -492,7 +579,7 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ slot_ids: selectedSlots.map(s => s.id) }),
+        body: JSON.stringify({ slot_ids: selectedSlots.map(s => s.id), mode: lessonMode }),
       });
 
       if (!res.ok) {
@@ -525,6 +612,11 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
   const handleContinueToConfirm = async () => {
     if (!isSignedIn) {
       router.push(`/sign-in?redirect=/instructors/${id}/book`);
+      return;
+    }
+
+    if (instructor && !isLessonModeAllowed(instructor.allowed_modes, lessonMode)) {
+      setBookingError(getDisallowedModeMessage(instructor.allowed_modes, lessonMode, language));
       return;
     }
 
@@ -674,6 +766,11 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
       return;
     }
 
+    if (instructor && !isLessonModeAllowed(instructor.allowed_modes, lessonMode)) {
+      setBookingError(getDisallowedModeMessage(instructor.allowed_modes, lessonMode, language));
+      return;
+    }
+
     // Check if reservation has expired
     if (secondsLeft <= 0 && !reservedUntilUtc) {
       setReservationExpired(true);
@@ -702,8 +799,15 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
       });
       
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ detail: "Booking failed" }));
-        throw new Error(errorData.detail || "Booking failed");
+        const errorData = await res.json().catch(() => null);
+        throw new Error(
+          extractApiErrorMessage(
+            errorData,
+            language === "ka"
+              ? "ჯავშნის დასრულება ვერ მოხერხდა. გთხოვთ სცადოთ ხელახლა."
+              : "Booking could not be completed. Please try again.",
+          ),
+        );
       }
 
       const data = await res.json();
@@ -848,6 +952,15 @@ export default function BookingPage({ params }: { params: Promise<{ id: string; 
             </span>
           </p>
         </div>
+
+        {modeNotice && (
+          <div className="mx-auto mb-6 max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              <p className="text-sm text-amber-800">{modeNotice}</p>
+            </div>
+          </div>
+        )}
 
         {/* Progress Steps */}
         <div className="flex items-center justify-center gap-4 mb-8">

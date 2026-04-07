@@ -12,6 +12,7 @@ import { useFindInstructors } from "@/hooks/useFindInstructors";
 import { trackInstructorClick } from "@/utils/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+
 function FindInstructorsContent() {
   const { language } = useLanguage();
   const isKa = language === "ka";
@@ -93,6 +94,25 @@ function FindInstructorsContent() {
           onRetrySearch={handleSearch}
         />
 
+        {hasSearched && (() => {
+          const totalLabel = totalCount !== null
+            ? hasMore ? `${totalCount}+` : `${totalCount}`
+            : null;
+          const countLabel = totalLabel === null
+            ? (isKa ? "შედეგები ახლდება" : "Updating results")
+            : isKa
+              ? `${totalLabel} ${isSchoolMode ? "ავტოსკოლა" : "ინსტრუქტორი"} ნაპოვნია`
+              : `${totalLabel} ${isSchoolMode ? (totalCount === 1 ? "school" : "schools") : (totalCount === 1 ? "instructor" : "instructors")} found`;
+
+          return (
+            <div className="mb-6 -mt-2">
+              <span className="inline-flex items-center rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm">
+                {countLabel}
+              </span>
+            </div>
+          );
+        })()}
+
         {isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }, (_, i) => (
@@ -121,6 +141,7 @@ function FindInstructorsContent() {
         {!isLoading && !isSchoolMode && currentInstructors.length > 0 && (
           <InstructorList
             instructors={currentInstructors}
+            activeModeFilter={filters.mode || undefined}
             onInstructorClick={trackInstructorClick}
           />
         )}

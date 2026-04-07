@@ -15,6 +15,7 @@ interface InstructorBookingPanelProps {
   yardPrice: number | null;
   instructorId: string | number;
   autoschoolId?: string | null;
+  allowedModes?: "city" | "yard" | "both" | null;
   packages: CoursePackage[];
   pricing: InstructorPrices;
 }
@@ -45,6 +46,7 @@ export default function InstructorBookingPanel({
   yardPrice,
   instructorId,
   autoschoolId,
+  allowedModes,
   packages,
   pricing,
 }: InstructorBookingPanelProps) {
@@ -54,7 +56,11 @@ export default function InstructorBookingPanel({
     [packages, selectedPackageId],
   );
 
-  const fallbackMode: BookingSidebarLessonMode = cityPrice != null ? "city" : "yard";
+  // Respect allowed_modes when choosing the default mode.
+  // null/undefined = NOT bookable; only explicit 'both'/'city'/'yard' enables booking.
+  const cityAllowed = allowedModes === "both" || allowedModes === "city";
+  const fallbackMode: BookingSidebarLessonMode =
+    cityPrice != null && cityAllowed ? "city" : "yard";
   const [selectedMode, setSelectedMode] = useState<BookingSidebarLessonMode>(
     selectedPackage ? normalizeMode(selectedPackage.mode) : fallbackMode,
   );
@@ -93,6 +99,7 @@ export default function InstructorBookingPanel({
         yardPrice={yardPrice}
         instructorId={instructorId}
         autoschoolId={autoschoolId}
+        allowedModes={allowedModes}
         selectedMode={selectedMode}
         onModeChange={setSelectedMode}
         selectedPackage={selectedPackage}

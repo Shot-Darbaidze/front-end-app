@@ -36,6 +36,7 @@ type InstructorPost = {
   vehicle_brand?: string | null;
   vehicle_year?: number | null;
   autoschool_id?: string | null;
+  allowed_modes?: "city" | "yard" | "both" | null;
   packages?: CoursePackage[];
 };
 
@@ -166,6 +167,7 @@ export default async function InstructorProfilePage({ params }: { params: Promis
                 yardPrice={yardPrice}
                 instructorId={post.id}
                 autoschoolId={post.autoschool_id}
+                allowedModes={post.allowed_modes ?? null}
                 packages={packages}
                 pricing={{
                   transmission: post.transmission,

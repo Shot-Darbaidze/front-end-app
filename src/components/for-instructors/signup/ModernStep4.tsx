@@ -38,7 +38,6 @@ const ModernStep4 = ({ data, updateData, onEditStep, errors = {} }: ReviewStepPr
           <p><span className="font-medium text-gray-900">{t("signup.registrationLabel")}</span> {data.vehicleRegistration}</p>
           <p><span className="font-medium text-gray-900">{t("signup.yearLabel")}</span> {data.vehicleYear}</p>
           <p><span className="font-medium text-gray-900">{t("signup.transmissionLabel")}</span> {data.transmission}</p>
-          <p><span className="font-medium text-gray-900">{t("signup.licenseCategoryLabel")}</span> {data.licenseCategory || "-"}</p>
           <p><span className="font-medium text-gray-900">{t("signup.allowedModeLabel")}</span> {data.allowedMode}</p>
           <p>
             <span className="font-medium text-gray-900">{t("signup.photos")}</span>{' '}

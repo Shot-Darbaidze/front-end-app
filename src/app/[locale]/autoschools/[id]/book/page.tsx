@@ -723,7 +723,7 @@ export default function AutoschoolBookingPage({ params }: { params: Promise<{ lo
       const reserveRes = await fetch(`${API_BASE}/api/bookings/slots/reserve`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ slot_ids: selectedSlotIds }),
+        body: JSON.stringify({ slot_ids: selectedSlotIds, mode: lessonMode }),
       });
 
       const reserveData = await reserveRes.json().catch(() => ({}));

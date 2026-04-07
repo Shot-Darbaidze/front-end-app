@@ -280,10 +280,6 @@ export const OTHER_LANGUAGE_OPTIONS: Array<{ code: string; label: string }> = [
 
 export const ALL_LANGUAGE_OPTIONS = [...PRIMARY_LANGUAGE_OPTIONS, ...OTHER_LANGUAGE_OPTIONS];
 
-export const LICENSE_CATEGORIES = ['A1', 'A', 'B', 'C', 'D', 'BE', 'CE', 'DE'] as const;
-export type LicenseCategory = (typeof LICENSE_CATEGORIES)[number];
-export const DEFAULT_LICENSE_CATEGORY: LicenseCategory = 'B';
-
 export const TRANSMISSION_TYPES = ['Manual', 'Automatic'] as const;
 
 export const INSTRUCTOR_CATEGORY_LABELS: Record<string, string> = {

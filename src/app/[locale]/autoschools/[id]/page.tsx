@@ -95,7 +95,6 @@ export default async function AutoschoolProfilePage({
     cityPrice: i.city_price != null ? Number(i.city_price) : null,
     yardPrice: i.yard_price != null ? Number(i.yard_price) : null,
     tags: [
-      ...(i.license_category ? [`Category: ${i.license_category}`] : []),
       ...(i.transmission ? [i.transmission] : []),
       ...formatLanguageCodes(csvToArray(i.language_skills)).slice(0, 3),
     ],

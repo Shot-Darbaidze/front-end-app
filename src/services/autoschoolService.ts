@@ -52,7 +52,6 @@ export interface SchoolInstructor {
   rating?: number | null;
   transmission?: string | null;
   language_skills?: string | null;
-  license_category?: string | null;
   /** Effective city price derived from school-level pricing */
   city_price?: number | null;
   /** Effective yard price derived from school-level pricing */
@@ -98,7 +97,6 @@ export interface AutoschoolSummary {
   rating?: number | null;
   instructor_count: number;
   package_count: number;
-  license_categories?: string[];
   languages?: string | null;
   manual_city_price?: number | string | null;
   manual_yard_price?: number | string | null;
@@ -148,7 +146,6 @@ export async function getAutoschools(params?: {
   city?: string;
   transmission?: "manual" | "automatic";
   languages?: string[];
-  license_category?: string;
   mode?: "city" | "yard";
   sort?: "rating" | "price-asc" | "price-desc";
   min_price?: number;
@@ -161,7 +158,6 @@ export async function getAutoschools(params?: {
   if (params?.city) qs.set("city", params.city);
   if (params?.transmission) qs.set("transmission", params.transmission);
   if (params?.languages && params.languages.length > 0) qs.set("languages", params.languages.join(","));
-  if (params?.license_category) qs.set("license_category", params.license_category);
   if (params?.mode) qs.set("mode", params.mode);
   if (params?.sort && params.sort !== "rating") qs.set("sort", params.sort);
   if (params?.min_price != null) qs.set("min_price", String(params.min_price));

@@ -1,4 +1,4 @@
-import { Star, ShieldCheck, Car, MapPin, Route, BadgeCheck } from "lucide-react";
+import { Star, ShieldCheck, Car, MapPin, Route } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCallback, memo } from "react";
@@ -15,6 +15,7 @@ interface InstructorCardProps {
   cityPrice?: number | null;
   yardPrice?: number | null;
   showBothPrices?: boolean;
+  activeModeFilter?: string;
   tags: string[];
   imageUrl?: string;
   reviewCount?: number;
@@ -24,17 +25,39 @@ interface InstructorCardProps {
 }
 
 const CityIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" className="text-gray-500 shrink-0">
-    <path
-      fill="currentColor"
-      d="M3 21V7l6-3v6h6V6l6-3v18H3Zm2-2h3v-4H5v4Zm0-6h3V9H5v4Zm5 6h4v-4h-4v4Zm0-6h4V9h-4v4Zm6 6h3v-4h-3v4Zm0-6h3V7h-3v6Z"
-    />
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0">
+    <rect x="2" y="10" width="6" height="12" rx="1" fill="#4f46e5" />
+    <rect x="9" y="4" width="6" height="18" rx="1" fill="#6366f1" />
+    <rect x="16" y="8" width="6" height="14" rx="1" fill="#7c3aed" />
+    <rect x="3.5" y="12" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="3.5" y="15" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="3.5" y="18" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="5.5" y="12" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="5.5" y="15" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="5.5" y="18" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="10.5" y="6" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="10.5" y="9" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="10.5" y="12" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="10.5" y="15" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="10.5" y="18" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="12.5" y="6" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="12.5" y="9" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="12.5" y="12" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="12.5" y="15" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="12.5" y="18" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="17.5" y="10" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="17.5" y="13" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="17.5" y="16" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="19.5" y="10" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="19.5" y="13" width="1.5" height="1.5" rx="0.3" fill="white" />
+    <rect x="19.5" y="16" width="1.5" height="1.5" rx="0.3" fill="white" />
   </svg>
 );
 
 const YardIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" className="text-gray-500 shrink-0">
-    <path fill="currentColor" d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h10v2H7V7zm0 4h10v2H7v-2zm0 4h6v2H7v-2z"/>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0">
+    <rect x="2" y="2" width="20" height="20" rx="5" fill="#3b82f6" />
+    <path d="M9 7h4.5a3.5 3.5 0 0 1 0 7H11v3.5H9V7Zm2 2v3h2.5a1.5 1.5 0 0 0 0-3H11Z" fill="white" />
   </svg>
 );
 
@@ -140,6 +163,7 @@ const InstructorCard = ({
   cityPrice,
   yardPrice,
   showBothPrices = false,
+  activeModeFilter,
   tags,
   imageUrl,
   reviewCount = 0,
@@ -163,8 +187,10 @@ const InstructorCard = ({
     }
   }, [onCardClick, id, position]);
 
-  const hasCityPrice = cityPrice != null;
-  const hasYardPrice = yardPrice != null;
+  const showCity = activeModeFilter ? activeModeFilter === 'city' : true;
+  const showYard = activeModeFilter ? activeModeFilter === 'yard' : true;
+  const hasCityPrice = cityPrice != null && showCity;
+  const hasYardPrice = yardPrice != null && showYard;
   const hasAnyModePrice = hasCityPrice || hasYardPrice;
   const displayName = isKa && /[A-Za-z]/.test(name) ? transliterateToGeorgian(name) : name;
   const displaySpecialty = isKa && /[A-Za-z]/.test(specialty)
@@ -175,11 +201,6 @@ const InstructorCard = ({
     if (tag.startsWith("Mode:")) {
       const value = tag.replace("Mode:", "").trim();
       return isKa ? value.replace("City", "ქალაქი").replace("Yard", "მოედანი") : value;
-    }
-
-    if (tag.startsWith("Category:")) {
-      const value = tag.replace("Category:", "").trim();
-      return isKa ? `კატეგორია ${value}` : `Category ${value}`;
     }
 
     if (tag.startsWith("Location:")) {
@@ -243,7 +264,6 @@ const InstructorCard = ({
       <div className="flex flex-wrap gap-2 mb-6">
         {tags.map((tag, index) => {
           const isMode = tag.startsWith('Mode:');
-          const isCategory = tag.startsWith('Category:');
           const isLocation = tag.startsWith('Location:');
           const isTransmission = tag.includes('Manual') || tag.includes('Automatic');
           const label = translateTag(tag);
@@ -251,7 +271,6 @@ const InstructorCard = ({
           return (
             <span key={index} className="px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-100 text-xs font-medium text-gray-600 flex items-center gap-1">
               {isMode ? <Route className="w-3 h-3" /> : null}
-              {isCategory ? <BadgeCheck className="w-3 h-3" /> : null}
               {isLocation ? <MapPin className="w-3 h-3" /> : null}
               {isTransmission ? <Car className="w-3 h-3" /> : null}
               {label}
@@ -260,64 +279,43 @@ const InstructorCard = ({
         })}
       </div>
 
-      <div className="mt-auto pt-4 border-t border-gray-50 space-y-3">
-        <div className="pl-1">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-            {isKa ? "თითო გაკვეთილის ფასი" : "Price per lesson"}
-          </p>
-          {hasAnyModePrice ? (
-            <div className="space-y-2">
-              {hasCityPrice && (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
-                  <div className="flex min-w-0 items-center gap-2">
+      <div className="mt-auto pt-4 border-t border-gray-50">
+        <div className="flex items-center gap-2">
+          {/* Prices */}
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            {hasAnyModePrice ? (
+              <>
+                {hasCityPrice && (
+                  <div className="flex items-center gap-1.5 rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-1.5">
                     <CityIcon />
-                    <span className="whitespace-nowrap text-lg font-bold text-gray-900">{PRICING.CURRENCY_SYMBOL}{cityPrice}</span>
+                    <span className="whitespace-nowrap text-sm font-bold text-gray-900">{PRICING.CURRENCY_SYMBOL}{cityPrice}</span>
                   </div>
-                  <div className="text-right">
-                    <span className="block whitespace-nowrap text-xs font-medium text-gray-500">
-                      {isKa ? "ქალაქი" : "City"}
-                    </span>
-                    <span className="block whitespace-nowrap text-[11px] text-gray-400">
-                      {isKa ? "გაკვეთილი" : "lesson"}
-                    </span>
-                  </div>
-                </div>
-              )}
-              {hasYardPrice && (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
-                  <div className="flex min-w-0 items-center gap-2">
+                )}
+                {hasYardPrice && (
+                  <div className="flex items-center gap-1.5 rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-1.5">
                     <YardIcon />
-                    <span className="whitespace-nowrap text-lg font-bold text-gray-900">{PRICING.CURRENCY_SYMBOL}{yardPrice}</span>
+                    <span className="whitespace-nowrap text-sm font-bold text-gray-900">{PRICING.CURRENCY_SYMBOL}{yardPrice}</span>
                   </div>
-                  <div className="text-right">
-                    <span className="block whitespace-nowrap text-xs font-medium text-gray-500">
-                      {isKa ? "მოედანი" : "Yard"}
-                    </span>
-                    <span className="block whitespace-nowrap text-[11px] text-gray-400">
-                      {isKa ? "გაკვეთილი" : "lesson"}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
-              <span className="whitespace-nowrap text-xl font-bold text-gray-900">{PRICING.CURRENCY_SYMBOL}{price}</span>
-              <span className="block whitespace-nowrap text-xs font-medium text-gray-500">
-                {isKa ? "გაკვეთილი" : "lesson"}
-              </span>
-            </div>
-          )}
+                )}
+              </>
+            ) : (
+              <div className="flex items-center gap-1.5 rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-1.5">
+                <span className="whitespace-nowrap text-sm font-bold text-gray-900">{PRICING.CURRENCY_SYMBOL}{price}</span>
+              </div>
+            )}
+          </div>
+
+          {/* View Profile */}
+          <Link
+            href={profileHref}
+            className="shrink-0 after:content-[''] after:absolute after:inset-0 after:z-[1] after:rounded-2xl"
+            onClick={handleCardClick}
+          >
+            <button className="relative z-[2] whitespace-nowrap py-2 px-5 bg-white border-2 border-[#F03D3D] text-[#F03D3D] rounded-xl font-bold text-sm hover:bg-[#F03D3D] hover:text-white transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105 active:scale-95">
+              {isKa ? "პროფილი" : "View Profile"}
+            </button>
+          </Link>
         </div>
-        <Link
-          href={profileHref}
-          className="block w-full after:content-[''] after:absolute after:inset-0 after:z-[1] after:rounded-2xl"
-          onClick={handleCardClick}
-        >
-          <button className="w-full whitespace-nowrap py-2.5 px-4 bg-white border-2 border-[#F03D3D] text-[#F03D3D] rounded-xl font-bold text-sm hover:bg-[#F03D3D] hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95">
-            {isKa ? "პროფილის ნახვა" : "View Profile"}
-          </button>
-        </Link>
       </div>
     </article>
   );
@@ -331,6 +329,7 @@ const arePropsEqual = (prev: InstructorCardProps, next: InstructorCardProps): bo
   prev.price === next.price &&
   prev.cityPrice === next.cityPrice &&
   prev.yardPrice === next.yardPrice &&
+  prev.activeModeFilter === next.activeModeFilter &&
   prev.imageUrl === next.imageUrl &&
   prev.reviewCount === next.reviewCount &&
   prev.position === next.position &&

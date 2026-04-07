@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { InstructorCardData, SearchResult } from '@/types/find-instructors';
 import { useInstructorFilters, type FilterOptions } from '@/hooks/useInstructorFilters';
 import { api } from '@/services/api';
-import { LIMITS, ERROR_MESSAGES, PRICING, TIME_CONFIG, API_ENDPOINTS, DEFAULT_LICENSE_CATEGORY, LICENSE_CATEGORIES } from '@/config/constants';
+import { LIMITS, ERROR_MESSAGES, PRICING, TIME_CONFIG, API_ENDPOINTS } from '@/config/constants';
 import { trackSearch, trackFilterChange } from '@/utils/analytics';
 import { resolveMediaUrl } from '@/utils/media';
 import { getAutoschools, type AutoschoolSummary } from '@/services/autoschoolService';
@@ -57,10 +57,6 @@ const mapResults = (results: SearchResult[]): InstructorCardData[] => {
       tags.push(`Location: ${item.located_at}`);
     }
 
-    if (item.license_category) {
-      tags.push(`Category: ${item.license_category}`);
-    }
-
     if (item.transmission) {
       tags.push(item.transmission.toLowerCase() === 'manual' ? 'Manual' : 'Automatic');
     }
@@ -104,14 +100,13 @@ export const useFindInstructors = () => {
     const urlCity = searchParams.get('city') || '';
     const urlTransmission = searchParams.get('transmission') || '';
     const urlLanguages = searchParams.get('languages') || '';
-    const urlLicenseCategory = searchParams.get('license_category') || '';
     const urlInstructorType = searchParams.get('instructor_type') as 'solo' | 'school' | null;
     const urlMinPrice = searchParams.get('min_price');
     const urlMaxPrice = searchParams.get('max_price');
     const urlSort = searchParams.get('sort') as 'rating' | 'price-asc' | 'price-desc' | null;
     const urlPage = searchParams.get('page');
     const urlMode = searchParams.get('mode') as 'city' | 'yard' | null;
-    const hasUrlParams = !!(urlSearch || urlCity || urlTransmission || urlLanguages || urlLicenseCategory || urlInstructorType || urlMinPrice || urlMaxPrice || urlSort || urlPage || urlMode);
+    const hasUrlParams = !!(urlSearch || urlCity || urlTransmission || urlLanguages || urlInstructorType || urlMinPrice || urlMaxPrice || urlSort || urlPage || urlMode);
 
     // 2. Check sessionStorage
     const saved = loadState();
@@ -131,12 +126,6 @@ export const useFindInstructors = () => {
           .split(',')
           .map((code) => code.trim().toLowerCase())
           .filter(Boolean);
-      }
-      if (urlLicenseCategory) {
-        const normalizedLicenseCategory = urlLicenseCategory.trim().toUpperCase();
-        if (LICENSE_CATEGORIES.includes(normalizedLicenseCategory as typeof LICENSE_CATEGORIES[number])) {
-          filterValues.licenseCategory = normalizedLicenseCategory as typeof LICENSE_CATEGORIES[number];
-        }
       }
       if (urlInstructorType && ['solo', 'school'].includes(urlInstructorType)) {
         filterValues.instructorType = urlInstructorType;
@@ -167,7 +156,6 @@ export const useFindInstructors = () => {
           city: saved.filters?.city || '',
           transmissionType: saved.filters?.transmissionType || '',
           languageCodes: saved.filters?.languageCodes ?? [],
-          licenseCategory: saved.filters?.licenseCategory ?? DEFAULT_LICENSE_CATEGORY,
           budget: saved.filters?.budget ?? [PRICING.MIN_PRICE_FILTER, PRICING.MAX_PRICE_FILTER],
           instructorType: saved.filters?.instructorType ?? 'all',
           mode: saved.filters?.mode ?? '',
@@ -236,9 +224,6 @@ export const useFindInstructors = () => {
       if (filters.languageCodes.length > 0) {
         params.set('languages', filters.languageCodes.join(','));
       }
-      if (options.forAPI || filters.licenseCategory !== DEFAULT_LICENSE_CATEGORY) {
-        params.set('license_category', filters.licenseCategory);
-      }
       if (filters.budget[0] !== PRICING.MIN_PRICE_FILTER) {
         params.set('min_price', String(filters.budget[0]));
       }
@@ -278,7 +263,6 @@ export const useFindInstructors = () => {
       if (filters.languageCodes.length > 0) {
         params.set('languages', filters.languageCodes.join(','));
       }
-      params.set('license_category', filters.licenseCategory);
       if (filters.mode) {
         params.set('mode', filters.mode);
       }
@@ -325,7 +309,6 @@ export const useFindInstructors = () => {
         city: filters.city || undefined,
         transmission: filters.transmissionType ? filters.transmissionType.toLowerCase() as 'manual' | 'automatic' : undefined,
         languages: filters.languageCodes.length ? filters.languageCodes : undefined,
-        license_category: filters.licenseCategory,
         mode: filters.mode || undefined,
         sort: sortBy,
         min_price: filters.budget[0] !== PRICING.MIN_PRICE_FILTER ? filters.budget[0] : undefined,
@@ -379,38 +362,16 @@ export const useFindInstructors = () => {
   const hasMore = data?.hasMore ?? false;
   const errorMessage = error ? (error instanceof Error ? error.message : ERROR_MESSAGES.GENERIC_ERROR) : null;
 
-  // Fetch total count in background (not cached with main query)
-  const totalCountQuery = useQuery({
-    queryKey: [
-      'instructors-total-count',
-      isSchoolMode ? 'autoschools' : 'instructors',
-      pathname,
-      isSchoolMode
-        ? buildAutoschoolParams({ page: 1 }).toString()
-        : buildParams({ forAPI: true, page: 1 }).toString(),
-    ],
-    queryFn: async () => {
-      if (isSchoolMode) {
-        const params = buildAutoschoolParams({ page: 1 });
-        params.set('limit', String(LIMITS.MAX_PAGE_SIZE));
-        params.set('offset', '0');
-        const results = await api.get<AutoschoolSummary[]>(`/api/autoschools?${params.toString()}`);
-        return results.length;
-      }
-
-      const params = buildParams({ forAPI: true, page: 1 });
-      params.set('limit', String(LIMITS.MAX_PAGE_SIZE));
-      params.set('offset', '0');
-      const endpoint = `${API_ENDPOINTS.INSTRUCTOR_SEARCH}?${params.toString()}`;
-      const results = await api.get<SearchResult[]>(endpoint);
-      return results.length;
-    },
-    enabled: hasSearched && !!data,
-    staleTime: 5 * 60 * 1000,
-    retry: false,
-  });
-
-  const totalCount = totalCountQuery.data ?? null;
+  // Derive total count from what we already know without firing a second large query.
+  // If the page is full (results.length >= PAGE_SIZE) we know there are at least
+  // (currentPage - 1) * PAGE_SIZE + PAGE_SIZE items → show "X+".
+  // If the page is not full we have an exact count.
+  const totalCount = useMemo(() => {
+    const items = isSchoolMode ? currentAutoschools : currentInstructors;
+    if (!data) return null;
+    const base = (currentPage - 1) * PAGE_SIZE;
+    return base + items.length;
+  }, [data, currentPage, currentInstructors, currentAutoschools, isSchoolMode]);
 
   /** Update browser URL to reflect current filters */
   const updateBrowserURL = useCallback((page: number = currentPage) => {

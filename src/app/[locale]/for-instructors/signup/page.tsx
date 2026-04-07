@@ -56,7 +56,6 @@ const SignupPage = () => {
     vehicleBrand: "",
     vehicleYear: new Date().getFullYear(),
     transmission: "",
-    licenseCategory: "B",
     allowedMode: "",
     vehiclePhotos: [] as File[],
     instructorLicense: [] as File[],
@@ -208,7 +207,6 @@ const SignupPage = () => {
       if (!formData.vehicleRegistration) newErrors.vehicleRegistration = t("signup.registrationRequired");
       if (!formData.vehicleYear) newErrors.vehicleYear = t("signup.yearRequired");
       if (!formData.transmission) newErrors.transmission = t("signup.transmissionRequired");
-      if (!formData.licenseCategory) newErrors.licenseCategory = t("signup.licenseCategoryRequired");
       if (!formData.allowedMode) newErrors.allowedMode = t("signup.allowedModeRequired");
       
       // Registration Regex (XX-123-XX)
@@ -341,7 +339,6 @@ const SignupPage = () => {
       submitData.append("vehicleRegistration", formData.vehicleRegistration);
       submitData.append("vehicleYear", formData.vehicleYear.toString());
       submitData.append("transmission", formData.transmission);
-      submitData.append("licenseCategory", formData.licenseCategory);
       submitData.append("allowedMode", formData.allowedMode);
       submitData.append("iban", normalizedIban);
 

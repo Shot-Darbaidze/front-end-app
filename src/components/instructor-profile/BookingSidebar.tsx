@@ -24,6 +24,8 @@ interface BookingSidebarProps {
   yardPrice: number | null;
   instructorId: number | string;
   autoschoolId?: string | null;
+  /** Instructor's allowed_modes from the DB: null/undefined = no restriction */
+  allowedModes?: "city" | "yard" | "both" | null;
   selectedMode?: BookingSidebarLessonMode;
   onModeChange?: (mode: BookingSidebarLessonMode) => void;
   selectedPackage?: BookingSidebarSelectedPackage | null;
@@ -37,6 +39,7 @@ const BookingSidebar = ({
   yardPrice,
   instructorId,
   autoschoolId,
+  allowedModes,
   selectedMode,
   onModeChange,
   selectedPackage,
@@ -50,8 +53,13 @@ const BookingSidebar = ({
 
   const isEmployee = Boolean(autoschoolId);
 
-  const hasCityMode = cityPrice != null;
-  const hasYardMode = yardPrice != null;
+  // Determine which modes the instructor actually permits.
+  // allowed_modes: null/undefined = NOT bookable, 'both' = city + yard, 'city'/'yard' = single mode.
+  const cityAllowed = allowedModes === "both" || allowedModes === "city";
+  const yardAllowed = allowedModes === "both" || allowedModes === "yard";
+
+  const hasCityMode = cityPrice != null && cityAllowed;
+  const hasYardMode = yardPrice != null && yardAllowed;
   const hasBothModes = hasCityMode && hasYardMode && !isEmployee;
 
   // Auto-select the only available mode; default to city when both exist
