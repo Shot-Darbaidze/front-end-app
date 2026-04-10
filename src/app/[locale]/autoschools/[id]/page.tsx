@@ -110,7 +110,42 @@ export default async function AutoschoolProfilePage({
   const overallReviewCount = instructorRatings.length;
   const instructorPostIds = (school.instructors ?? []).map((i) => i.id);
 
+  const lowestPackagePrice = packages.length > 0
+    ? Math.min(...packages.map(p => p.lessons).filter(Boolean))
+    : null;
+
+  const autoschoolSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'DrivingSchool',
+    name: school.name,
+    url: `https://instruktori.ge/${locale}/autoschools/${id}`,
+    image: resolveMediaUrl(school.logo_url) ?? undefined,
+    address: school.city ? {
+      '@type': 'PostalAddress',
+      addressLocality: school.city,
+      addressCountry: 'GE',
+    } : undefined,
+    ...(overallRating > 0 && overallReviewCount > 0 ? {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: overallRating,
+        reviewCount: overallReviewCount,
+        bestRating: 5,
+        worstRating: 1,
+      },
+    } : {}),
+    numberOfEmployees: {
+      '@type': 'QuantitativeValue',
+      value: instructors.length,
+    },
+  }
+
   return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(autoschoolSchema) }}
+      />
     <div className="min-h-screen bg-gray-50/50 pt-28 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Back button */}
@@ -173,5 +208,6 @@ export default async function AutoschoolProfilePage({
         </div>
       </div>
     </div>
+    </>
   );
 }
