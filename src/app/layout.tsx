@@ -6,7 +6,7 @@ import { reportWebVitals as webVitalsReporter } from "./web-vitals";
 import { appFont } from "@/lib/fonts";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://instruktori.ge'),
   authors: [
     {
       name: "Instruktori.ge Team",
