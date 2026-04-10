@@ -57,7 +57,7 @@ export async function generateMetadata({
       instructorCount > 0
         ? (isKa ? `${instructorCount} ინსტრუქტორი` : `${instructorCount} instructors`)
         : null,
-      school.description?.slice(0, 100) || null,
+      school.description?.replace(/<[^>]*>/g, '').slice(0, 100) || null,
     ].filter(Boolean);
     const description = descParts.join(" | ");
 
