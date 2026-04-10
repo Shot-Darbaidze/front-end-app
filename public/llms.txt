@@ -1,0 +1,28 @@
+# Instruktori.ge - Driving Instructor Marketplace in Georgia
+
+> Instruktori.ge is a Georgian platform for finding, comparing, and booking certified driving instructors and driving schools across Georgia.
+
+## What we do
+- Connect students with certified driving instructors
+- Allow comparison by price, rating, city, and transmission type (automatic/manual)
+- Provide driving school listings and packages
+- Track Georgian city driving exam schedules in real time
+
+## Main Pages
+- [Homepage](https://instruktori.ge/ka): Main landing page
+- [Find Instructors](https://instruktori.ge/ka/find-instructors): Browse and filter driving instructors by city, price, rating, and transmission type
+- [Find Driving Schools](https://instruktori.ge/ka/find-instructors?instructor_type=school): Browse and compare driving schools
+- [For Instructors](https://instruktori.ge/ka/for-instructors): Join the platform as a driving instructor
+- [For Driving Schools](https://instruktori.ge/ka/for-autoschools): Join the platform as a driving school
+- [City Exam Monitor](https://instruktori.ge/ka/city-exam/monitor): Real-time Georgian city driving exam schedule tracker
+- [City Exam Tips](https://instruktori.ge/ka/city-exam/tips): Tips for passing the Georgian city driving exam
+- [City Exam Routes](https://instruktori.ge/ka/city-exam/routes): Common city exam routes in Georgia
+- [City Exam Checklist](https://instruktori.ge/ka/city-exam/checklist): Checklist for the Georgian city driving exam
+
+## Language
+- Primary language: Georgian (ka)
+- Also available in English (en)
+
+## Contact
+- Email: support@instruktori.ge
+- Website: https://instruktori.ge
