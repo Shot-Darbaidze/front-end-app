@@ -1,8 +1,26 @@
+import type { Metadata } from "next";
+import { isValidLocale, defaultLocale, type Locale } from "@/lib/i18n";
 import HeroModern from "@/components/home/HeroModern";
 import TrustStrip from "@/components/home/TrustStrip";
 import LearningRoadmap from "@/components/home/LearningRoadmap";
 import InstructorShowcase from "@/components/home/InstructorShowcase";
 import InstructorCTA from "@/components/home/InstructorCTA";
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale: rawLocale } = await params;
+  const locale: Locale = isValidLocale(rawLocale) ? rawLocale : defaultLocale;
+
+  return {
+    alternates: {
+      canonical: `https://instruktori.ge/${locale}`,
+      languages: {
+        ka: "https://instruktori.ge/ka",
+        en: "https://instruktori.ge/en",
+        "x-default": "https://instruktori.ge/ka",
+      },
+    },
+  };
+}
 
 const websiteSchema = {
   '@context': 'https://schema.org',

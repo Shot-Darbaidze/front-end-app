@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 
 export default async function CityExamPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
-  redirect(`/${locale}/city-exam/monitor`);
+  permanentRedirect(`/${locale}/city-exam/monitor`);
 }

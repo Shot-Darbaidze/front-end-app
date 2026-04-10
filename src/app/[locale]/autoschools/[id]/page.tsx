@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import AutoschoolProfileHeader from "@/components/autoschool-profile/AutoschoolProfileHeader";
 import InstructorGrid from "@/components/autoschool-profile/InstructorGrid";
@@ -30,6 +31,59 @@ async function fetchAutoschool(id: string): Promise<AutoschoolDetail | null> {
     return res.json();
   } catch {
     return null;
+  }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string; id: string }>;
+}): Promise<Metadata> {
+  const { locale, id } = await params;
+  const isKa = locale === "ka";
+
+  try {
+    const school = await fetchAutoschool(id);
+    if (!school) return {};
+
+    const title = isKa
+      ? `${school.name} - ავტოსკოლა${school.city ? ` ${school.city}` : ""}`
+      : `${school.name} - Driving School${school.city ? ` in ${school.city}` : ""}`;
+
+    const instructorCount = school.instructors?.length ?? 0;
+    const descParts = [
+      isKa ? `${school.name} - ავტოსკოლა` : `${school.name} - Driving School`,
+      school.city || null,
+      instructorCount > 0
+        ? (isKa ? `${instructorCount} ინსტრუქტორი` : `${instructorCount} instructors`)
+        : null,
+      school.description?.slice(0, 100) || null,
+    ].filter(Boolean);
+    const description = descParts.join(" | ");
+
+    const imageUrl = resolveMediaUrl(school.logo_url);
+
+    return {
+      title,
+      description,
+      alternates: {
+        canonical: `https://instruktori.ge/${locale}/autoschools/${id}`,
+        languages: {
+          ka: `https://instruktori.ge/ka/autoschools/${id}`,
+          en: `https://instruktori.ge/en/autoschools/${id}`,
+        },
+      },
+      openGraph: {
+        title,
+        description,
+        url: `https://instruktori.ge/${locale}/autoschools/${id}`,
+        locale: isKa ? "ka_GE" : "en_US",
+        type: "website",
+        ...(imageUrl ? { images: [{ url: imageUrl }] } : {}),
+      },
+    };
+  } catch {
+    return {};
   }
 }
 

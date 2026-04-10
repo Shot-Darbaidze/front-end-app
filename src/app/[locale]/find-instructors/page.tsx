@@ -75,6 +75,10 @@ export async function generateMetadata({
     keywords,
     alternates: {
       canonical,
+      languages: {
+        ka: `/ka/find-instructors${isSchoolMode ? '?instructor_type=school' : ''}`,
+        en: `/en/find-instructors${isSchoolMode ? '?instructor_type=school' : ''}`,
+      },
     },
     openGraph: {
       title,

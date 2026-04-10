@@ -139,7 +139,7 @@ export default clerkMiddleware(async (auth, request) => {
       // No valid locale in URL → redirect to default locale
       const url = request.nextUrl.clone();
       url.pathname = `/${defaultLocale}${pathname === '/' ? '' : pathname}`;
-      return NextResponse.redirect(url);
+      return NextResponse.redirect(url, 301);
     }
   }
 

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import InstructorProfileHeader from "@/components/instructor-profile/InstructorProfileHeader";
 import InstructorBookingPanel from "@/components/instructor-profile/InstructorBookingPanel";
 import LocationCard from "@/components/instructor-profile/LocationCard";
@@ -57,6 +58,67 @@ type InstructorAsset = {
   url: string;
   original_filename?: string | null;
 };
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string; id: string }> }): Promise<Metadata> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const { locale, id } = await params;
+  const isKa = locale === "ka";
+
+  try {
+    const res = await fetch(`${baseUrl}/api/posts/${id}`, { cache: "no-store" });
+    if (!res.ok) return {};
+    const post = await res.json() as InstructorPost;
+
+    const name = buildInstructorName(post.applicant_first_name, post.applicant_last_name, post.title || "ინსტრუქტორი");
+    const city = extractCityName(post.located_at);
+    const transmission = post.transmission?.toLowerCase();
+    const price = pickFirstValidPrice([
+      post.automatic_city_price, post.manual_city_price,
+      post.automatic_yard_price, post.manual_yard_price,
+    ]);
+
+    const transLabel = isKa
+      ? (transmission === "automatic" ? "ავტომატიკა" : transmission === "manual" ? "მექანიკა" : "")
+      : (transmission === "automatic" ? "Automatic" : transmission === "manual" ? "Manual" : "");
+
+    const title = isKa
+      ? `${name} - მართვის ინსტრუქტორი${city ? ` ${city}` : ""}`
+      : `${name} - Driving Instructor${city ? ` in ${city}` : ""}`;
+
+    const descParts = [
+      isKa ? `${name} - მართვის ინსტრუქტორი` : `${name} - Driving Instructor`,
+      city ? (isKa ? `${city}` : `in ${city}`) : null,
+      transLabel || null,
+      price ? (isKa ? `${price}₾-დან` : `from ${price} GEL`) : null,
+      post.rating ? (isKa ? `შეფასება: ${Number(post.rating).toFixed(1)}/5` : `Rating: ${Number(post.rating).toFixed(1)}/5`) : null,
+    ].filter(Boolean);
+    const description = descParts.join(" | ");
+
+    const imageUrl = resolveMediaUrl(post.image_url);
+
+    return {
+      title,
+      description,
+      alternates: {
+        canonical: `https://instruktori.ge/${locale}/instructors/${id}`,
+        languages: {
+          ka: `https://instruktori.ge/ka/instructors/${id}`,
+          en: `https://instruktori.ge/en/instructors/${id}`,
+        },
+      },
+      openGraph: {
+        title,
+        description,
+        url: `https://instruktori.ge/${locale}/instructors/${id}`,
+        locale: isKa ? "ka_GE" : "en_US",
+        type: "profile",
+        ...(imageUrl ? { images: [{ url: imageUrl }] } : {}),
+      },
+    };
+  } catch {
+    return {};
+  }
+}
 
 export default async function InstructorProfilePage({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";

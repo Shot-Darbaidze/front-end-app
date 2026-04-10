@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-import VercelAnalytics from "./analytics";
 import { reportWebVitals as webVitalsReporter } from "./web-vitals";
-import { appFont } from "@/lib/fonts";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://instruktori.ge'),
@@ -37,12 +35,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html suppressHydrationWarning>
-        <body suppressHydrationWarning className={`${appFont.variable} ${appFont.className} font-sans antialiased`}>
-          {children}
-          <VercelAnalytics />
-        </body>
-      </html>
+      {children}
     </ClerkProvider>
   );
 }

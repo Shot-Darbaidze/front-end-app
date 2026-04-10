@@ -1,38 +1,93 @@
 import { MetadataRoute } from 'next'
 
 const BASE_URL = 'https://instruktori.ge'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? ''
 const locales = ['ka', 'en']
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date()
-
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes = [
-    { path: '', priority: 1.0, changeFrequency: 'daily' as const },
-    { path: '/find-instructors', priority: 0.9, changeFrequency: 'hourly' as const },
-    { path: '/for-instructors', priority: 0.8, changeFrequency: 'monthly' as const },
-    { path: '/for-autoschools', priority: 0.7, changeFrequency: 'monthly' as const },
-    { path: '/city-exam', priority: 0.9, changeFrequency: 'monthly' as const },
-    { path: '/city-exam/monitor', priority: 0.9, changeFrequency: 'daily' as const },
-    { path: '/city-exam/tips', priority: 0.6, changeFrequency: 'monthly' as const },
-    { path: '/city-exam/routes', priority: 0.6, changeFrequency: 'monthly' as const },
-    { path: '/city-exam/checklist', priority: 0.6, changeFrequency: 'monthly' as const },
-    { path: '/city-exam/simulations', priority: 0.6, changeFrequency: 'weekly' as const },
-    { path: '/city-exam/progress', priority: 0.5, changeFrequency: 'weekly' as const },
-    { path: '/privacy-policy', priority: 0.3, changeFrequency: 'yearly' as const },
-    { path: '/terms-of-service', priority: 0.3, changeFrequency: 'yearly' as const },
+    { path: '', lastModified: '2026-04-10' },
+    { path: '/find-instructors', lastModified: '2026-04-10' },
+    { path: '/for-instructors', lastModified: '2026-03-15' },
+    { path: '/for-autoschools', lastModified: '2026-03-15' },
+    { path: '/city-exam/monitor', lastModified: '2026-04-10' },
+    { path: '/city-exam/tips', lastModified: '2026-03-01' },
+    { path: '/city-exam/routes', lastModified: '2026-03-01' },
+    { path: '/city-exam/checklist', lastModified: '2026-03-01' },
+    { path: '/city-exam/simulations', lastModified: '2026-03-01' },
+    { path: '/city-exam/progress', lastModified: '2026-03-01' },
+    { path: '/privacy-policy', lastModified: '2025-12-01' },
+    { path: '/terms-of-service', lastModified: '2025-12-01' },
   ]
 
   const entries: MetadataRoute.Sitemap = []
 
+  // Static pages
   for (const locale of locales) {
     for (const route of staticRoutes) {
       entries.push({
         url: `${BASE_URL}/${locale}${route.path}`,
-        lastModified: now,
-        changeFrequency: route.changeFrequency,
-        priority: route.priority,
+        lastModified: route.lastModified,
+        alternates: {
+          languages: {
+            ka: `${BASE_URL}/ka${route.path}`,
+            en: `${BASE_URL}/en${route.path}`,
+          },
+        },
       })
     }
+  }
+
+  // Dynamic instructor profile pages
+  try {
+    const res = await fetch(`${API_BASE}/api/posts`, { next: { revalidate: 3600 } })
+    if (res.ok) {
+      const instructors = await res.json()
+      const list = Array.isArray(instructors) ? instructors : (instructors.data ?? [])
+      for (const inst of list) {
+        if (!inst.id) continue
+        for (const locale of locales) {
+          entries.push({
+            url: `${BASE_URL}/${locale}/instructors/${inst.id}`,
+            lastModified: inst.updated_at ?? inst.created_at ?? '2026-04-10',
+            alternates: {
+              languages: {
+                ka: `${BASE_URL}/ka/instructors/${inst.id}`,
+                en: `${BASE_URL}/en/instructors/${inst.id}`,
+              },
+            },
+          })
+        }
+      }
+    }
+  } catch {
+    // Non-critical: sitemap still works with static routes
+  }
+
+  // Dynamic autoschool profile pages
+  try {
+    const res = await fetch(`${API_BASE}/api/autoschools`, { next: { revalidate: 3600 } })
+    if (res.ok) {
+      const schools = await res.json()
+      const list = Array.isArray(schools) ? schools : (schools.data ?? [])
+      for (const school of list) {
+        if (!school.id) continue
+        for (const locale of locales) {
+          entries.push({
+            url: `${BASE_URL}/${locale}/autoschools/${school.id}`,
+            lastModified: school.updated_at ?? school.created_at ?? '2026-04-10',
+            alternates: {
+              languages: {
+                ka: `${BASE_URL}/ka/autoschools/${school.id}`,
+                en: `${BASE_URL}/en/autoschools/${school.id}`,
+              },
+            },
+          })
+        }
+      }
+    }
+  } catch {
+    // Non-critical: sitemap still works with static routes
   }
 
   return entries

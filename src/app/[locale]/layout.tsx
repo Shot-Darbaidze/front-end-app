@@ -1,6 +1,8 @@
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ClientProviders from "@/components/providers/ClientProviders";
+import VercelAnalytics from "../analytics";
+import { appFont } from "@/lib/fonts";
 import { isValidLocale, defaultLocale } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
 import type { Metadata } from "next";
@@ -61,14 +63,19 @@ export default async function LocaleLayout({
   const locale: Locale = isValidLocale(rawLocale) ? rawLocale : defaultLocale;
 
   return (
-    <ClientProviders locale={locale}>
-      <div className="flex flex-col min-h-screen">
-        <Navbar />
-        <main className="flex-1">
-          {children}
-        </main>
-        <Footer />
-      </div>
-    </ClientProviders>
+    <html lang={locale} suppressHydrationWarning>
+      <body suppressHydrationWarning className={`${appFont.variable} ${appFont.className} font-sans antialiased`}>
+        <ClientProviders locale={locale}>
+          <div className="flex flex-col min-h-screen">
+            <Navbar />
+            <main className="flex-1">
+              {children}
+            </main>
+            <Footer />
+          </div>
+        </ClientProviders>
+        <VercelAnalytics />
+      </body>
+    </html>
   );
 }
