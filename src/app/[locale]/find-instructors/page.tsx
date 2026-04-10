@@ -31,11 +31,7 @@ export async function generateMetadata({
   const canonical = isSchoolMode
     ? `${basePath}?instructor_type=school`
     : basePath;
-  const ogUrl = isSchoolMode
-    ? hasValidMaxPrice
-      ? `${canonical}&max_price=${maxPriceLabel}`
-      : canonical
-    : basePath;
+  const ogUrl = canonical;
 
   const title = isSchoolMode
     ? isKa
