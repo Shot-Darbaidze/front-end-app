@@ -37,12 +37,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
-  // Dynamic instructor profile pages
+  // Dynamic instructor profile pages (paginate through all results)
   try {
-    const res = await fetch(`${API_BASE}/api/posts`, { next: { revalidate: 3600 } })
-    if (res.ok) {
+    const PAGE_SIZE = 20
+    let offset = 0
+    let hasMore = true
+    while (hasMore) {
+      const res = await fetch(`${API_BASE}/api/posts/search?offset=${offset}`, { next: { revalidate: 3600 } })
+      if (!res.ok) break
       const instructors = await res.json()
       const list = Array.isArray(instructors) ? instructors : (instructors.data ?? [])
+      if (list.length === 0) break
       for (const inst of list) {
         if (!inst.id) continue
         for (const locale of locales) {
@@ -58,6 +63,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           })
         }
       }
+      hasMore = list.length === PAGE_SIZE
+      offset += PAGE_SIZE
     }
   } catch {
     // Non-critical: sitemap still works with static routes
