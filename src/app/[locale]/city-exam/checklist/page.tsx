@@ -1,6 +1,3 @@
-"use client";
-
-import React from "react";
 import { ClipboardCheck } from "lucide-react";
 import { CityExamNav } from "@/components/city-exam/CityExamNav";
 import { ExamDayChecklist } from "@/components/city-exam/checklist/ExamDayChecklist";

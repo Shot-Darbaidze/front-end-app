@@ -1,6 +1,3 @@
-"use client";
-
-import React from "react";
 import { CityExamNav } from "@/components/city-exam/CityExamNav";
 import { RouteVideos } from "@/components/city-exam/routes/RouteVideos";
 import { MapPin } from "lucide-react";

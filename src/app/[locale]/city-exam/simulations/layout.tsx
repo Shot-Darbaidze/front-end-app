@@ -6,12 +6,9 @@ export const metadata: Metadata = {
   },
   description:
     "ივარჯიშე ქალაქის პრაქტიკული გამოცდის სიმულაციებით.",
-  alternates: {
-    canonical: "/ka/city-exam/simulations",
-    languages: {
-      ka: "https://instruktori.ge/ka/city-exam/simulations",
-      en: "https://instruktori.ge/en/city-exam/simulations",
-    },
+  robots: {
+    index: false,
+    follow: true,
   },
 };
 

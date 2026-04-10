@@ -1,6 +1,3 @@
-"use client";
-
-import React from "react";
 import { Target } from "lucide-react";
 import { CityExamNav } from "@/components/city-exam/CityExamNav";
 import { CityExamProgressDashboard } from "@/components/city-exam/progress/CityExamProgressDashboard";

@@ -26,31 +26,37 @@ const nextConfig: NextConfig = {
     root: configDir,
   },
 
-  // Security headers (additional layer beyond middleware)
+  // Security + caching headers
   async headers() {
+    const securityHeaders = [
+      { key: 'X-DNS-Prefetch-Control', value: 'on' },
+      { key: 'X-Frame-Options', value: 'DENY' },
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+    ];
+
     return [
       {
         source: '/:path*',
+        headers: securityHeaders,
+      },
+      {
+        // CDN caching for static marketing pages
+        source: '/:locale(ka|en)/(for-instructors|for-autoschools|privacy-policy|terms-of-service)',
         headers: [
           {
-            key: 'X-DNS-Prefetch-Control',
-            value: 'on'
+            key: 'Cache-Control',
+            value: 'public, s-maxage=3600, stale-while-revalidate=86400',
           },
+        ],
+      },
+      {
+        // CDN caching for city-exam content pages
+        source: '/:locale(ka|en)/city-exam/:path*',
+        headers: [
           {
-            key: 'X-Frame-Options',
-            value: 'DENY'
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff'
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block'
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin'
+            key: 'Cache-Control',
+            value: 'public, s-maxage=1800, stale-while-revalidate=86400',
           },
         ],
       },

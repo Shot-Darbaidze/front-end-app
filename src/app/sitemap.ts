@@ -14,7 +14,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: '/city-exam/tips', lastModified: '2026-03-01' },
     { path: '/city-exam/routes', lastModified: '2026-03-01' },
     { path: '/city-exam/checklist', lastModified: '2026-03-01' },
-    { path: '/city-exam/simulations', lastModified: '2026-03-01' },
     { path: '/city-exam/progress', lastModified: '2026-03-01' },
     { path: '/privacy-policy', lastModified: '2025-12-01' },
     { path: '/terms-of-service', lastModified: '2025-12-01' },

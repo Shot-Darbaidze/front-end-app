@@ -95,6 +95,51 @@ export async function generateMetadata({
   };
 }
 
-export default function FindInstructorsPage() {
-  return <FindInstructorsPageClient />;
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+export default async function FindInstructorsPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+
+  // Fetch top instructors for ItemList schema (SSR-visible for crawlers)
+  let itemListSchema = null;
+  try {
+    const res = await fetch(`${API_BASE}/api/posts?limit=10`, {
+      next: { revalidate: 3600 },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : (data.data ?? []);
+      if (list.length > 0) {
+        itemListSchema = {
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          name: locale === 'ka' ? 'მართვის ინსტრუქტორები' : 'Driving Instructors',
+          itemListElement: list.map((inst: { id: string; applicant_first_name?: string; applicant_last_name?: string; title?: string }, i: number) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            url: `https://instruktori.ge/${locale}/instructors/${inst.id}`,
+            name: [inst.applicant_first_name, inst.applicant_last_name].filter(Boolean).join(' ') || inst.title || 'Instructor',
+          })),
+        };
+      }
+    }
+  } catch {
+    // Non-critical
+  }
+
+  return (
+    <>
+      {itemListSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema) }}
+        />
+      )}
+      <FindInstructorsPageClient />
+    </>
+  );
 }
