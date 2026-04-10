@@ -934,21 +934,16 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                 ) : (
                     <div className="space-y-2">
                         {licenseAssets.map((asset) => {
-                            const isImage = asset.content_type?.startsWith("image/");
                             return (
                                 <div key={asset.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                    {isImage ? (
-                                        <img src={asset.url} alt={asset.original_filename || "License"} className="w-12 h-12 object-cover rounded-lg flex-shrink-0" />
-                                    ) : (
-                                        <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                                            <FileText className="w-5 h-5 text-gray-500" />
-                                        </div>
-                                    )}
+                                    <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <FileText className="w-5 h-5 text-gray-500" />
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-gray-900 truncate">{asset.original_filename || "License file"}</p>
-                                        <a href={asset.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">
-                                            {language === "ka" ? "ნახვა" : "View"}
-                                        </a>
+                                        <p className="text-xs text-gray-400">
+                                            {language === "ka" ? "დაცულია — წვდომა მხოლოდ მოთხოვნით" : "Protected — access only via request"}
+                                        </p>
                                     </div>
                                     <button type="button" onClick={() => handleRemoveLicense(asset.id)} disabled={!isEditable}
                                         className="p-1.5 rounded-full bg-gray-200 text-gray-600 hover:bg-red-500 hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
@@ -991,21 +986,16 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                 ) : (
                     <div className="space-y-2">
                         {certAssets.map((asset) => {
-                            const isImage = asset.content_type?.startsWith("image/");
                             return (
                                 <div key={asset.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                    {isImage ? (
-                                        <img src={asset.url} alt={asset.original_filename || "Certificate"} className="w-12 h-12 object-cover rounded-lg flex-shrink-0" />
-                                    ) : (
-                                        <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                                            <FileText className="w-5 h-5 text-gray-500" />
-                                        </div>
-                                    )}
+                                    <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <FileText className="w-5 h-5 text-gray-500" />
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-gray-900 truncate">{asset.original_filename || "Certificate file"}</p>
-                                        <a href={asset.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">
-                                            {language === "ka" ? "ნახვა" : "View"}
-                                        </a>
+                                        <p className="text-xs text-gray-400">
+                                            {language === "ka" ? "დაცულია — წვდომა მხოლოდ მოთხოვნით" : "Protected — access only via request"}
+                                        </p>
                                     </div>
                                     <button type="button" onClick={() => handleRemoveCert(asset.id)} disabled={!isEditable}
                                         className="p-1.5 rounded-full bg-gray-200 text-gray-600 hover:bg-red-500 hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed"

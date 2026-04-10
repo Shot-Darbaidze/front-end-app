@@ -30,11 +30,12 @@ export type InstructorAsset = {
     id: string;
     instructor_id: string;
     asset_type: string;
-    url: string;
+    url?: string | null;
     object_key: string;
     original_filename?: string | null;
     content_type?: string | null;
     file_size?: number | null;
+    is_private?: boolean;
     created_at?: string | null;
 };
 
