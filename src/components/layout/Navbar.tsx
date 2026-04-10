@@ -90,11 +90,24 @@ const Navbar = () => {
 
   // Handle scroll effect
   useEffect(() => {
-    const handleScroll = () => {
+    const updateScrolledState = () => {
       setIsScrolled(window.scrollY > 10);
     };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+
+    updateScrolledState();
+
+    const animationFrameId = requestAnimationFrame(updateScrolledState);
+
+    window.addEventListener("scroll", updateScrolledState, { passive: true });
+    window.addEventListener("load", updateScrolledState);
+    window.addEventListener("pageshow", updateScrolledState);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener("scroll", updateScrolledState);
+      window.removeEventListener("load", updateScrolledState);
+      window.removeEventListener("pageshow", updateScrolledState);
+    };
   }, []);
 
   const clearMobileMenuCloseTimeout = () => {
