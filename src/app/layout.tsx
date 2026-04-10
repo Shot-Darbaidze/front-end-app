@@ -12,6 +12,23 @@ export const metadata: Metadata = {
   ],
   creator: "Instruktori.ge",
   publisher: "Instruktori.ge",
+  openGraph: {
+    siteName: 'Instruktori.ge',
+    type: 'website',
+    locale: 'ka_GE',
+    images: [
+      {
+        url: '/icon.svg',
+        width: 512,
+        height: 512,
+        alt: 'Instruktori.ge',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary',
+    site: '@instruktori_ge',
+  },
   robots: {
     index: true,
     follow: true,

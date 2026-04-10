@@ -168,37 +168,107 @@ export default async function AutoschoolProfilePage({
     ? Math.min(...packages.map(p => p.lessons).filter(Boolean))
     : null;
 
+  const isKa = locale === "ka";
+  const pageUrl = `https://instruktori.ge/${locale}/autoschools/${id}`;
+
+  // Build openingHoursSpecification from working_hours data
+  const dayMap: Record<string, string> = {
+    'ორშაბათი': 'Monday', 'სამშაბათი': 'Tuesday', 'ოთხშაბათი': 'Wednesday',
+    'ხუთშაბათი': 'Thursday', 'პარასკევი': 'Friday', 'შაბათი': 'Saturday', 'კვირა': 'Sunday',
+    'Monday': 'Monday', 'Tuesday': 'Tuesday', 'Wednesday': 'Wednesday',
+    'Thursday': 'Thursday', 'Friday': 'Friday', 'Saturday': 'Saturday', 'Sunday': 'Sunday',
+  };
+
+  const openingHours = (school.working_hours ?? [])
+    .filter((h) => !h.is_closed && h.hours_label)
+    .map((h) => {
+      const timeParts = h.hours_label?.match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
+      const dayOfWeek = dayMap[h.day_label] ?? h.day_label;
+      if (!timeParts || !dayOfWeek) return null;
+      return {
+        '@type': 'OpeningHoursSpecification' as const,
+        dayOfWeek,
+        opens: timeParts[1],
+        closes: timeParts[2],
+      };
+    })
+    .filter(Boolean);
+
+  // Compute a price range hint from school-level and instructor prices
+  const allPrices = [
+    school.manual_city_price ?? null, school.manual_yard_price ?? null,
+    school.automatic_city_price ?? null, school.automatic_yard_price ?? null,
+    ...(school.instructors ?? []).flatMap((i) => [
+      i.city_price != null ? Number(i.city_price) : null,
+      i.yard_price != null ? Number(i.yard_price) : null,
+    ]),
+  ].filter((p): p is number => p !== null && p > 0);
+  const priceRange = allPrices.length > 0
+    ? `${Math.min(...allPrices)}–${Math.max(...allPrices)} GEL`
+    : undefined;
+
   const autoschoolSchema = {
     '@context': 'https://schema.org',
     '@type': 'DrivingSchool',
+    '@id': `${pageUrl}#school`,
     name: school.name,
-    url: `https://instruktori.ge/${locale}/autoschools/${id}`,
+    url: pageUrl,
     image: resolveMediaUrl(school.logo_url) ?? undefined,
-    address: school.city ? {
-      '@type': 'PostalAddress',
-      addressLocality: school.city,
-      addressCountry: 'GE',
-    } : undefined,
-    ...(overallRating > 0 && overallReviewCount > 0 ? {
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: overallRating,
-        reviewCount: overallReviewCount,
-        bestRating: 5,
-        worstRating: 1,
+    ...(school.city ? {
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: school.city,
+        addressCountry: 'GE',
       },
     } : {}),
+    ...(openingHours.length > 0 ? { openingHoursSpecification: openingHours } : {}),
+    ...(priceRange ? { priceRange } : {}),
     numberOfEmployees: {
       '@type': 'QuantitativeValue',
       value: instructors.length,
     },
-  }
+    ...(school.city ? {
+      areaServed: {
+        '@type': 'City',
+        name: school.city,
+      },
+    } : {}),
+  };
+
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: isKa ? 'მთავარი' : 'Home',
+        item: `https://instruktori.ge/${locale}`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: isKa ? 'ავტოსკოლები' : 'Driving Schools',
+        item: `https://instruktori.ge/${locale}/find-instructors`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: school.name,
+        item: pageUrl,
+      },
+    ],
+  };
 
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(autoschoolSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
     <div className="min-h-screen bg-gray-50/50 pt-28 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">

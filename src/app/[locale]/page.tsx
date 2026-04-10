@@ -25,14 +25,12 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 const websiteSchema = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
+  '@id': 'https://instruktori.ge/#website',
   name: 'Instruktori.ge',
   url: 'https://instruktori.ge',
   potentialAction: {
     '@type': 'SearchAction',
-    target: {
-      '@type': 'EntryPoint',
-      urlTemplate: 'https://instruktori.ge/ka/find-instructors?q={search_term_string}',
-    },
+    target: 'https://instruktori.ge/ka/find-instructors?q={search_term_string}',
     'query-input': 'required name=search_term_string',
   },
 }
@@ -40,16 +38,19 @@ const websiteSchema = {
 const organizationSchema = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
+  '@id': 'https://instruktori.ge/#organization',
   name: 'Instruktori.ge',
   url: 'https://instruktori.ge',
-  logo: 'https://instruktori.ge/icon.svg',
+  logo: {
+    '@type': 'ImageObject',
+    url: 'https://instruktori.ge/icon.svg',
+  },
   email: 'support@instruktori.ge',
   description: 'Georgian driving instructor marketplace — find, compare, and book certified driving instructors across Georgia.',
   areaServed: {
     '@type': 'Country',
     name: 'Georgia',
   },
-  sameAs: [],
 }
 
 export default function MainPage() {

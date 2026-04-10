@@ -188,46 +188,89 @@ export default async function InstructorProfilePage({ params }: { params: Promis
     post.manual_yard_price,
   ]);
 
+  const isKa = locale === "ka";
+  const pageUrl = `https://instruktori.ge/${locale}/instructors/${id}`;
+
   const instructorSchema = {
     '@context': 'https://schema.org',
-    '@type': 'Person',
-    name,
-    jobTitle: 'Driving Instructor',
-    url: `https://instruktori.ge/${locale}/instructors/${id}`,
-    image: resolveMediaUrl(post.image_url) ?? undefined,
-    address: cityLocation ? {
-      '@type': 'PostalAddress',
-      addressLocality: cityLocation,
-      addressCountry: 'GE',
-    } : undefined,
-    ...(post.rating && post.review_count && post.review_count > 0 ? {
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: Number(post.rating).toFixed(1),
-        reviewCount: post.review_count,
-        bestRating: 5,
-        worstRating: 1,
-      },
-    } : {}),
+    '@type': 'Service',
+    '@id': `${pageUrl}#service`,
+    name: isKa ? `მართვის გაკვეთილები - ${name}` : `Driving Lessons with ${name}`,
+    serviceType: 'Driving Instruction',
+    provider: {
+      '@type': 'LocalBusiness',
+      '@id': `${pageUrl}#business`,
+      name,
+      image: resolveMediaUrl(post.image_url) ?? undefined,
+      url: pageUrl,
+      ...(cityLocation ? {
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: cityLocation,
+          addressCountry: 'GE',
+        },
+      } : {}),
+      ...(post.rating && post.review_count && post.review_count > 0 ? {
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: Number(post.rating),
+          reviewCount: post.review_count,
+          bestRating: 5,
+          worstRating: 1,
+        },
+      } : {}),
+    },
     ...(lowestPrice ? {
-      makesOffer: {
+      offers: {
         '@type': 'Offer',
-        name: 'Driving Lesson',
+        name: isKa ? 'მართვის გაკვეთილი' : 'Driving Lesson',
         price: lowestPrice,
         priceCurrency: 'GEL',
-        seller: {
-          '@type': 'Person',
-          name,
-        },
+        availability: 'https://schema.org/InStock',
       },
     } : {}),
-  }
+    ...(cityLocation ? {
+      areaServed: {
+        '@type': 'City',
+        name: cityLocation,
+      },
+    } : {}),
+  };
+
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: isKa ? 'მთავარი' : 'Home',
+        item: `https://instruktori.ge/${locale}`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: isKa ? 'ინსტრუქტორები' : 'Instructors',
+        item: `https://instruktori.ge/${locale}/find-instructors`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name,
+        item: pageUrl,
+      },
+    ],
+  };
 
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(instructorSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
     <div className="min-h-screen bg-gray-50/50 pt-28 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
