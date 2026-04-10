@@ -488,6 +488,10 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
     const MAX_LICENSE_FILES = UPLOAD_LIMITS.MAX_LICENSE_FILES;
     const MAX_CERT_FILES = UPLOAD_LIMITS.MAX_CERTIFICATE_FILES;
     const isAtPhotoLimit = vehiclePhotos.length >= MAX_VEHICLE_PHOTOS;
+    const vehiclePhotosWithUrl = vehiclePhotos.filter(
+        (photo): photo is InstructorAsset & { url: string } =>
+            typeof photo.url === "string" && photo.url.trim().length > 0
+    );
 
     const placeholders = language === "ka"
         ? {
@@ -857,7 +861,7 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
             {/* Vehicle Photos */}
             <div className="bg-white p-6 sm:p-7 rounded-3xl border border-gray-100 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-bold text-lg text-gray-900">{t("settings.profile.vehiclePhotos")} <span className="text-sm font-normal text-gray-500">({vehiclePhotos.length}/{MAX_VEHICLE_PHOTOS})</span></h3>
+                    <h3 className="font-bold text-lg text-gray-900">{t("settings.profile.vehiclePhotos")} <span className="text-sm font-normal text-gray-500">({vehiclePhotosWithUrl.length}/{MAX_VEHICLE_PHOTOS})</span></h3>
                     <div className="flex items-center gap-2">
                         <input ref={fileInputRef} type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleUploadVehiclePhotos(e.target.files)} disabled={!isEditable || isAtPhotoLimit} />
                         <Button size="sm" variant="outline" disabled={!isEditable || isAssetUploading || isAtPhotoLimit} onClick={() => fileInputRef.current?.click()}>{isAtPhotoLimit ? t("settings.profile.limitReached") : t("settings.profile.uploadPhotos")}</Button>
@@ -868,12 +872,12 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                 {assetError && <p className="text-sm text-red-600 mb-4">{assetError}</p>}
                 {isAssetLoading ? (
                     <p className="text-sm text-gray-500">{t("settings.profile.loadingPhotos")}</p>
-                ) : vehiclePhotos.length === 0 ? (
+                ) : vehiclePhotosWithUrl.length === 0 ? (
                     <p className="text-sm text-gray-500">{t("settings.profile.noPhotos")}</p>
                 ) : (
                     <>
                         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {vehiclePhotos.map((photo, idx) => (
+                            {vehiclePhotosWithUrl.map((photo, idx) => (
                                 <div key={photo.id} className="relative rounded-xl overflow-hidden bg-gray-50 border border-gray-100 group">
                                     <img
                                         src={photo.url}
@@ -896,7 +900,7 @@ export function ProfileSettings({ user, isInstructor }: { user: ClerkUser; isIns
                             ))}
                         </div>
                         <ImageLightbox
-                            images={vehiclePhotos.map((p) => ({ src: p.url, alt: p.original_filename || "Vehicle photo" }))}
+                            images={vehiclePhotosWithUrl.map((p) => ({ src: p.url, alt: p.original_filename || "Vehicle photo" }))}
                             initialIndex={lightboxIndex}
                             open={lightboxOpen}
                             onClose={() => setLightboxOpen(false)}
