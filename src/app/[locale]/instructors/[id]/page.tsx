@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import InstructorProfileHeader from "@/components/instructor-profile/InstructorProfileHeader";
 import InstructorBookingPanel from "@/components/instructor-profile/InstructorBookingPanel";
 import LocationCard from "@/components/instructor-profile/LocationCard";
@@ -59,15 +60,47 @@ type InstructorAsset = {
   original_filename?: string | null;
 };
 
+const PROFILE_REVALIDATE_SECONDS = 120;
+const ASSETS_REVALIDATE_SECONDS = 120;
+const AUTOSCHOOL_REVALIDATE_SECONDS = 120;
+
+const getInstructorPost = cache(async (baseUrl: string, id: string): Promise<{ ok: boolean; status: number; data: InstructorPost | null }> => {
+  const res = await fetch(`${baseUrl}/api/posts/${id}`, {
+    next: { revalidate: PROFILE_REVALIDATE_SECONDS },
+  });
+  if (!res.ok) {
+    return { ok: false, status: res.status, data: null };
+  }
+  const data = (await res.json()) as InstructorPost;
+  return { ok: true, status: res.status, data };
+});
+
+const getInstructorAssets = cache(async (baseUrl: string, id: string): Promise<InstructorAsset[]> => {
+  const res = await fetch(`${baseUrl}/api/posts/${id}/assets?asset_type=vehicle_photos`, {
+    next: { revalidate: ASSETS_REVALIDATE_SECONDS },
+  });
+  if (!res.ok) return [];
+  return (await res.json()) as InstructorAsset[];
+});
+
+const getAutoschoolPackages = cache(async (baseUrl: string, autoschoolId: string): Promise<CoursePackage[]> => {
+  const schoolRes = await fetch(`${baseUrl}/api/autoschools/${autoschoolId}`, {
+    next: { revalidate: AUTOSCHOOL_REVALIDATE_SECONDS },
+  });
+  if (!schoolRes.ok) return [];
+  const school = await schoolRes.json();
+  return (school.packages || []) as CoursePackage[];
+});
+
 export async function generateMetadata({ params }: { params: Promise<{ locale: string; id: string }> }): Promise<Metadata> {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   const { locale, id } = await params;
   const isKa = locale === "ka";
 
   try {
-    const res = await fetch(`${baseUrl}/api/posts/${id}`, { cache: "no-store" });
-    if (!res.ok) return {};
-    const post = await res.json() as InstructorPost;
+    const postResult = await getInstructorPost(baseUrl, id);
+    if (!postResult.ok || !postResult.data) return {};
+    const post = postResult.data;
 
     const name = buildInstructorName(post.applicant_first_name, post.applicant_last_name, post.title || "ინსტრუქტორი");
     const city = extractCityName(post.located_at);
@@ -124,12 +157,12 @@ export default async function InstructorProfilePage({ params }: { params: Promis
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   const { locale, id } = await params;
 
-  const [postResponse, assetsResponse] = await Promise.all([
-    fetch(`${baseUrl}/api/posts/${id}`, { cache: "no-store" }),
-    fetch(`${baseUrl}/api/posts/${id}/assets?asset_type=vehicle_photos`, { cache: "no-store" }),
+  const [postResult, assets] = await Promise.all([
+    getInstructorPost(baseUrl, id),
+    getInstructorAssets(baseUrl, id),
   ]);
 
-  if (!postResponse.ok) {
+  if (!postResult.ok || !postResult.data) {
     return (
       <div className="min-h-screen bg-gray-50/50 pt-28 pb-12">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
@@ -146,8 +179,7 @@ export default async function InstructorProfilePage({ params }: { params: Promis
     );
   }
 
-  const post = (await postResponse.json()) as InstructorPost;
-  const assets = assetsResponse.ok ? ((await assetsResponse.json()) as InstructorAsset[]) : [];
+  const post = postResult.data;
 
   const name = buildInstructorName(post.applicant_first_name, post.applicant_last_name, post.title || "ინსტრუქტორი");
   const cityLocation = extractCityName(post.located_at);
@@ -163,14 +195,11 @@ export default async function InstructorProfilePage({ params }: { params: Promis
   let packages: CoursePackage[] = [];
   if (post.autoschool_id) {
     try {
-      const schoolRes = await fetch(`${baseUrl}/api/autoschools/${post.autoschool_id}`, { cache: "no-store" });
-      if (schoolRes.ok) {
-        const school = await schoolRes.json();
-        const trans = (post.transmission || "").toLowerCase();
-        packages = (school.packages || []).filter((pkg: CoursePackage) => {
-          return isPackageTransmissionCompatible(pkg.transmission, trans);
-        });
-      }
+      const schoolPackages = await getAutoschoolPackages(baseUrl, post.autoschool_id);
+      const trans = (post.transmission || "").toLowerCase();
+      packages = schoolPackages.filter((pkg: CoursePackage) => {
+        return isPackageTransmissionCompatible(pkg.transmission, trans);
+      });
     } catch {
       // non-critical — profile still works without packages
     }

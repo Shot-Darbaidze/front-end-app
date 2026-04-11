@@ -25,7 +25,7 @@ const Navbar = () => {
   const MOBILE_MENU_ANIMATION_MS = 300;
   const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
-  const { language, setLanguage } = useLanguage();
+  const { language } = useLanguage();
   const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -47,12 +47,21 @@ const Navbar = () => {
   // Helper to prefix links with current locale
   const localeHref = (path: string) => `/${language}${path === "/" ? "" : path}`;
 
+  const getLocaleTargetPath = (targetLang: "en" | "ka") => {
+    const pathWithoutLocale = removeLocaleFromPathname(pathname);
+    return `/${targetLang}${pathWithoutLocale === "/" ? "" : pathWithoutLocale}`;
+  };
+
+  useEffect(() => {
+    const nextLang = language === "en" ? "ka" : "en";
+    router.prefetch(getLocaleTargetPath(nextLang));
+  }, [language, pathname, router]);
+
   const handleLanguageToggle = () => {
     const newLang = language === "en" ? "ka" : "en";
-    setLanguage(newLang);
-    // Navigate to the same page with the new locale
-    const pathWithoutLocale = removeLocaleFromPathname(pathname);
-    router.push(`/${newLang}${pathWithoutLocale === "/" ? "" : pathWithoutLocale}`);
+    const targetPath = getLocaleTargetPath(newLang);
+    router.prefetch(targetPath);
+    router.push(targetPath);
   };
 
   const handleSignOut = async () => {

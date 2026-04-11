@@ -1,7 +1,8 @@
 import { Star, ShieldCheck, Car, MapPin, Route } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { useCallback, memo } from "react";
+import { useCallback, memo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { PRICING, CITY_LABELS } from "@/config/constants";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -171,10 +172,18 @@ const InstructorCard = ({
   verified = false,
   onCardClick,
 }: InstructorCardProps) => {
+  const router = useRouter();
   const { language } = useLanguage();
   const isKa = language === "ka";
   const localeHref = useLocaleHref();
   const profileHref = localeHref(`/instructors/${id}`);
+  const prefetchedRef = useRef(false);
+
+  const prefetchProfile = useCallback(() => {
+    if (prefetchedRef.current) return;
+    prefetchedRef.current = true;
+    router.prefetch(profileHref);
+  }, [router, profileHref]);
 
   const handleCardClick = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -310,6 +319,9 @@ const InstructorCard = ({
             href={profileHref}
             className="shrink-0 after:content-[''] after:absolute after:inset-0 after:z-[1] after:rounded-2xl"
             onClick={handleCardClick}
+            onMouseEnter={prefetchProfile}
+            onFocus={prefetchProfile}
+            onTouchStart={prefetchProfile}
           >
             <button className="relative z-[2] whitespace-nowrap py-2 px-5 bg-white border-2 border-[#F03D3D] text-[#F03D3D] rounded-xl font-bold text-sm hover:bg-[#F03D3D] hover:text-white transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105 active:scale-95">
               {isKa ? "პროფილი" : "View Profile"}

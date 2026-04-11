@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { defaultLocale } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
 
@@ -39,6 +39,10 @@ export const useLanguage = () => {
 
 export const LanguageProvider = ({ children, initialLocale = "ka" }: { children: ReactNode; initialLocale?: Language }) => {
   const [language, setLanguage] = useState<Language>(initialLocale);
+
+  useEffect(() => {
+    setLanguage(initialLocale);
+  }, [initialLocale]);
 
   const t = (key: string): string => {
     const translations = language === "ka" ? translationsKa : translationsEn;
