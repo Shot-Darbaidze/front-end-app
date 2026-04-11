@@ -19,6 +19,11 @@ interface FormState {
   google_maps_url: string;
 }
 
+interface GalleryItem {
+  file: File;
+  previewUrl: string;
+}
+
 const INITIAL: FormState = {
   name: "",
   description: "",
@@ -42,8 +47,8 @@ export default function AutoschoolApplyPage() {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
   // Gallery images (up to MAX_IMAGES)
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
+  const galleryItemsRef = useRef<GalleryItem[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const [submitting, setSubmitting] = useState(false);
@@ -60,6 +65,16 @@ export default function AutoschoolApplyPage() {
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    galleryItemsRef.current = galleryItems;
+  }, [galleryItems]);
+
+  useEffect(() => {
+    return () => {
+      galleryItemsRef.current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+    };
+  }, []);
 
   const hasPhone = normalizePhone(userPhone).length > 0;
 
@@ -103,23 +118,27 @@ export default function AutoschoolApplyPage() {
 
   function handleImageAdd(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
-    const remaining = MAX_IMAGES - imageFiles.length;
+    const remaining = MAX_IMAGES - galleryItems.length;
     const toAdd = files.slice(0, remaining);
     if (toAdd.length === 0) return;
-    setImageFiles((prev) => [...prev, ...toAdd]);
-    toAdd.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreviews((prev) => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+
+    const nextItems = toAdd.map((file) => ({
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+
+    setGalleryItems((prev) => [...prev, ...nextItems]);
     e.target.value = "";
   }
 
   function handleImageRemove(index: number) {
-    setImageFiles((prev) => prev.filter((_, i) => i !== index));
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    setGalleryItems((prev) => {
+      const target = prev[index];
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   }
 
   function handleCityChange(city: string) {
@@ -151,7 +170,7 @@ export default function AutoschoolApplyPage() {
       if (selectedLanguages.length > 0) fd.append("languages", selectedLanguages.join(","));
       if (logoFile) fd.append("logo", logoFile);
       if (coverFile) fd.append("cover", coverFile);
-      imageFiles.forEach((file) => fd.append("images", file));
+      galleryItems.forEach((item) => fd.append("images", item.file));
 
       const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
       const res = await fetch(`${API_BASE}/api/autoschools/apply`, {
@@ -453,19 +472,20 @@ export default function AutoschoolApplyPage() {
               Gallery Images <span className="text-slate-400 font-normal">(up to {MAX_IMAGES})</span>
             </label>
             <div className="flex flex-wrap gap-3">
-              {imagePreviews.map((src, idx) => (
+              {galleryItems.map((item, idx) => (
                 <div key={idx} className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-200 group">
-                  <img src={src} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
+                  <img src={item.previewUrl} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => handleImageRemove(idx)}
-                    className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label={`Remove gallery image ${idx + 1}`}
+                    className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center hover:bg-red-500 transition"
                   >
                     <X className="w-3 h-3 text-white" />
                   </button>
                 </div>
               ))}
-              {imageFiles.length < MAX_IMAGES && (
+              {galleryItems.length < MAX_IMAGES && (
                 <div
                   onClick={() => imageInputRef.current?.click()}
                   className="w-24 h-24 rounded-xl border-2 border-dashed border-slate-300 hover:border-[#F03D3D] transition-colors cursor-pointer flex flex-col items-center justify-center text-slate-400 hover:text-[#F03D3D]"
