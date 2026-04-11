@@ -4,6 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
+  readDashboardRouteCache,
+  writeDashboardRouteCache,
+} from "@/lib/dashboardRouteCache";
+import {
   getAutoschool,
   updateAutoschoolPricing,
   type AutoschoolDetail,
@@ -27,6 +31,9 @@ const emptyForm = (): PricingForm => ({
   automatic_city_price: "",
   automatic_yard_price: "",
 });
+
+const PRICING_CACHE_NAMESPACE = "autoschool-pricing";
+const PRICING_CACHE_TTL_MS = 2 * 60 * 1000;
 
 function priceToStr(val: number | null | undefined): string {
   if (val == null) return "";
@@ -54,7 +61,7 @@ function detectTransmissions(school: AutoschoolDetail): { hasManual: boolean; ha
 }
 
 export function AutoschoolPricing({ schoolId }: AutoschoolPricingProps) {
-  const { getToken } = useClerkAuth();
+  const { getToken, userId } = useClerkAuth();
   const { language } = useLanguage();
 
   const [school, setSchool] = useState<AutoschoolDetail | null>(null);
@@ -65,20 +72,46 @@ export function AutoschoolPricing({ schoolId }: AutoschoolPricingProps) {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    try {
+    const cacheUserId = userId ?? "anonymous";
+    const cacheVariant = schoolId;
+    const cached = readDashboardRouteCache<AutoschoolDetail>({
+      namespace: PRICING_CACHE_NAMESPACE,
+      userId: cacheUserId,
+      variant: cacheVariant,
+      ttlMs: PRICING_CACHE_TTL_MS,
+    });
+
+    if (cached) {
+      setSchool(cached);
+      setForm(schoolToForm(cached));
+      setIsLoading(false);
+    } else {
       setIsLoading(true);
+    }
+
+    try {
       setError(null);
       const s = await getAutoschool(schoolId);
       if (s) {
         setSchool(s);
         setForm(schoolToForm(s));
+        writeDashboardRouteCache(
+          {
+            namespace: PRICING_CACHE_NAMESPACE,
+            userId: cacheUserId,
+            variant: cacheVariant,
+          },
+          s
+        );
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load pricing.");
+      if (!cached) {
+        setError(e instanceof Error ? e.message : "Failed to load pricing.");
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [schoolId]);
+  }, [schoolId, userId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -129,6 +162,14 @@ export function AutoschoolPricing({ schoolId }: AutoschoolPricingProps) {
       );
       setSchool(updated);
       setForm(schoolToForm(updated));
+      writeDashboardRouteCache(
+        {
+          namespace: PRICING_CACHE_NAMESPACE,
+          userId: userId ?? "anonymous",
+          variant: schoolId,
+        },
+        updated
+      );
       setSuccessMsg(
         language === "ka"
           ? "ფასები განახლდა და ინსტრუქტორებთან სინქრონიზდა."

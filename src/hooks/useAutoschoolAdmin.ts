@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import { getMyAutoschool } from "@/services/autoschoolService";
 import { isExpectedAuthTransitionError } from "@/utils/authTransitions";
@@ -70,60 +70,45 @@ function writeCachedAdmin(userId: string, isAdmin: boolean, schoolId: string | n
 export function useAutoschoolAdmin() {
   const { getToken, isLoaded } = useClerkAuth();
   const { user, isLoaded: isUserLoaded } = useUser();
-  const [schoolId, setSchoolId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-
   const userId = user?.id;
+
+  // Read from cache synchronously on the render where userId becomes available.
+  const fromCache = useMemo(() => {
+    if (!userId || typeof window === "undefined") return null;
+    return readCachedAdmin(userId);
+  }, [userId]);
+
+  // API result — keyed by userId so stale data from a previous account is never used
+  const [fromApi, setFromApi] = useState<{ userId: string; isAdmin: boolean; schoolId: string | null } | null>(null);
+
+  const relevantFromApi = fromApi?.userId === userId ? fromApi : null;
+  const resolved = relevantFromApi ?? fromCache;
+
+  const schoolId = resolved?.isAdmin ? (resolved?.schoolId ?? null) : null;
+  const isAutoschoolAdmin = Boolean(resolved?.isAdmin);
+  const isLoading = !isLoaded || !isUserLoaded || (!!userId && resolved === null);
 
   useEffect(() => {
     let isMounted = true;
 
     const resolveAutoschoolAdmin = async () => {
-      if (!isLoaded || !isUserLoaded) return;
-
-      if (!userId) {
-        if (isMounted) {
-          setSchoolId(null);
-          setIsLoading(false);
-        }
-        return;
-      }
-
-      const cached = readCachedAdmin(userId);
-      // Only use cached value to avoid flash if it's a positive result (is admin).
-      // For cached negatives, wait for the fresh API response so a newly-approved
-      // school shows the admin panel without needing a manual cache clear.
-      if (cached?.isAdmin && isMounted) {
-        setSchoolId(cached.schoolId);
-        setIsLoading(false);
-      }
+      if (!isLoaded || !isUserLoaded || !userId) return;
 
       try {
         const token = await getToken();
-        if (!token) {
-          if (isMounted) {
-            setSchoolId(null);
-            setIsLoading(false);
-          }
-          return;
-        }
+        if (!token || !isMounted) return;
 
         const school = await getMyAutoschool(token);
         const nextSchoolId = school?.id ?? null;
-        console.log("[useAutoschoolAdmin] API result:", { school, nextSchoolId });
         writeCachedAdmin(userId, Boolean(nextSchoolId), nextSchoolId);
 
-        if (isMounted) {
-          setSchoolId(nextSchoolId);
-          setIsLoading(false);
-        }
+        if (isMounted) setFromApi({ userId, isAdmin: Boolean(nextSchoolId), schoolId: nextSchoolId });
       } catch (err) {
         if (!isExpectedAuthTransitionError(err)) {
           console.error("[useAutoschoolAdmin] API error:", err);
         }
-        if (isMounted) {
-          setSchoolId(null);
-          setIsLoading(false);
+        if (isMounted && resolved === null) {
+          setFromApi({ userId, isAdmin: false, schoolId: null });
         }
       }
     };
@@ -137,7 +122,7 @@ export function useAutoschoolAdmin() {
 
   return {
     schoolId,
-    isAutoschoolAdmin: Boolean(schoolId),
+    isAutoschoolAdmin,
     isLoading,
   };
 }

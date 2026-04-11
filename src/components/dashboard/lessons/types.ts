@@ -9,6 +9,8 @@ export interface BookingResponse {
     price?: number | null;
     instructor_name?: string | null;
     instructor_image?: string | null;
+    instructor_email?: string | null;
+    instructor_phone?: string | null;
     // Package discount info (populated when booked via a package)
     package_name_snapshot?: string | null;
     package_percentage_snapshot?: number | null;
@@ -39,6 +41,8 @@ export interface CancellationResponse {
     cancelled_at: string;
     instructor_name?: string | null;
     instructor_image?: string | null;
+    instructor_email?: string | null;
+    instructor_phone?: string | null;
     // Package discount info (populated when booked via a package)
     package_name_snapshot?: string | null;
     package_percentage_snapshot?: number | null;

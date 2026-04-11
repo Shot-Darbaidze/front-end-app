@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import { useInstructorApproval } from "@/hooks/useInstructorApproval";
 import { useAutoschoolAdmin } from "@/hooks/useAutoschoolAdmin";
+import {
+  readDashboardRouteCache,
+  writeDashboardRouteCache,
+} from "@/lib/dashboardRouteCache";
 
 import { ProfileSettings } from "@/components/dashboard/settings/ProfileSettings";
 import { AccountSettings } from "@/components/dashboard/settings/AccountSettings";
@@ -13,12 +17,17 @@ import { NotificationSettings } from "@/components/dashboard/settings/Notificati
 import { AutoschoolSettings } from "@/components/dashboard/settings/AutoschoolSettings";
 import { SettingsNav, TAB_IDS, TabId } from "@/components/dashboard/settings/SettingsNav";
 
+const SETTINGS_TAB_CACHE_NAMESPACE = "dashboard-settings-tab";
+const SETTINGS_TAB_CACHE_TTL_MS = 30 * 60 * 1000;
+
 export default function SettingsPage() {
   const { user } = useUser();
   const { t } = useLanguage();
   const { isInstructor, isLoading: isRoleLoading } = useInstructorApproval();
   const { schoolId: mySchoolId, isAutoschoolAdmin, isLoading: isSchoolRoleLoading } = useAutoschoolAdmin();
-  const [activeTab, setActiveTab] = useState<TabId>(isInstructor ? "instructorProfile" : "profile");
+  const [activeTab, setActiveTab] = useState<TabId>("profile");
+  const hasRestoredTabRef = useRef(false);
+  const cacheUserId = user?.id ?? "anonymous";
 
   // Update visible tabs based on role
   const visibleTabs = TAB_IDS.filter((id) => {
@@ -26,6 +35,22 @@ export default function SettingsPage() {
     if (id === "autoschoolSettings" && !isAutoschoolAdmin) return false;
     return true;
   }) as TabId[];
+
+  useEffect(() => {
+    if (isRoleLoading || isSchoolRoleLoading || hasRestoredTabRef.current) return;
+
+    const fallbackTab: TabId = isInstructor ? "instructorProfile" : "profile";
+    const cachedTab = readDashboardRouteCache<TabId>({
+      namespace: SETTINGS_TAB_CACHE_NAMESPACE,
+      userId: cacheUserId,
+      ttlMs: SETTINGS_TAB_CACHE_TTL_MS,
+    });
+
+    const isValidTab = Boolean(cachedTab && TAB_IDS.includes(cachedTab));
+    const desiredTab = (isValidTab ? cachedTab : fallbackTab) as TabId;
+    setActiveTab(visibleTabs.includes(desiredTab) ? desiredTab : "profile");
+    hasRestoredTabRef.current = true;
+  }, [cacheUserId, isInstructor, isRoleLoading, isSchoolRoleLoading, visibleTabs]);
 
   useEffect(() => {
     if (isRoleLoading || isSchoolRoleLoading) return;
@@ -37,9 +62,22 @@ export default function SettingsPage() {
     }
   }, [isInstructor, isAutoschoolAdmin, isRoleLoading, isSchoolRoleLoading, activeTab]);
 
+  useEffect(() => {
+    if (isRoleLoading || isSchoolRoleLoading) return;
+    if (!visibleTabs.includes(activeTab)) return;
+
+    writeDashboardRouteCache(
+      {
+        namespace: SETTINGS_TAB_CACHE_NAMESPACE,
+        userId: cacheUserId,
+      },
+      activeTab,
+    );
+  }, [activeTab, cacheUserId, isRoleLoading, isSchoolRoleLoading, visibleTabs]);
+
   return (
     <div className="min-h-screen bg-gray-50 pt-20">
-      {!isRoleLoading && !isSchoolRoleLoading && <MobileDashboardNav isInstructor={isInstructor} />}
+      <MobileDashboardNav isInstructor={isInstructor} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">

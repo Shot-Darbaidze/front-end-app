@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { X, Upload, Loader2, CheckCircle, Camera, Trash2, Expand } from "lucide-react";
 import { CITIES, PRIMARY_LANGUAGE_OPTIONS, OTHER_LANGUAGE_OPTIONS, ALL_LANGUAGE_OPTIONS, UPLOAD_LIMITS } from "@/config/constants";
@@ -9,12 +9,19 @@ import {
   updateAutoschool,
   updateAutoschoolMedia,
   updateAutoschoolWorkingHours,
+  type AutoschoolDetail,
   type WorkingHoursInput,
 } from "@/services/autoschoolService";
 import ImageLightbox from "@/components/ui/ImageLightbox";
 import AutoResizeTextarea from "@/components/ui/AutoResizeTextarea";
+import {
+  readDashboardRouteCache,
+  writeDashboardRouteCache,
+} from "@/lib/dashboardRouteCache";
 
 const MAX_AUTOSCHOOL_IMAGES = parseInt(process.env.NEXT_PUBLIC_MAX_AUTOSCHOOL_IMAGES ?? "5", 10);
+const AUTOSCHOOL_SETTINGS_CACHE_NAMESPACE = "autoschool-settings";
+const AUTOSCHOOL_SETTINGS_CACHE_TTL_MS = 3 * 60 * 1000;
 
 interface AutoschoolSettingsProps {
   schoolId: string;
@@ -40,8 +47,64 @@ function normalizeWorkingHours(hours: WorkingHoursInput[]): string {
   );
 }
 
+type AutoschoolSettingsCachePayload = {
+  name: string;
+  description: string;
+  selectedCity: string;
+  address: string;
+  googleMapsUrl: string;
+  selectedLanguages: string[];
+  showOtherLanguages: boolean;
+  logoPreview: string | null;
+  coverPreview: string | null;
+  galleryUrls: string[];
+  workingHours: WorkingHoursInput[];
+  original?: Record<string, unknown>;
+};
+
+function buildSettingsPayloadFromSchool(school: AutoschoolDetail): AutoschoolSettingsCachePayload {
+  const cities = school.city ? school.city.split(",").map((c) => c.trim()).filter(Boolean) : [];
+  const selectedCity = cities[0] ?? "";
+  const selectedLanguages = school.languages
+    ? school.languages.split(",").map((l) => l.trim().toLowerCase()).filter(Boolean)
+    : [];
+  const incomingWorkingHours = (school.working_hours ?? [])
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((h) => ({
+      day_label: h.day_label,
+      hours_label: h.hours_label ?? "",
+      is_closed: h.is_closed,
+    }));
+  const normalizedWorkingHours = incomingWorkingHours.length > 0 ? incomingWorkingHours : DEFAULT_WORKING_HOURS;
+  const otherCodes = OTHER_LANGUAGE_OPTIONS.map((o) => o.code);
+  const showOtherLanguages = selectedLanguages.some((c) => otherCodes.includes(c));
+
+  return {
+    name: school.name,
+    description: school.description ?? "",
+    selectedCity,
+    address: school.address ?? "",
+    googleMapsUrl: school.google_maps_url ?? "",
+    selectedLanguages,
+    showOtherLanguages,
+    logoPreview: school.logo_url ?? null,
+    coverPreview: school.cover_image_url ?? null,
+    galleryUrls: school.image_urls ?? [],
+    workingHours: normalizedWorkingHours,
+    original: {
+      name: school.name,
+      description: school.description ?? "",
+      city: selectedCity,
+      address: school.address ?? "",
+      google_maps_url: school.google_maps_url ?? "",
+      languages: school.languages ?? "",
+      working_hours: normalizeWorkingHours(normalizedWorkingHours),
+    },
+  };
+}
+
 export function AutoschoolSettings({ schoolId }: AutoschoolSettingsProps) {
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
 
   // ── Form state ──
   const [name, setName] = useState("");
@@ -85,52 +148,83 @@ export function AutoschoolSettings({ schoolId }: AutoschoolSettingsProps) {
   const coverInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
+  const cacheUserId = userId ?? "anonymous";
+  const writeSettingsCache = useCallback((payload: AutoschoolSettingsCachePayload) => {
+    writeDashboardRouteCache(
+      {
+        namespace: AUTOSCHOOL_SETTINGS_CACHE_NAMESPACE,
+        userId: cacheUserId,
+        variant: schoolId,
+      },
+      payload,
+    );
+  }, [cacheUserId, schoolId]);
+
+  const applySettingsPayload = useCallback((payload: AutoschoolSettingsCachePayload) => {
+    setName(payload.name);
+    setDescription(payload.description);
+    setSelectedCity(payload.selectedCity);
+    setAddress(payload.address);
+    setGoogleMapsUrl(payload.googleMapsUrl);
+    setSelectedLanguages(payload.selectedLanguages);
+    setShowOtherLanguages(payload.showOtherLanguages);
+    setLogoPreview(payload.logoPreview);
+    setCoverPreview(payload.coverPreview);
+    setGalleryUrls(payload.galleryUrls);
+    setWorkingHours(payload.workingHours);
+    originalRef.current = payload.original ?? {
+      name: payload.name,
+      description: payload.description,
+      city: payload.selectedCity,
+      address: payload.address,
+      google_maps_url: payload.googleMapsUrl,
+      languages: payload.selectedLanguages.join(","),
+      working_hours: normalizeWorkingHours(payload.workingHours),
+    };
+  }, []);
+
+  const writeCurrentSettingsCache = (overrides: Partial<AutoschoolSettingsCachePayload> = {}) => {
+    writeSettingsCache({
+      name,
+      description,
+      selectedCity,
+      address,
+      googleMapsUrl,
+      selectedLanguages,
+      showOtherLanguages,
+      logoPreview,
+      coverPreview,
+      galleryUrls,
+      workingHours,
+      original: originalRef.current,
+      ...overrides,
+    });
+  };
+
   // ── Load school data ──
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      const cached = readDashboardRouteCache<AutoschoolSettingsCachePayload>({
+        namespace: AUTOSCHOOL_SETTINGS_CACHE_NAMESPACE,
+        userId: cacheUserId,
+        variant: schoolId,
+        ttlMs: AUTOSCHOOL_SETTINGS_CACHE_TTL_MS,
+      });
+
+      if (cached && !cancelled) {
+        applySettingsPayload(cached);
+        setLoading(false);
+        return;
+      }
+
       try {
         const school = await getAutoschool(schoolId);
         if (cancelled || !school) return;
 
-        setName(school.name);
-        setDescription(school.description ?? "");
-        // Single city — take first from CSV
-        const cities = school.city ? school.city.split(",").map((c) => c.trim()).filter(Boolean) : [];
-        setSelectedCity(cities[0] ?? "");
-        setAddress(school.address ?? "");
-        setGoogleMapsUrl(school.google_maps_url ?? "");
-        setSelectedLanguages(school.languages ? school.languages.split(",").map((l) => l.trim().toLowerCase()).filter(Boolean) : []);
-        setLogoPreview(school.logo_url ?? null);
-        setCoverPreview(school.cover_image_url ?? null);
-        setGalleryUrls(school.image_urls ?? []);
-        const incomingWorkingHours = (school.working_hours ?? [])
-          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-          .map((h) => ({
-            day_label: h.day_label,
-            hours_label: h.hours_label ?? "",
-            is_closed: h.is_closed,
-          }));
-        setWorkingHours(incomingWorkingHours.length > 0 ? incomingWorkingHours : DEFAULT_WORKING_HOURS);
-
-        // Check if any "other" languages are selected
-        const otherCodes = OTHER_LANGUAGE_OPTIONS.map((o) => o.code);
-        if (school.languages) {
-          const langCodes = school.languages.split(",").map((l) => l.trim().toLowerCase());
-          if (langCodes.some((c) => otherCodes.includes(c))) {
-            setShowOtherLanguages(true);
-          }
-        }
-
-        originalRef.current = {
-          name: school.name,
-          description: school.description ?? "",
-          city: cities[0] ?? "",
-          address: school.address ?? "",
-          google_maps_url: school.google_maps_url ?? "",
-          languages: school.languages ?? "",
-          working_hours: normalizeWorkingHours(incomingWorkingHours.length > 0 ? incomingWorkingHours : DEFAULT_WORKING_HOURS),
-        };
+        const payload = buildSettingsPayloadFromSchool(school);
+        applySettingsPayload(payload);
+        writeSettingsCache(payload);
       } catch {
         setError("Failed to load autoschool data.");
       } finally {
@@ -138,7 +232,7 @@ export function AutoschoolSettings({ schoolId }: AutoschoolSettingsProps) {
       }
     })();
     return () => { cancelled = true; };
-  }, [schoolId]);
+  }, [applySettingsPayload, cacheUserId, schoolId, writeSettingsCache]);
 
   // ── Dirty tracking ──
   useEffect(() => {
@@ -217,6 +311,20 @@ export function AutoschoolSettings({ schoolId }: AutoschoolSettingsProps) {
         working_hours: normalizeWorkingHours(workingHours),
       };
       setDirty(false);
+      writeCurrentSettingsCache({
+        name: (payload.name ?? "") as string,
+        description: (payload.description ?? "") as string,
+        selectedCity: (payload.city ?? "") as string,
+        address: (payload.address ?? "") as string,
+        googleMapsUrl: (payload.google_maps_url ?? "") as string,
+        selectedLanguages,
+        showOtherLanguages,
+        logoPreview,
+        coverPreview,
+        galleryUrls,
+        workingHours,
+        original: originalRef.current,
+      });
       setSuccessMsg("Changes saved successfully!");
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
@@ -252,7 +360,9 @@ export function AutoschoolSettings({ schoolId }: AutoschoolSettingsProps) {
       const fd = new FormData();
       fd.append("logo", file);
       const updated = await updateAutoschoolMedia(schoolId, fd, token);
-      setLogoPreview(updated.logo_url ?? null);
+      const nextLogo = updated.logo_url ?? null;
+      setLogoPreview(nextLogo);
+      writeCurrentSettingsCache({ logoPreview: nextLogo });
       showMediaSuccess("Logo updated!");
     } catch (err) {
       setLogoPreview(prevLogo);
@@ -275,6 +385,7 @@ export function AutoschoolSettings({ schoolId }: AutoschoolSettingsProps) {
       const fd = new FormData();
       fd.append("remove_logo", "true");
       await updateAutoschoolMedia(schoolId, fd, token);
+      writeCurrentSettingsCache({ logoPreview: null });
       showMediaSuccess("Logo removed!");
     } catch (err) {
       setLogoPreview(prevLogo);
@@ -302,7 +413,9 @@ export function AutoschoolSettings({ schoolId }: AutoschoolSettingsProps) {
       const fd = new FormData();
       fd.append("cover", file);
       const updated = await updateAutoschoolMedia(schoolId, fd, token);
-      setCoverPreview(updated.cover_image_url ?? null);
+      const nextCover = updated.cover_image_url ?? null;
+      setCoverPreview(nextCover);
+      writeCurrentSettingsCache({ coverPreview: nextCover });
       showMediaSuccess("Cover updated!");
     } catch (err) {
       setCoverPreview(prevCover);
@@ -325,6 +438,7 @@ export function AutoschoolSettings({ schoolId }: AutoschoolSettingsProps) {
       const fd = new FormData();
       fd.append("remove_cover", "true");
       await updateAutoschoolMedia(schoolId, fd, token);
+      writeCurrentSettingsCache({ coverPreview: null });
       showMediaSuccess("Cover removed!");
     } catch (err) {
       setCoverPreview(prevCover);
@@ -360,7 +474,9 @@ export function AutoschoolSettings({ schoolId }: AutoschoolSettingsProps) {
       const fd = new FormData();
       valid.forEach((f) => fd.append("images", f));
       const updated = await updateAutoschoolMedia(schoolId, fd, token);
-      setGalleryUrls(updated.image_urls ?? []);
+      const nextGallery = updated.image_urls ?? [];
+      setGalleryUrls(nextGallery);
+      writeCurrentSettingsCache({ galleryUrls: nextGallery });
       showMediaSuccess("Photos uploaded!");
     } catch (err) {
       setGalleryUrls(prevGallery);
@@ -384,7 +500,9 @@ export function AutoschoolSettings({ schoolId }: AutoschoolSettingsProps) {
       const fd = new FormData();
       fd.append("remove_image_indexes", String(idx));
       const updated = await updateAutoschoolMedia(schoolId, fd, token);
-      setGalleryUrls(updated.image_urls ?? []);
+      const nextGallery = updated.image_urls ?? [];
+      setGalleryUrls(nextGallery);
+      writeCurrentSettingsCache({ galleryUrls: nextGallery });
     } catch (err) {
       setGalleryUrls(prevGallery);
       setMediaError(err instanceof Error ? err.message : "Failed to remove image.");

@@ -11,7 +11,6 @@ import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { useInstructorApproval } from "@/hooks/useInstructorApproval";
 import { useAutoschoolAdmin } from "@/hooks/useAutoschoolAdmin";
 import { API_CONFIG } from "@/config/constants";
-import { getSchoolInstructors } from "@/services/autoschoolService";
 
 import {
   BookingResponse, CancellationResponse, CancellationReason, TabId, TABS,
@@ -49,6 +48,32 @@ interface InstructorBookingRow {
     first_name?: string | null;
     last_name?: string | null;
     image_url?: string | null;
+    email?: string | null;
+    mobile_number?: string | null;
+  } | null;
+}
+
+interface AutoschoolBookingRow {
+  id: string;
+  user_id: string | null;
+  post_id: string;
+  start_time_utc: string;
+  duration_minutes: number;
+  status: "booked" | "completed" | "cancelled";
+  mode: "city" | "yard" | null;
+  price?: number | null;
+  package_name_snapshot?: string | null;
+  package_percentage_snapshot?: number | null;
+  pre_discount_price?: number | null;
+  instructor_name?: string | null;
+  instructor_image?: string | null;
+  student?: {
+    id?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    image_url?: string | null;
+    email?: string | null;
+    mobile_number?: string | null;
   } | null;
 }
 
@@ -164,64 +189,60 @@ export default function LessonsPage() {
       }
 
       if (isAutoschoolAdmin && schoolId) {
-        const instructors = await getSchoolInstructors(schoolId, token);
-        const postMeta = new Map(
-          instructors.map((inst) => [
-            inst.id,
-            {
-              name: `${inst.first_name ?? ""} ${inst.last_name ?? ""}`.trim() || inst.title || "Instructor",
-              image: inst.image_url ?? null,
-            },
-          ])
+        const lessonsRes = await fetch(
+          `${API_CONFIG.BASE_URL}/api/autoschools/${schoolId}/lessons?statuses=booked,completed,cancelled&limit=5000`,
+          { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
         );
 
-        const postIds = instructors.map((inst) => inst.id);
+        if (!lessonsRes.ok) throw new Error("Failed to load autoschool lessons");
 
-        if (postIds.length === 0) {
-          if (currentTab === "cancelled") setCancelledLessons([]);
-          if (currentTab === "upcoming") setUpcomingLessons([]);
-          if (currentTab === "past") setPastLessons([]);
-          return;
-        }
-
-        const nowIso = new Date().toISOString();
+        const autoschoolRows = (await lessonsRes.json()) as AutoschoolBookingRow[];
+        const allBookings: BookingResponse[] = autoschoolRows.map((row) => {
+          const studentName = row.student
+            ? `${row.student.first_name || ""} ${row.student.last_name || ""}`.trim() || "Student"
+            : "Student";
+          return {
+            id: row.id,
+            user_id: row.user_id,
+            post_id: row.post_id,
+            start_time_utc: row.start_time_utc,
+            duration_minutes: row.duration_minutes,
+            status: row.status,
+            mode: row.mode,
+            price: row.price ?? null,
+            instructor_name: studentName,
+            instructor_image: row.student?.image_url ?? null,
+            instructor_email: row.student?.email ?? null,
+            instructor_phone: row.student?.mobile_number ?? null,
+            package_name_snapshot: row.package_name_snapshot ?? null,
+            package_percentage_snapshot: row.package_percentage_snapshot ?? null,
+            pre_discount_price: row.pre_discount_price ?? null,
+          };
+        });
 
         if (currentTab === "cancelled") {
-          const cancelledResponses = await Promise.all(
-            postIds.map(async (postId) => {
-              const res = await fetch(
-                `${API_CONFIG.BASE_URL}/api/bookings/by-post/${postId}?statuses=cancelled&limit=1000`,
-                { headers: { Authorization: `Bearer ${token}` } }
-              );
-              if (!res.ok) return [] as BookingResponse[];
-              const rows = (await res.json()) as BookingResponse[];
-              return rows;
-            })
-          );
-
-          const syntheticCancellations: CancellationResponse[] = cancelledResponses
-            .flat()
-            .map((row) => {
-              const meta = postMeta.get(row.post_id);
-              return {
-                id: `booking-cancel-${row.id}`,
-                booking_id: row.id,
-                cancelled_by_user_id: null,
-                reason: "other" as const,
-                description: null,
-                original_start_time_utc: row.start_time_utc,
-                original_duration_minutes: row.duration_minutes,
-                original_mode: row.mode,
-                original_price: row.price ?? null,
-                original_post_id: row.post_id,
-                cancelled_at: row.start_time_utc,
-                instructor_name: meta?.name ?? row.instructor_name ?? "Instructor",
-                instructor_image: meta?.image ?? row.instructor_image ?? null,
-                package_name_snapshot: row.package_name_snapshot ?? null,
-                package_percentage_snapshot: row.package_percentage_snapshot ?? null,
-                pre_discount_price: row.pre_discount_price ?? null,
-              };
-            })
+          const syntheticCancellations: CancellationResponse[] = allBookings
+            .filter((row) => row.status === "cancelled")
+            .map((row) => ({
+              id: `booking-cancel-${row.id}`,
+              booking_id: row.id,
+              cancelled_by_user_id: null,
+              reason: "other" as const,
+              description: null,
+              original_start_time_utc: row.start_time_utc,
+              original_duration_minutes: row.duration_minutes,
+              original_mode: row.mode,
+              original_price: row.price ?? null,
+              original_post_id: row.post_id,
+              cancelled_at: row.start_time_utc,
+              instructor_name: row.instructor_name ?? "Student",
+              instructor_image: row.instructor_image ?? null,
+              instructor_email: row.instructor_email ?? null,
+              instructor_phone: row.instructor_phone ?? null,
+              package_name_snapshot: row.package_name_snapshot ?? null,
+              package_percentage_snapshot: row.package_percentage_snapshot ?? null,
+              pre_discount_price: row.pre_discount_price ?? null,
+            }))
             .sort((a, b) => new Date(b.cancelled_at).getTime() - new Date(a.cancelled_at).getTime());
 
           const cached = userId ? getCachedLessons(userId, roleVariant) : null;
@@ -242,72 +263,34 @@ export default function LessonsPage() {
           return;
         }
 
-        const bookingsQuery = currentTab === "upcoming"
-          ? `statuses=booked&from_date=${encodeURIComponent(nowIso)}&limit=1000`
-          : `statuses=booked,completed&to_date=${encodeURIComponent(nowIso)}&limit=1000`;
-
-        const bookingResponses = await Promise.all(
-          postIds.map(async (postId) => {
-            const res = await fetch(
-              `${API_CONFIG.BASE_URL}/api/bookings/by-post/${postId}?${bookingsQuery}`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            if (!res.ok) return [] as BookingResponse[];
-            const rows = (await res.json()) as BookingResponse[];
-            return rows.map((row) => {
-              const meta = postMeta.get(row.post_id);
-              return {
-                ...row,
-                instructor_name: meta?.name ?? row.instructor_name ?? "Instructor",
-                instructor_image: meta?.image ?? row.instructor_image ?? null,
-              };
-            });
-          })
-        );
-
-        const allBookings = bookingResponses.flat();
         const now = new Date();
+        const upcoming = allBookings
+          .filter((b) => b.status === "booked" && new Date(b.start_time_utc) > now)
+          .sort((a, b) => new Date(a.start_time_utc).getTime() - new Date(b.start_time_utc).getTime());
+        const past = allBookings
+          .filter(
+            (b) => b.status === "completed" || (b.status === "booked" && new Date(b.start_time_utc) <= now)
+          )
+          .sort((a, b) => new Date(b.start_time_utc).getTime() - new Date(a.start_time_utc).getTime());
 
         if (currentTab === "upcoming") {
-          const upcoming = allBookings
-            .filter((b) => b.status === "booked" && new Date(b.start_time_utc) > now)
-            .sort((a, b) => new Date(a.start_time_utc).getTime() - new Date(b.start_time_utc).getTime());
           setUpcomingLessons(upcoming);
-
-          const cached = userId ? getCachedLessons(userId, roleVariant) : null;
-          if (userId) {
-            setCachedLessons(userId, roleVariant, {
-              upcomingLessons: upcoming,
-              pastLessons: cached?.pastLessons ?? [],
-              cancelledLessons: cached?.cancelledLessons ?? [],
-              fetchedTabs: {
-                upcoming: true,
-                past: cached?.fetchedTabs.past ?? false,
-                cancelled: cached?.fetchedTabs.cancelled ?? false,
-              },
-            });
-          }
         } else {
-          const past = allBookings
-            .filter(
-              (b) => b.status === "completed" || (b.status === "booked" && new Date(b.start_time_utc) <= now)
-            )
-            .sort((a, b) => new Date(b.start_time_utc).getTime() - new Date(a.start_time_utc).getTime());
           setPastLessons(past);
+        }
 
-          const cached = userId ? getCachedLessons(userId, roleVariant) : null;
-          if (userId) {
-            setCachedLessons(userId, roleVariant, {
-              upcomingLessons: cached?.upcomingLessons ?? [],
-              pastLessons: past,
-              cancelledLessons: cached?.cancelledLessons ?? [],
-              fetchedTabs: {
-                upcoming: cached?.fetchedTabs.upcoming ?? false,
-                past: true,
-                cancelled: cached?.fetchedTabs.cancelled ?? false,
-              },
-            });
-          }
+        const cached = userId ? getCachedLessons(userId, roleVariant) : null;
+        if (userId) {
+          setCachedLessons(userId, roleVariant, {
+            upcomingLessons: upcoming,
+            pastLessons: past,
+            cancelledLessons: cached?.cancelledLessons ?? [],
+            fetchedTabs: {
+              upcoming: true,
+              past: true,
+              cancelled: cached?.fetchedTabs.cancelled ?? false,
+            },
+          });
         }
 
         return;
@@ -320,7 +303,7 @@ export default function LessonsPage() {
           : `${API_CONFIG.BASE_URL}/api/bookings/cancellations/mine`;
         const cancellationsRes = await fetch(
           cancellationsUrl,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
         );
         const allCancellations: CancellationResponse[] = cancellationsRes.ok ? await cancellationsRes.json() : [];
 
@@ -347,7 +330,7 @@ export default function LessonsPage() {
           : `${API_CONFIG.BASE_URL}/api/bookings/mine${statusParam}`;
         const bookingsRes = await fetch(
           bookingsUrl,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
         );
 
         if (!bookingsRes.ok) throw new Error("Failed to fetch lessons");
@@ -370,6 +353,8 @@ export default function LessonsPage() {
               // Reuse existing card fields for role-specific rendering.
               instructor_name: studentName,
               instructor_image: row.student?.image_url ?? null,
+              instructor_email: row.student?.email ?? null,
+              instructor_phone: row.student?.mobile_number ?? null,
               package_name_snapshot: row.package_name_snapshot ?? null,
               package_percentage_snapshot: row.package_percentage_snapshot ?? null,
               pre_discount_price: row.pre_discount_price ?? null,
@@ -531,6 +516,7 @@ export default function LessonsPage() {
       const res = await fetch(`${API_CONFIG.BASE_URL}/api/bookings/${lessonToCancel.id}/cancel`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify({ reason: cancelReason, description: cancelDescription.trim() || null }),
       });
 
@@ -552,7 +538,7 @@ export default function LessonsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20">
-      {!isRoleLoading && !isAutoschoolLoading && <MobileDashboardNav isInstructor={isInstructor} />}
+      <MobileDashboardNav isInstructor={isInstructor} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tabs + Book New Lesson */}
@@ -614,21 +600,21 @@ export default function LessonsPage() {
                   lessonCodes={{}}
                   isLoadingCodes={false}
                   minCancelHours={minCancelHours}
-                  isInstructor={isAutoschoolAdmin ? false : isInstructor}
+                  isInstructor={isInstructor || isAutoschoolAdmin}
                   highlightedBookingId={highlightedBookingId}
                 />
               )}
               {activeTab === "past" && (
                 <PastLessons
                   lessons={pastLessons}
-                  isInstructor={isAutoschoolAdmin ? false : isInstructor}
+                  isInstructor={isInstructor || isAutoschoolAdmin}
                   highlightedBookingId={highlightedBookingId}
                 />
               )}
               {activeTab === "cancelled" && (
                 <CancelledLessons
                   lessons={cancelledLessons}
-                  isInstructor={isAutoschoolAdmin ? false : isInstructor}
+                  isInstructor={isInstructor || isAutoschoolAdmin}
                   highlightedCancellationId={highlightedCancellationId}
                 />
               )}

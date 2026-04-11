@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { useAuth as useClerkAuth } from "@clerk/nextjs";
+import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import { ResponsiveCalendar, SlotData, SlotStatus, generateTimeSlots } from "@/components/dashboard/instructor/ResponsiveCalendar";
 import Button from "@/components/ui/Button";
@@ -9,6 +9,11 @@ import { useInstructorApproval } from "@/hooks/useInstructorApproval";
 import { Save, RotateCcw, Clock, Loader2, AlertCircle, CheckCircle, Copy } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { API_CONFIG } from '@/config/constants';
+import {
+  clearDashboardRouteNamespace,
+  readDashboardRouteCache,
+  writeDashboardRouteCache,
+} from "@/lib/dashboardRouteCache";
 
 // Duration options in minutes
 const DURATION_OPTIONS = [
@@ -60,12 +65,16 @@ interface BookedSlotCancelState {
 }
 
 const CANCELLATION_CONFIRM_TOKENS = ["cancel", "გაუქმება"] as const;
+const SCHEDULE_CACHE_NAMESPACE = "instructor-schedule";
+const SCHEDULE_CACHE_TTL_MS = 60 * 1000;
 
 export default function SchedulePage() {
   const { getToken } = useClerkAuth();
+  const { user } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] ?? "ka";
+  const userId = user?.id ?? null;
   const confirmationPrimary = locale === "ka" ? "გაუქმება" : "cancel";
   const confirmationSecondary = locale === "ka" ? "cancel" : "გაუქმება";
 
@@ -93,22 +102,51 @@ export default function SchedulePage() {
   // Get user's timezone
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+  const persistScheduleCache = useCallback((nextSlots: Record<string, SlotData>) => {
+    if (!userId) return;
+    writeDashboardRouteCache(
+      {
+        namespace: SCHEDULE_CACHE_NAMESPACE,
+        userId,
+        variant: timeZone,
+      },
+      nextSlots
+    );
+  }, [userId, timeZone]);
+
   // Redirect if not approved
   useEffect(() => {
     if (!isChecking && !isApproved) {
       router.replace(`/${locale}/dashboard`);
     }
-  }, [isApproved, isChecking, router]);
+  }, [isApproved, isChecking, locale, router]);
 
   // Fetch existing slots
   const fetchSlots = useCallback(async () => {
-    setIsLoading(true);
+    const cached = userId
+      ? readDashboardRouteCache<Record<string, SlotData>>({
+          namespace: SCHEDULE_CACHE_NAMESPACE,
+          userId,
+          variant: timeZone,
+          ttlMs: SCHEDULE_CACHE_TTL_MS,
+        })
+      : null;
+
+    if (cached) {
+      setSlots(cached);
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
+
     setError(null);
 
     try {
       const token = await getToken();
       if (!token) {
-        setError("Authentication required");
+        if (!cached) {
+          setError("Authentication required");
+        }
         return;
       }
 
@@ -119,6 +157,7 @@ export default function SchedulePage() {
             headers: {
               Authorization: `Bearer ${token}`,
             },
+            cache: "no-store",
           }
         ),
         fetch(
@@ -127,6 +166,7 @@ export default function SchedulePage() {
             headers: {
               Authorization: `Bearer ${token}`,
             },
+            cache: "no-store",
           }
         ),
       ]);
@@ -162,12 +202,15 @@ export default function SchedulePage() {
       });
 
       setSlots(slotMap);
+      persistScheduleCache(slotMap);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch slots");
+      if (!cached) {
+        setError(err instanceof Error ? err.message : "Failed to fetch slots");
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [getToken, timeZone]);
+  }, [getToken, persistScheduleCache, timeZone, userId]);
 
   // Fetch slots on mount
   useEffect(() => {
@@ -215,6 +258,7 @@ export default function SchedulePage() {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          cache: "no-store",
         }
       );
 
@@ -227,6 +271,10 @@ export default function SchedulePage() {
       setSlots((prev) => {
         const newSlots = { ...prev };
         delete newSlots[slotKey];
+        if (userId) {
+          clearDashboardRouteNamespace(SCHEDULE_CACHE_NAMESPACE, userId);
+        }
+        persistScheduleCache(newSlots);
         return newSlots;
       });
 
@@ -235,7 +283,7 @@ export default function SchedulePage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete slot");
     }
-  }, [getToken]);
+  }, [getToken, persistScheduleCache, userId]);
 
   // Combine existing slots with pending slots for display
   const combinedSlots = React.useMemo(() => {
@@ -315,6 +363,7 @@ export default function SchedulePage() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
+          cache: "no-store",
           body: JSON.stringify({
             reason: "instructor_request",
             description: "Cancelled by instructor from schedule",
@@ -338,6 +387,10 @@ export default function SchedulePage() {
             student: undefined,
           };
         }
+        if (userId) {
+          clearDashboardRouteNamespace(SCHEDULE_CACHE_NAMESPACE, userId);
+        }
+        persistScheduleCache(next);
         return next;
       });
 
@@ -351,7 +404,7 @@ export default function SchedulePage() {
     } finally {
       setIsCancellingBookedSlot(false);
     }
-  }, [slotToCancel, cancelConfirmationText, getToken]);
+  }, [slotToCancel, cancelConfirmationText, getToken, persistScheduleCache, userId]);
 
   // Save pending slots to backend
   const handleSave = async () => {
@@ -383,6 +436,7 @@ export default function SchedulePage() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
+          cache: "no-store",
           body: JSON.stringify({
             time_zone: timeZone,
             duration_minutes: durationMinutes,
@@ -416,6 +470,10 @@ export default function SchedulePage() {
       });
 
       setSlots(newSlots);
+      if (userId) {
+        clearDashboardRouteNamespace(SCHEDULE_CACHE_NAMESPACE, userId);
+      }
+      persistScheduleCache(newSlots);
       setPendingSlots(new Set());
 
       // Show success message

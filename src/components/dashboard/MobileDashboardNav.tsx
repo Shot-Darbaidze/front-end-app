@@ -66,6 +66,7 @@ export const MobileDashboardNav = ({ isInstructor = false }: MobileDashboardNavP
               <Link
                 key={item.href}
                 href={localeHref(item.href)}
+                onClick={(e) => { if (active) e.preventDefault(); }}
                 className={`
                   flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl
                   text-sm font-semibold whitespace-nowrap transition-all duration-300 py-2.5 px-3

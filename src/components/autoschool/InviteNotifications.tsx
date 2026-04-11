@@ -28,9 +28,45 @@ interface Invite {
 }
 
 const API_BASE = API_CONFIG.BASE_URL;
+const INVITES_CACHE_TTL_MS = 60 * 1000;
+
+function invitesCacheKey(userId: string) {
+  return `dashboard-invites-v1:${userId}`;
+}
+
+function readInvitesCache(userId: string): Invite[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(invitesCacheKey(userId));
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as { timestamp?: number; data?: Invite[] };
+    if (!parsed.timestamp || Date.now() - parsed.timestamp > INVITES_CACHE_TTL_MS) {
+      window.sessionStorage.removeItem(invitesCacheKey(userId));
+      return null;
+    }
+
+    return Array.isArray(parsed.data) ? parsed.data : null;
+  } catch {
+    window.sessionStorage.removeItem(invitesCacheKey(userId));
+    return null;
+  }
+}
+
+function writeInvitesCache(userId: string, invites: Invite[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(
+      invitesCacheKey(userId),
+      JSON.stringify({ timestamp: Date.now(), data: invites })
+    );
+  } catch {
+    // Ignore storage write errors.
+  }
+}
 
 export default function InviteNotifications() {
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, userId } = useAuth();
   const router = useRouter();
   const localeHref = useLocaleHref();
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -39,24 +75,38 @@ export default function InviteNotifications() {
   const [failed, setFailed] = useState(false);
 
   const fetchInvites = useCallback(async () => {
-    if (!isSignedIn) return;
+    if (!isSignedIn || !userId) return;
+
+    const cached = readInvitesCache(userId);
+    if (cached) {
+      setInvites(cached);
+      setLoading(false);
+    }
+
     try {
       const token = await getToken();
       const res = await fetch(`${API_BASE}/api/me/autoschool-invites`, {
         headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
       });
       if (!res.ok) {
-        setFailed(true);
+        if (!cached) {
+          setFailed(true);
+        }
         return;
       }
       setFailed(false);
-      setInvites(await res.json());
+      const data = (await res.json()) as Invite[];
+      setInvites(data);
+      writeInvitesCache(userId, data);
     } catch {
-      setFailed(true);
+      if (!cached) {
+        setFailed(true);
+      }
     } finally {
       setLoading(false);
     }
-  }, [getToken, isSignedIn]);
+  }, [getToken, isSignedIn, userId]);
 
   useEffect(() => {
     fetchInvites();
@@ -87,11 +137,18 @@ export default function InviteNotifications() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        cache: "no-store",
         body: JSON.stringify({ accept }),
       });
       if (res.ok) {
         // Remove the responded invite from the list
-        setInvites((prev) => prev.filter((i) => i.id !== inviteId));
+        setInvites((prev) => {
+          const next = prev.filter((i) => i.id !== inviteId);
+          if (userId) {
+            writeInvitesCache(userId, next);
+          }
+          return next;
+        });
       }
     } catch {
       // Silently ignore

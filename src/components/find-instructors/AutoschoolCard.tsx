@@ -3,6 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Building2, MapPin, Users, Package, Star } from "lucide-react";
+import { useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useLocaleHref } from "@/hooks/useLocaleHref";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { resolveMediaUrl } from "@/utils/media";
@@ -36,9 +38,19 @@ const AutoschoolCard = ({
   automatic_city_price,
   automatic_yard_price,
 }: AutoschoolCardProps) => {
+  const router = useRouter();
   const localeHref = useLocaleHref();
   const { language } = useLanguage();
   const isKa = language === "ka";
+  const profileHref = localeHref(`/autoschools/${id}`);
+  const prefetchedRef = useRef(false);
+
+  const prefetchProfile = useCallback(() => {
+    if (prefetchedRef.current) return;
+    prefetchedRef.current = true;
+    router.prefetch(profileHref);
+  }, [router, profileHref]);
+
   const toNumber = (value?: number | string | null): number | null => {
     if (value === null || value === undefined) return null;
     const parsed = typeof value === "number" ? value : Number(value);
@@ -144,8 +156,11 @@ const AutoschoolCard = ({
           </div>
         </div>
         <Link
-          href={localeHref(`/autoschools/${id}`)}
+          href={profileHref}
           className="block w-full after:content-[''] after:absolute after:inset-0 after:z-[1] after:rounded-2xl"
+          onMouseEnter={prefetchProfile}
+          onFocus={prefetchProfile}
+          onTouchStart={prefetchProfile}
         >
           <button className="w-full whitespace-nowrap py-2.5 px-4 bg-white border-2 border-[#F03D3D] text-[#F03D3D] rounded-xl font-bold text-sm hover:bg-[#F03D3D] hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95">
             {isKa ? "პროფილის ნახვა" : "View Profile"}

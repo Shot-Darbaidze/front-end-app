@@ -70,6 +70,20 @@ const UpcomingLessonCard = memo(function UpcomingLessonCard({
                                 View Instructor <ExternalLink className="w-3 h-3" />
                             </Link>
                         )}
+                        {(lesson.instructor_phone || lesson.instructor_email) && (
+                            <div className="mt-1 space-y-0.5 text-[11px] text-slate-500">
+                                {lesson.instructor_phone && (
+                                    <p>
+                                        Phone: <a href={`tel:${lesson.instructor_phone}`} className="font-medium text-slate-600 hover:text-[#F03D3D]">{lesson.instructor_phone}</a>
+                                    </p>
+                                )}
+                                {lesson.instructor_email && (
+                                    <p>
+                                        Email: <a href={`mailto:${lesson.instructor_email}`} className="font-medium text-slate-600 hover:text-[#F03D3D]">{lesson.instructor_email}</a>
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 

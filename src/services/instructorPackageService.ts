@@ -36,6 +36,7 @@ export async function createMyPackage(
     "/api/posts/mine/packages",
     {
       method: "POST",
+      cache: "no-store",
       body: JSON.stringify(data),
     },
     token,
@@ -51,6 +52,7 @@ export async function updateMyPackage(
     `/api/posts/mine/packages/${packageId}`,
     {
       method: "PATCH",
+      cache: "no-store",
       body: JSON.stringify(data),
     },
     token,
@@ -65,6 +67,7 @@ export async function deleteMyPackage(
     `/api/posts/mine/packages/${packageId}`,
     {
       method: "DELETE",
+      cache: "no-store",
     },
     token,
   );

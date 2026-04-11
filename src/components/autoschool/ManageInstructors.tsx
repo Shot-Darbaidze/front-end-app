@@ -19,6 +19,7 @@ interface Instructor {
   instructor_type: string;
   status: string;
   has_upcoming_lessons?: boolean;
+  has_unwithdrawn_earnings?: boolean;
   /** NULL = admin has not enabled any mode — instructor is NOT bookable.
    *  "city" | "yard" | "both" = explicitly enabled by admin. */
   allowed_modes: "city" | "yard" | "both" | null;
@@ -200,6 +201,10 @@ export default function ManageInstructors({ schoolId }: Props) {
       setError("This instructor cannot be removed while they still have upcoming lessons.");
       return;
     }
+    if (inst.has_unwithdrawn_earnings) {
+      setError("This instructor cannot be removed while they still have unwithdrawn earnings.");
+      return;
+    }
     if (!confirm("Are you sure you want to remove this instructor? This cannot be undone.")) return;
     setKicking(inst.id);
     setError(null);
@@ -336,6 +341,19 @@ export default function ManageInstructors({ schoolId }: Props) {
             const name = [inst.first_name, inst.last_name].filter(Boolean).join(" ") || inst.title;
             const isEditing = editingId === inst.id;
             const es = isEditing ? editState : null;
+            const hasUpcomingLessons = !!inst.has_upcoming_lessons;
+            const hasUnwithdrawnEarnings = !!inst.has_unwithdrawn_earnings;
+            const removeDisabled = kicking === inst.id || hasUpcomingLessons || hasUnwithdrawnEarnings;
+            const removeTitle = hasUpcomingLessons
+              ? "Cannot remove instructors with upcoming lessons."
+              : hasUnwithdrawnEarnings
+                ? "Cannot remove instructors with unwithdrawn earnings."
+                : undefined;
+            const removeLabel = hasUpcomingLessons
+              ? "Has upcoming lessons"
+              : hasUnwithdrawnEarnings
+                ? "Pending withdrawal"
+                : "Remove";
 
             return (
               <div key={inst.id} className="transition-colors">
@@ -363,7 +381,8 @@ export default function ManageInstructors({ schoolId }: Props) {
                         </span>
                       )}
                       {inst.transmission && <span>{inst.transmission}</span>}
-                      {inst.has_upcoming_lessons && <span className="font-medium text-amber-600">Upcoming lessons</span>}
+                      {hasUpcomingLessons && <span className="font-medium text-amber-600">Upcoming lessons</span>}
+                      {hasUnwithdrawnEarnings && <span className="font-medium text-orange-600">Unwithdrawn earnings</span>}
                       {/* Read-only prices from school level */}
                       {inst.city_price != null && <span>City ₾{Number(inst.city_price)}</span>}
                       {inst.yard_price != null && <span>Yard ₾{Number(inst.yard_price)}</span>}
@@ -411,8 +430,8 @@ export default function ManageInstructors({ schoolId }: Props) {
                   {/* Remove button */}
                   <button
                     onClick={() => handleKick(inst)}
-                    disabled={kicking === inst.id || !!inst.has_upcoming_lessons}
-                    title={inst.has_upcoming_lessons ? "Cannot remove instructors with upcoming lessons." : undefined}
+                    disabled={removeDisabled}
+                    title={removeTitle}
                     className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                   >
                     {kicking === inst.id ? (
@@ -425,7 +444,7 @@ export default function ManageInstructors({ schoolId }: Props) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
                       </svg>
                     )}
-                    {inst.has_upcoming_lessons ? "Has upcoming lessons" : "Remove"}
+                    {removeLabel}
                   </button>
                 </div>
 

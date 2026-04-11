@@ -59,6 +59,7 @@ export interface SchoolInstructor {
   instructor_type: "independent" | "employee";
   status: string;
   has_upcoming_lessons?: boolean;
+  has_unwithdrawn_earnings?: boolean;
 }
 
 export interface AutoschoolDetail {
@@ -384,7 +385,9 @@ export async function getAutoschoolPackagesForAdmin(
 ): Promise<CoursePackage[]> {
   return apiFetch<CoursePackage[]>(
     `/api/autoschools/${schoolId}/packages`,
-    {},
+    {
+      cache: "no-store",
+    },
     token,
   );
 }
@@ -399,6 +402,7 @@ export async function createPackage(
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      cache: "no-store",
       body: JSON.stringify(data),
     },
     token,
@@ -416,6 +420,7 @@ export async function updatePackage(
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
+      cache: "no-store",
       body: JSON.stringify(data),
     },
     token,
@@ -429,7 +434,10 @@ export async function deletePackage(
 ): Promise<{ detail: string }> {
   return apiFetch(
     `/api/autoschools/${schoolId}/packages/${packageId}`,
-    { method: "DELETE" },
+    {
+      method: "DELETE",
+      cache: "no-store",
+    },
     token,
   );
 }

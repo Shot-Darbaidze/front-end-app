@@ -103,7 +103,7 @@ export default async function FindInstructorsPage({
   // Fetch top instructors for ItemList schema (SSR-visible for crawlers)
   let itemListSchema = null;
   try {
-    const res = await fetch(`${API_BASE}/api/posts?limit=10`, {
+    const res = await fetch(`${API_BASE}/api/posts/search?limit=10&offset=0`, {
       next: { revalidate: 3600 },
     });
     if (res.ok) {
@@ -114,11 +114,11 @@ export default async function FindInstructorsPage({
           '@context': 'https://schema.org',
           '@type': 'ItemList',
           name: locale === 'ka' ? 'მართვის ინსტრუქტორები' : 'Driving Instructors',
-          itemListElement: list.map((inst: { id: string; applicant_first_name?: string; applicant_last_name?: string; title?: string }, i: number) => ({
+          itemListElement: list.map((inst: { id: string; name?: string; title?: string }, i: number) => ({
             '@type': 'ListItem',
             position: i + 1,
             url: `https://instruktori.ge/${locale}/instructors/${inst.id}`,
-            name: [inst.applicant_first_name, inst.applicant_last_name].filter(Boolean).join(' ') || inst.title || 'Instructor',
+            name: inst.name || inst.title || 'Instructor',
           })),
         };
       }

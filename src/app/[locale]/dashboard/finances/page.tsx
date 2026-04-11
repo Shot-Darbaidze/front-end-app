@@ -2,10 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth as useClerkAuth } from "@clerk/nextjs";
+import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import { MobileDashboardNav } from "@/components/dashboard/MobileDashboardNav";
 import { useInstructorApproval } from "@/hooks/useInstructorApproval";
 import { API_CONFIG } from "@/config/constants";
+import {
+  clearDashboardRouteNamespace,
+  readDashboardRouteCache,
+  writeDashboardRouteCache,
+} from "@/lib/dashboardRouteCache";
 
 type EligibleBooking = {
   id: string;
@@ -49,6 +54,12 @@ type DateRange = {
   toDate: string;
 };
 
+const FINANCES_CACHE_NAMESPACE = "finances-summary";
+const FINANCES_METRIC_CACHE_NAMESPACE = "finances-metric";
+const FINANCES_CACHE_TTL_MS = 60 * 1000;
+const FINANCES_METRIC_CACHE_TTL_MS = 45 * 1000;
+const API_TIMEOUT_MS = 10_000;
+
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "GEL",
@@ -67,11 +78,23 @@ function formatDateTime(value: string) {
   });
 }
 
+function getRangeVariant(range: DateRange): string {
+  return `${range.fromDate || "default"}|${range.toDate || "default"}`;
+}
+
+function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 export default function FinancesPage() {
   const { getToken } = useClerkAuth();
+  const { user } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const locale = pathname?.split("/")[1] ?? "en";
+  const userId = user?.id ?? null;
   const { isInstructor, isEmployee, isLoading } = useInstructorApproval();
   const [financeData, setFinanceData] = useState<FinancesResponse | null>(null);
   const [isFetching, setIsFetching] = useState(true);
@@ -95,7 +118,23 @@ export default function FinancesPage() {
   }, []);
 
   const loadMetric = useCallback(async (metric: MetricKey, range: DateRange) => {
-    setIsMetricLoading(true);
+    const metricVariant = `${metric}|${getRangeVariant(range)}`;
+    const cached = userId
+      ? readDashboardRouteCache<MetricResponse>({
+          namespace: FINANCES_METRIC_CACHE_NAMESPACE,
+          userId,
+          variant: metricVariant,
+          ttlMs: FINANCES_METRIC_CACHE_TTL_MS,
+        })
+      : null;
+
+    if (cached) {
+      setMetricData(cached);
+      setIsMetricLoading(false);
+    } else {
+      setIsMetricLoading(true);
+    }
+
     setError(null);
 
     try {
@@ -111,6 +150,7 @@ export default function FinancesPage() {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          cache: "no-store",
         }
       );
 
@@ -121,31 +161,68 @@ export default function FinancesPage() {
 
       const data = (await response.json()) as MetricResponse;
       setMetricData(data);
+
+      if (userId) {
+        writeDashboardRouteCache(
+          {
+            namespace: FINANCES_METRIC_CACHE_NAMESPACE,
+            userId,
+            variant: metricVariant,
+          },
+          data
+        );
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load metric details");
+      if (!cached) {
+        setError(err instanceof Error ? err.message : "Failed to load metric details");
+      }
     } finally {
       setIsMetricLoading(false);
     }
-  }, [buildRangeParams, getToken]);
+  }, [buildRangeParams, getToken, userId]);
 
   const loadFinances = useCallback(async (range: DateRange) => {
-    setIsFetching(true);
+    const cacheVariant = getRangeVariant(range);
+    const cached = userId
+      ? readDashboardRouteCache<FinancesResponse>({
+          namespace: FINANCES_CACHE_NAMESPACE,
+          userId,
+          variant: cacheVariant,
+          ttlMs: FINANCES_CACHE_TTL_MS,
+        })
+      : null;
+
+    if (cached) {
+      setFinanceData(cached);
+      setIsFetching(false);
+    } else {
+      setIsFetching(true);
+    }
+
     setError(null);
+
     try {
       const token = await getToken();
       if (!token) {
-        setError("Not authorized");
-        setIsFetching(false);
+        if (!cached) {
+          setError("Not authorized");
+          setIsFetching(false);
+        }
         return;
       }
 
       const rangeParams = buildRangeParams(range);
       const url = `${API_CONFIG.BASE_URL}/api/dashboard/finances${rangeParams ? `?${rangeParams}` : ""}`;
-      const rangedResponse = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const rangedResponse = await fetchWithTimeout(
+        url,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
         },
-      });
+        API_TIMEOUT_MS
+      );
 
       if (!rangedResponse.ok) {
         const body = await rangedResponse.json().catch(() => ({}));
@@ -154,12 +231,25 @@ export default function FinancesPage() {
 
       const data = (await rangedResponse.json()) as FinancesResponse;
       setFinanceData(data);
+
+      if (userId) {
+        writeDashboardRouteCache(
+          {
+            namespace: FINANCES_CACHE_NAMESPACE,
+            userId,
+            variant: cacheVariant,
+          },
+          data
+        );
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load finances");
+      if (!cached) {
+        setError(err instanceof Error ? err.message : "Failed to load finances");
+      }
     } finally {
       setIsFetching(false);
     }
-  }, [buildRangeParams, getToken]);
+  }, [buildRangeParams, getToken, userId]);
 
   useEffect(() => {
     if (!isLoading && !isInstructor) {
@@ -201,12 +291,18 @@ export default function FinancesPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        cache: "no-store",
         body: JSON.stringify({}),
       });
 
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body?.detail?.message || body?.detail || "Withdraw failed");
+      }
+
+      if (userId) {
+        clearDashboardRouteNamespace(FINANCES_CACHE_NAMESPACE, userId);
+        clearDashboardRouteNamespace(FINANCES_METRIC_CACHE_NAMESPACE, userId);
       }
 
       await loadFinances(appliedRange);

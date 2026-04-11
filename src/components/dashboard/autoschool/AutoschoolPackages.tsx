@@ -25,6 +25,10 @@ import {
   MAX_PACKAGE_DISCOUNT_PERCENTAGE,
   MIN_PACKAGE_DISCOUNT_PERCENTAGE,
 } from "@/utils/packages";
+import {
+  readDashboardRouteCache,
+  writeDashboardRouteCache,
+} from "@/lib/dashboardRouteCache";
 
 interface AutoschoolPackagesProps {
   schoolId: string;
@@ -61,6 +65,13 @@ const emptyForm = (): PackageFormState => ({
 
 const DISCOUNT_PRESET_VALUES = [5, 10, 15, 20, 25] as const;
 const DEFAULT_PACKAGE_TRANSMISSIONS = ["manual", "automatic", "both"] as const;
+const AUTOSCHOOL_PACKAGES_CACHE_NAMESPACE = "autoschool-packages";
+const AUTOSCHOOL_PACKAGES_CACHE_TTL_MS = 60 * 1000;
+
+type AutoschoolPackagesCachePayload = {
+  school: AutoschoolDetail | null;
+  packages: CoursePackage[];
+};
 
 function getSelectableTransmissions(
   availableTransmissions: readonly PackageFormState["transmission"][] | undefined,
@@ -666,7 +677,7 @@ export function PackageCard({
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
-  const { getToken } = useClerkAuth();
+  const { getToken, userId } = useClerkAuth();
   const { language } = useLanguage();
 
   const [packages, setPackages] = useState<CoursePackage[]>([]);
@@ -680,13 +691,44 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  const persistPackagesCache = useCallback((nextSchool: AutoschoolDetail | null, nextPackages: CoursePackage[]) => {
+    writeDashboardRouteCache(
+      {
+        namespace: AUTOSCHOOL_PACKAGES_CACHE_NAMESPACE,
+        userId: userId ?? "anonymous",
+        variant: schoolId,
+      },
+      {
+        school: nextSchool,
+        packages: nextPackages,
+      }
+    );
+  }, [schoolId, userId]);
+
   const load = useCallback(async () => {
-    try {
+    const cacheUserId = userId ?? "anonymous";
+    const cached = readDashboardRouteCache<AutoschoolPackagesCachePayload>({
+      namespace: AUTOSCHOOL_PACKAGES_CACHE_NAMESPACE,
+      userId: cacheUserId,
+      variant: schoolId,
+      ttlMs: AUTOSCHOOL_PACKAGES_CACHE_TTL_MS,
+    });
+
+    if (cached) {
+      setSchool(cached.school);
+      setPackages(cached.packages);
+      setIsLoading(false);
+    } else {
       setIsLoading(true);
+    }
+
+    try {
       setError(null);
       const token = await getToken();
       if (!token) {
-        setError(language === "ka" ? "ავტორიზაცია საჭიროა." : "Authorization is required.");
+        if (!cached) {
+          setError(language === "ka" ? "ავტორიზაცია საჭიროა." : "Authorization is required.");
+        }
         return;
       }
       const [s, packageRows] = await Promise.all([
@@ -695,12 +737,15 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
       ]);
       setSchool(s);
       setPackages(packageRows);
+      persistPackagesCache(s, packageRows);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load packages.");
+      if (!cached) {
+        setError(e instanceof Error ? e.message : "Failed to load packages.");
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [getToken, language, schoolId]);
+  }, [getToken, language, persistPackagesCache, schoolId, userId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -727,7 +772,9 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
       const created = await createPackage(schoolId, formToInput(form), token);
       setPackages((prev) => {
         const base = form.popular ? prev.map((p) => ({ ...p, popular: false })) : prev;
-        return [...base, created];
+        const next = [...base, created];
+        persistPackagesCache(school, next);
+        return next;
       });
       setShowAddForm(false);
       flash(language === "ka" ? "პაკეტი დამატებულია" : "Package created successfully.");
@@ -745,10 +792,14 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
       if (!token) return;
       const updated = await updatePackage(schoolId, pkg.id, formToInput(form), token);
       setPackages((prev) =>
-        prev.map((p) => {
+        {
+          const next = prev.map((p) => {
           if (p.id === pkg.id) return updated;
           return form.popular ? { ...p, popular: false } : p;
-        })
+          });
+          persistPackagesCache(school, next);
+          return next;
+        }
       );
       setEditingId(null);
       flash(language === "ka" ? "პაკეტი განახლდა" : "Package updated.");
@@ -768,7 +819,11 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
       const token = await getToken();
       if (!token) return;
       await deletePackage(schoolId, pkg.id, token);
-      setPackages((prev) => prev.filter((p) => p.id !== pkg.id));
+      setPackages((prev) => {
+        const next = prev.filter((p) => p.id !== pkg.id);
+        persistPackagesCache(school, next);
+        return next;
+      });
       flash(language === "ka" ? "პაკეტი წაიშალა" : "Package deleted.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete package.");
@@ -783,7 +838,11 @@ export function AutoschoolPackages({ schoolId }: AutoschoolPackagesProps) {
       const token = await getToken();
       if (!token) return;
       const updated = await updatePackage(schoolId, pkg.id, { is_active: !(pkg.is_active ?? true) }, token);
-      setPackages((prev) => prev.map((item) => (item.id === pkg.id ? updated : item)));
+      setPackages((prev) => {
+        const next = prev.map((item) => (item.id === pkg.id ? updated : item));
+        persistPackagesCache(school, next);
+        return next;
+      });
       flash(
         (pkg.is_active ?? true)
           ? language === "ka" ? "პაკეტი დეაქტივირდა" : "Package deactivated."

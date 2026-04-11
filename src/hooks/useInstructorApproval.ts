@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import { API_CONFIG } from "@/config/constants";
 
@@ -63,63 +63,44 @@ function writeCachedApproval(userId: string, isApproved: boolean, instructorType
 export function useInstructorApproval() {
   const { getToken, isLoaded } = useClerkAuth();
   const { user, isLoaded: isUserLoaded } = useUser();
-  const [isInstructor, setIsInstructor] = useState<boolean>(false);
-  const [isEmployee, setIsEmployee] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-
   const userId = user?.id;
+
+  // Read from cache synchronously on the render where userId becomes available.
+  // useMemo re-runs when userId changes, so the cached value is visible on the
+  // exact render where Clerk resolves the user — no extra useEffect→setState cycle.
+  const fromCache = useMemo(() => {
+    if (!userId || typeof window === "undefined") return null;
+    return readCachedApproval(userId);
+  }, [userId]);
+
+  // API result — keyed by userId so stale data from a previous account is never used
+  const [fromApi, setFromApi] = useState<{ userId: string; isApproved: boolean; instructorType: string | null } | null>(null);
+
+  // Prefer fresh API data (if it matches the current user); fall back to synchronous cache
+  const relevantFromApi = fromApi?.userId === userId ? fromApi : null;
+  const resolved = relevantFromApi ?? fromCache;
+
+  const isInstructor = resolved?.isApproved ?? false;
+  const isEmployee = resolved?.instructorType === "employee";
+  // Still loading while Clerk hasn't resolved, or user is known but we have no data yet
+  const isLoading = !isLoaded || !isUserLoaded || (!!userId && resolved === null);
 
   useEffect(() => {
     let isMounted = true;
 
     const checkApproval = async () => {
-      if (!isLoaded || !isUserLoaded) {
-        return;
-      }
-
-      if (!userId) {
-        if (isMounted) {
-          setIsInstructor(false);
-          setIsEmployee(false);
-          setIsLoading(false);
-        }
-        return;
-      }
-
-      const cached = readCachedApproval(userId);
-      if (cached !== null && isMounted) {
-        setIsInstructor(cached.isApproved);
-        setIsEmployee(cached.instructorType === "employee");
-        setIsLoading(false);
-      }
-
-      if (isMounted && cached === null) {
-        setIsLoading(true);
-      }
+      if (!isLoaded || !isUserLoaded || !userId) return;
 
       try {
         const token = await getToken();
-        if (!token) {
-          if (isMounted) {
-            setIsInstructor(false);
-            setIsEmployee(false);
-            setIsLoading(false);
-          }
-          return;
-        }
+        if (!token || !isMounted) return;
 
         const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/mine`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (!response.ok) {
-          if (isMounted) {
-            setIsInstructor(false);
-            setIsEmployee(false);
-            setIsLoading(false);
-          }
+          if (isMounted) setFromApi({ userId, isApproved: false, instructorType: null });
           return;
         }
 
@@ -128,15 +109,9 @@ export function useInstructorApproval() {
         const instrType = (result as ApprovalPayload & { instructor_type?: string }).instructor_type ?? null;
         writeCachedApproval(userId, approved, instrType);
 
-        if (isMounted) {
-          setIsInstructor(approved);
-          setIsEmployee(instrType === "employee");
-          setIsLoading(false);
-        }
+        if (isMounted) setFromApi({ userId, isApproved: approved, instructorType: instrType });
       } catch {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        // API failed — fromCache already provides the fallback value
       }
     };
 

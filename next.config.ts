@@ -85,6 +85,10 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'images.instruktori.ge',
+      },
+      {
+        protocol: 'https',
         hostname: 'pub-3dfd12c5fa9d40069445cd407dfc0481.r2.dev',
       },
     ],

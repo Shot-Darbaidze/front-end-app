@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/nextjs";
 import { API_CONFIG } from "@/config/constants";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -247,9 +247,14 @@ export default function DashboardPage() {
   const { schoolId: mySchoolId, isAutoschoolAdmin, isLoading: isAutoschoolRoleLoading } = useAutoschoolAdmin();
   const userId = clerkUser?.id;
 
-  // Always start with loading/empty state to match SSR (avoids hydration mismatch).
-  // Cache is applied in useEffect after mount.
-  const cachedApproval = useRef<boolean | null>(null);
+  // Read approval from localStorage synchronously on the render where userId becomes
+  // available. useMemo re-runs when userId changes, so the value is correct without
+  // a useEffect→setState cycle — eliminating the flash of wrong role content.
+  const cachedApprovalSync = useMemo((): boolean | null => {
+    if (!userId || typeof window === "undefined") return null;
+    return getCachedApproval(userId);
+  }, [userId]);
+
   const cachedDashboard = useRef<DashboardSummary | null>(null);
 
   const [isApproved, setIsApproved] = useState(false);
@@ -265,6 +270,13 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasResolvedApproval, setHasResolvedApproval] = useState(false);
 
+  // Derived — instantly true when the synchronous cache knows the role.
+  // Falls back to the effect-set value once the API resolves.
+  const effectiveHasResolved =
+    hasResolvedApproval ||
+    (isUserLoaded && (cachedApprovalSync !== null || !userId));
+  const effectiveIsApproved = hasResolvedApproval ? isApproved : (cachedApprovalSync ?? false);
+
   const [autoschoolTab, setAutoschoolTab] = useState<AutoschoolTabId>("members");
   const firstName = clerkUser?.firstName || "";
 
@@ -274,25 +286,14 @@ export default function DashboardPage() {
     }
 
     if (!userId) {
-      setIsApproved(false);
       setIsLoading(false);
-      setHasResolvedApproval(true);
       return;
     }
 
-    setHasResolvedApproval(false);
-
     let isMounted = true;
 
-    // Read caches on client only (after mount) to avoid hydration mismatch
-    cachedApproval.current = getCachedApproval(userId);
+    // Read dashboard data cache (approval is handled synchronously via useMemo above)
     cachedDashboard.current = getCachedDashboard(userId);
-
-    // Apply cached approval immediately so instructor view shows without flash
-    if (cachedApproval.current !== null) {
-      setIsApproved(cachedApproval.current);
-      setHasResolvedApproval(true);
-    }
 
     const loadDashboard = async () => {
       // If we have a fresh cache, apply it immediately (stale-while-revalidate)
@@ -325,7 +326,7 @@ export default function DashboardPage() {
         // SINGLE request replaces the previous 4 separate requests
         const response = await fetchWithTimeout(
           `${API_CONFIG.BASE_URL}/api/dashboard/summary?cancellation_limit=10&comment_limit=10`,
-          { headers: { Authorization: `Bearer ${token}` } },
+          { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
           API_TIMEOUT_MS
         );
 
@@ -402,14 +403,14 @@ export default function DashboardPage() {
     };
   }, [getToken, userId, isUserLoaded]);
 
-  if (!hasResolvedApproval || isAutoschoolRoleLoading) {
+  if (!effectiveHasResolved || isAutoschoolRoleLoading) {
     return <div className="min-h-screen bg-[#f8fafc] pt-20" />;
   }
 
-  if (isApproved || isAutoschoolAdmin) {
+  if (effectiveIsApproved || isAutoschoolAdmin) {
     // Dedicated autoschool-admin view when the user manages a school
     // but is not an approved instructor.
-    if (!isApproved && isAutoschoolAdmin) {
+    if (!effectiveIsApproved && isAutoschoolAdmin) {
       return (
         <div className="min-h-screen bg-slate-50 pt-20 transition-colors duration-500">
           <MobileDashboardNav />

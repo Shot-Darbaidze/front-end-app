@@ -173,6 +173,7 @@ async function fetchNotifications(
 
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/dashboard/notifications?limit=20`, {
         headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
       });
 
       if (!response.ok) {
@@ -290,6 +291,7 @@ export function useDashboardNotifications(options?: {
         await fetch(`${API_CONFIG.BASE_URL}/api/dashboard/notifications/read`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          cache: "no-store",
           body: JSON.stringify({ notification_ids: [id] }),
         });
       } catch (error) {
@@ -318,6 +320,7 @@ export function useDashboardNotifications(options?: {
         await fetch(`${API_CONFIG.BASE_URL}/api/dashboard/notifications/unread`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          cache: "no-store",
           body: JSON.stringify({ notification_id: id }),
         });
       } catch (error) {
@@ -345,6 +348,7 @@ export function useDashboardNotifications(options?: {
         await fetch(`${API_CONFIG.BASE_URL}/api/dashboard/notifications/read`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          cache: "no-store",
           body: JSON.stringify({ notification_ids: ids }),
         });
       } catch (error) {

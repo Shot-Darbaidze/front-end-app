@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import AutoschoolProfileHeader from "@/components/autoschool-profile/AutoschoolProfileHeader";
 import InstructorGrid from "@/components/autoschool-profile/InstructorGrid";
@@ -15,24 +16,25 @@ import { formatLanguageCodes } from "@/utils/instructor";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 export const revalidate = 60;
+const AUTOSCHOOL_PROFILE_REVALIDATE_SECONDS = 60;
 
 /**
  * Fetch autoschool data from the backend at build/request time.
  * Returns null on 404 (school not found or not yet approved).
  */
-async function fetchAutoschool(id: string): Promise<AutoschoolDetail | null> {
+const fetchAutoschool = cache(async (id: string): Promise<AutoschoolDetail | null> => {
   try {
     const res = await fetch(`${API_BASE}/api/autoschools/${id}`, {
       // Keep the profile reasonably fresh while still allowing App Router caching and prefetching.
-      next: { revalidate: 60 },
+      next: { revalidate: AUTOSCHOOL_PROFILE_REVALIDATE_SECONDS },
     });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`API error ${res.status}`);
-    return res.json();
+    return (await res.json()) as AutoschoolDetail;
   } catch {
     return null;
   }
-}
+});
 
 export async function generateMetadata({
   params,

@@ -58,6 +58,20 @@ const CancelledLessonCard = memo(function CancelledLessonCard({ cancellation, is
                                 View Instructor <ExternalLink className="w-3 h-3" />
                             </Link>
                         )}
+                        {(cancellation.instructor_phone || cancellation.instructor_email) && (
+                            <div className="mt-1 space-y-0.5 text-[11px] text-slate-500">
+                                {cancellation.instructor_phone && (
+                                    <p>
+                                        Phone: <a href={`tel:${cancellation.instructor_phone}`} className="font-medium text-slate-600 hover:text-[#F03D3D]">{cancellation.instructor_phone}</a>
+                                    </p>
+                                )}
+                                {cancellation.instructor_email && (
+                                    <p>
+                                        Email: <a href={`mailto:${cancellation.instructor_email}`} className="font-medium text-slate-600 hover:text-[#F03D3D]">{cancellation.instructor_email}</a>
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 
