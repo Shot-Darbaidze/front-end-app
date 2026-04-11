@@ -44,16 +44,21 @@ function addSecurityHeaders(response: NextResponse, request: NextRequest) {
     "https://clerk.dev",
   ].join(" ");
 
+  const clerkCaptchaSources = [
+    "https://challenges.cloudflare.com",
+    "https://*.challenges.cloudflare.com",
+  ].join(" ");
+
   // Content Security Policy - Prevents XSS attacks
   const cspDirectives = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-eval' 'unsafe-inline' ${clerkSources} https://www.youtube.com https://www.youtube-nocookie.com`,
+    `script-src 'self' 'unsafe-eval' 'unsafe-inline' ${clerkSources} ${clerkCaptchaSources} https://www.youtube.com https://www.youtube-nocookie.com`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
     "worker-src 'self' blob:",
-    `connect-src 'self' http://localhost:* https://*.onrender.com ${clerkSources} https://www.youtube.com https://www.youtube-nocookie.com`,
-    `frame-src 'self' ${clerkSources} https://www.google.com https://maps.google.com https://www.youtube.com https://www.youtube-nocookie.com`,
+    `connect-src 'self' http://localhost:* https://*.onrender.com ${clerkSources} ${clerkCaptchaSources} https://www.youtube.com https://www.youtube-nocookie.com`,
+    `frame-src 'self' ${clerkSources} ${clerkCaptchaSources} https://www.google.com https://maps.google.com https://www.youtube.com https://www.youtube-nocookie.com`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
